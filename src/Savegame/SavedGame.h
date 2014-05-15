@@ -18,15 +18,13 @@
  */
 #ifndef OPENXCOM_SAVEDGAME_H
 #define OPENXCOM_SAVEDGAME_H
-
 #include <map>
 #include <vector>
 #include <string>
 #include <time.h>
-
+#include "GameTime.h"
 namespace OpenXcom
 {
-
 class Ruleset;
 class GameTime;
 class Country;
@@ -47,17 +45,78 @@ class AlienStrategy;
 class AlienMission;
 class Target;
 class Soldier;
-
 /**
  * Enumerator containing all the possible game difficulties.
  */
 enum GameDifficulty { DIFF_BEGINNER = 0, DIFF_EXPERIENCED, DIFF_VETERAN, DIFF_GENIUS, DIFF_SUPERHUMAN };
-
 /**
+ * Container for mission statistics.
+ */
+struct MissionStatistics
+{
+    /// Variables
+    int id;
+	GameTime time;
+	std::string region, country, type, ufo;	
+	bool success;
+	std::string rating;
+	int score;
+	std::string alienRace;
+	int daylight;
+	std::map<int, int> injuryList;
+    
+    /// Functions
+	std::string getMissionTypeLowerCase()
+	{
+	if		(type == "STR_UFO_CRASH_RECOVERY")	return "STR_UFO_CRASH_RECOVERY_LC";
+	else if (type == "STR_UFO_GROUND_ASSAULT")	return "STR_UFO_GROUND_ASSAULT_LC";
+	else if (type == "STR_BASE_DEFENSE")		return "STR_BASE_DEFENSE_LC";
+	else if (type == "STR_ALIEN_BASE_ASSAULT")	return "STR_ALIEN_BASE_ASSAULT_LC";
+	else if (type == "STR_TERROR_MISSION")		return "STR_TERROR_MISSION_LC";
+	else										return "type error";
+	}
+    // Load
+    void load(const YAML::Node &node)
+    {
+        id = node["id"].as<int>(id);
+        time.load(node["time"]);
+        region = node["region"].as<std::string>(region);
+        country = node["country"].as<std::string>(country);
+        type = node["type"].as<std::string>(type);
+        ufo = node["ufo"].as<std::string>(ufo);
+        success = node["success"].as<bool>(success);
+        score = node["score"].as<int>(score);
+        rating = node["rating"].as<std::string>(rating);
+        alienRace = node["alienRace"].as<std::string>(alienRace);
+        daylight = node["daylight"].as<int>(daylight);
+        injuryList = node["injuryList"].as<std::map<int, int> >(injuryList);
+    }
+    // Save
+    YAML::Node save() const
+    {
+        YAML::Node node;
+        node["id"] = id;
+        node["time"] = time.save();
+        node["region"] = region;
+        node["country"] = country;
+        node["type"] = type;
+        node["ufo"] = ufo;
+        node["success"] = success;
+        node["score"] = score;
+        node["rating"] = rating;
+        node["alienRace"] = alienRace;
+        node["daylight"] = daylight;
+        node["injuryList"] = injuryList;
+        return node;
+    }
+    MissionStatistics(const YAML::Node& node) : time(0,0,0,0,0,0,0) { load(node); }
+    MissionStatistics() : id (0), time(0,0,0,0,0,0,0), region("STR_REGION_UNKNOWN"), country("STR_UNKNOWN"), type(), ufo("NO_UFO"), success(false), score(0), rating(), alienRace("STR_UNKNOWN"), daylight(0), injuryList() { }
+    ~MissionStatistics() { }
+};
+ /**
  * Enumerator for the various save types.
  */
 enum SaveType { SAVE_DEFAULT, SAVE_QUICK, SAVE_AUTO_GEOSCAPE, SAVE_AUTO_BATTLESCAPE, SAVE_IRONMAN, SAVE_IRONMAN_END };
-
 /**
  * Container for savegame info displayed on listings.
  */
@@ -71,7 +130,6 @@ struct SaveInfo
 	std::vector<std::string> rulesets;
 	bool reserved;
 };
-
 /**
  * The game data that gets written to disk when the game is saved.
  * A saved game holds all the variable info in a game like funds,
@@ -107,12 +165,11 @@ private:
 	std::vector<const RuleResearch *> _poppedResearch;
 	std::vector<Soldier*> _deadSoldiers;
 	int _selectedBase;
-
+    std::vector<MissionStatistics*> _missionStatistics;
 	void getDependableResearchBasic (std::vector<RuleResearch *> & dependables, const RuleResearch *research, const Ruleset * ruleset, Base * base) const;
 	static SaveInfo getSaveInfo(const std::string &file, Language *lang);
 public:
 	static const std::string AUTOSAVE_GEOSCAPE, AUTOSAVE_BATTLESCAPE, QUICKSAVE;
-
 	/// Creates a new saved game.
 	SavedGame();
 	/// Cleans up the saved game.
@@ -265,14 +322,14 @@ public:
 	void removePoppedResearch(const RuleResearch* research);
 	/// Gets the list of dead soldiers.
 	std::vector<Soldier*> *getDeadSoldiers();
-	/// Gets the last selected player base.
+    /// Gets the last selected player base.
 	Base *getSelectedBase();
 	/// Set the last selected player base.
 	void setSelectedBase(int base);
 	/// Evaluate the score of a soldier based on all of his stats, missions and kills.
 	int getSoldierScore(Soldier *soldier);
+    /// Gets the list of missions statistics
+	std::vector<MissionStatistics*> *getMissionStatistics();
 };
-
 }
-
 #endif

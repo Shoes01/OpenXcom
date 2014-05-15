@@ -22,6 +22,7 @@
 #include "../Savegame/Craft.h"
 #include "../Savegame/EquipmentLayoutItem.h"
 #include "../Savegame/SoldierDeath.h"
+#include "../Savegame/SoldierDiary.h"
 #include "../Ruleset/SoldierNamePool.h"
 #include "../Ruleset/RuleSoldier.h"
 #include "../Ruleset/Armor.h"
@@ -40,8 +41,10 @@ namespace OpenXcom
  * @param names List of name pools for soldier generation.
  * @param id Pointer to unique soldier id for soldier generation.
  */
-Soldier::Soldier(RuleSoldier *rules, Armor *armor, const std::vector<SoldierNamePool*> *names, int id) : _name(L""), _id(id), _improvement(0), _rules(rules), _initialStats(), _currentStats(), _rank(RANK_ROOKIE), _craft(0), _gender(GENDER_MALE), _look(LOOK_BLONDE), _missions(0), _kills(0), _recovery(0), _recentlyPromoted(false), _psiTraining(false), _armor(armor), _equipmentLayout(), _death(0)
+Soldier::Soldier(RuleSoldier *rules, Armor *armor, const std::vector<SoldierNamePool*> *names, int id) : _name(L""), _id(id), _improvement(0), _rules(rules), _initialStats(), _currentStats(), _rank(RANK_ROOKIE), _craft(0), _gender(GENDER_MALE), _look(LOOK_BLONDE), _missions(0), _kills(0), _recovery(0), _recentlyPromoted(false), _psiTraining(false), _armor(armor), _equipmentLayout(), _death(0), _diary()
 {
+	_diary = new SoldierDiary();
+
 	if (names != 0)
 	{
 		UnitStats minStats = rules->getMinStats();
@@ -86,6 +89,7 @@ Soldier::~Soldier()
 		delete *i;
 	}
 	delete _death;
+	delete _diary;
 }
 
 /**
@@ -123,6 +127,11 @@ void Soldier::load(const YAML::Node& node, const Ruleset *rule, SavedGame *save)
 	{
 		_death = new SoldierDeath();
 		_death->load(node["death"]);
+	}
+	if (node["diary"])
+	{
+		_diary = new SoldierDiary();
+		_diary->load(node["diary"]);
 	}
 	calcStatString(rule->getStatStrings(), (Options::psiStrengthEval && save->isResearched(rule->getPsiRequirements())));
 }
@@ -162,6 +171,11 @@ YAML::Node Soldier::save() const
 	{
 		node["death"] = _death->save();
 	}
+	if (!_diary->getMissionIdList().empty() || !_diary->getSoldierCommendations()->empty())
+	{
+	node["diary"] = _diary->save();
+	}
+
 	return node;
 }
 
@@ -560,6 +574,15 @@ void Soldier::die(SoldierDeath *death)
 		delete *i;
 	}
 	_equipmentLayout.clear();
+}
+
+/**
+ * Returns the soldier's diary.
+ * @return Diary.
+ */
+SoldierDiary *Soldier::getDiary()
+{
+	return _diary;
 }
 
 /**
