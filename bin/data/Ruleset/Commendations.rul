@@ -1,4 +1,237 @@
 # updated medal names - inserted ufopedia entries
+extraSprites:
+  - type: Commendations
+    width: 31
+    height: 8
+    files:
+      0: Resources/Commendations/
+  - type: CommendationDecorations
+    width: 31
+    height: 8
+    files:
+      0: Resources/CommendationDecorations/
+  - type: MILITARY_CROSS
+    singleImage: true
+    width: 320
+    height: 200
+    files:
+      0: Resources/Medals/MEDAL_MILITARY_CROSS.png    
+  - type: MEDAL_OF_HEROISM
+    singleImage: true
+    width: 320
+    height: 200
+    files:
+      0: Resources/Medals/MEDAL_MEDAL_OF_HEROISM.png
+  - type: STAR_OF_VALOR
+    singleImage: true
+    width: 320
+    height: 200
+    files:
+      0: Resources/Medals/MEDAL_STAR_OF_VALOR.png  
+  - type: DBLKILL
+    singleImage: true
+    width: 320
+    height: 200
+    files:
+      0: Resources/Medals/MEDAL_DBLKILL.png 
+  - type: FALLEN
+    singleImage: true
+    width: 320
+    height: 200
+    files:
+      0: Resources/Medals/MEDAL_FALLEN.png  
+  - type: SERVICE
+    singleImage: true
+    width: 320
+    height: 200
+    files:
+      0: Resources/Medals/MEDAL_SERVICE_MEDAL.png 
+  - type: HONOR_CROSS
+    singleImage: true
+    width: 320
+    height: 200
+    files:
+      0: Resources/Medals/MEDAL_HONOR_CROSS.png 
+  - type: LONGEST_NIGHT
+    singleImage: true
+    width: 320
+    height: 200
+    files:
+      0: Resources/Medals/MEDAL_LONGEST_NIGHT.png
+  - type: ORDER_OF_EARTH
+    singleImage: true
+    width: 320
+    height: 200
+    files:
+      0: Resources/Medals/MEDAL_ORDER_OF_EARTH.png
+  - type: PURPLE_HEART
+    singleImage: true
+    width: 320
+    height: 200
+    files:
+      0: Resources/Medals/MEDAL_PURPLE_HEART.png
+  - type: CRIMSON_HEART
+    singleImage: true
+    width: 320
+    height: 200
+    files:
+      0: Resources/Medals/MEDAL_CRIMSON_HEART.png    
+  - type: ORDER_OF_RESTRAINT
+    singleImage: true
+    width: 320
+    height: 200
+    files:
+      0: Resources/Medals/MEDAL_ORDER_OF_RESTRAINT.png
+  - type: MAN_OF_STEEL
+    singleImage: true
+    width: 320
+    height: 200
+    files:
+      0: Resources/Medals/MEDAL_MAN_OF_STEEL.png  
+  - type: MERIT_STAR
+    singleImage: true
+    width: 320
+    height: 200
+    files:
+      0: Resources/Medals/MEDAL_MERIT_STAR.png  
+  - type: ALIEN_BASE_ASSAULT
+    singleImage: true
+    width: 320
+    height: 200
+    files:
+      0: Resources/Medals/MEDAL_ALIEN_BASE_ASSAULT.png        
+  - type: DEFENDER
+    singleImage: true
+    width: 320
+    height: 200
+    files:
+      0: Resources/Medals/MEDAL_DEFENDER.png
+  - type: TRAP
+    singleImage: true
+    width: 320
+    height: 200
+    files:
+      0: Resources/Medals/MEDAL_TRAP.png
+  - type: VALIANT_CRUX
+    singleImage: true
+    width: 320
+    height: 200
+    files:
+      0: Resources/Medals/MEDAL_VALIANT_CRUX.png
+  - type: REACTIONFIRE
+    singleImage: true
+    width: 320
+    height: 200
+    files:
+      0: Resources/Medals/MEDAL_REACTIONFIRE.png
+  - type: BOLTS_CROSS
+    singleImage: true
+    width: 320
+    height: 200
+    files:
+      0: Resources/Medals/MEDAL_BOLTS_CROSS.png
+  - type: GRENADIERS_MEDAL
+    singleImage: true
+    width: 320
+    height: 200
+    files:
+      0: Resources/Medals/MEDAL_GRENADIERS_MEDAL.png
+  - type: BLACK_CROSS
+    singleImage: true
+    width: 320
+    height: 200
+    files:
+      0: Resources/Medals/MEDAL_BLACK_CROSS.png
+  - type: STAR_OF_ASCLEPIUS
+    singleImage: true
+    width: 320
+    height: 200
+    files:
+      0: Resources/Medals/MEDAL_STAR_OF_ASCLEPIUS.png
+  - type: CAMPAIGN_RIBBON
+    singleImage: true
+    width: 320
+    height: 200
+    files:
+      0: Resources/Medals/MEDAL_CAMPAIGN_RIBBON.png
+  - type: WEAPON_PROFICIENCY
+    singleImage: true
+    width: 320
+    height: 200
+    files:
+      0: Resources/Medals/MEDAL_WEAPON_PROFICIENCY.png
+  - type: DISTINGUISHED_SERVICE
+    singleImage: true
+    width: 320
+    height: 200
+    files:
+      0: Resources/Medals/MEDAL_DISTINGUISHED_SERVICE.png
+  - type: HELLRAISER
+    singleImage: true
+    width: 320
+    height: 200
+    files:
+      0: Resources/Medals/MEDAL_HELLRAISER.png
+  - type: LUCKYSHOT
+    singleImage: true
+    width: 320
+    height: 200
+    files:
+      0: Resources/Medals/MEDAL_LUCKYSHOT.png
+  - type: IRON_MAN
+    singleImage: true
+    width: 320
+    height: 200
+    files:
+      0: Resources/Medals/MEDAL_IRON_MAN.png   
+  - type: XENOCIDE
+    singleImage: true
+    width: 320
+    height: 200
+    files:
+      0: Resources/Medals/MEDAL_XENOCIDE_MEDAL.png
+  - type: SNIPER
+    singleImage: true
+    width: 320
+    height: 200
+    files:
+      0: Resources/Medals/MEDAL_SNIPER.png  
+  - type: NIKE_CROSS
+    singleImage: true
+    width: 320
+    height: 200
+    files:
+      0: Resources/Medals/MEDAL_NIKE_CROSS.png
+  - type: ORDER_OF_GLORY
+    singleImage: true
+    width: 320
+    height: 200
+    files:
+      0: Resources/Medals/MEDAL_ORDER_OF_GLORY.png
+  - type: SAPPER
+    singleImage: true
+    width: 320
+    height: 200
+    files:
+      0: Resources/Medals/MEDAL_SAPPER.png
+  - type: SECTOPOD_KILL
+    singleImage: true
+    width: 320
+    height: 200
+    files:
+      0: Resources/Medals/MEDAL_SECTOPOD_KILL.png
+  - type: MERCY_CROSS
+    singleImage: true
+    width: 320
+    height: 200
+    files:
+      0: Resources/Medals/MEDAL_MERCY_CROSS.png         
+  - type: PLACEHOLDER
+    singleImage: true
+    width: 320
+    height: 200
+    files:
+      0: Resources/Medals/MEDAL_PLACEHOLDER.png  
 extraStrings:
   - type: en-US
     strings:
