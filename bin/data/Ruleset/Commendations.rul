@@ -1322,7 +1322,7 @@ commendations:
     description: STR_MEDAL_ANTITERROR_DESCRIPTION
     sprite: 00
     criteria:
-      killsWithCriteriaCareer: [3, 6, 9, 9, 9, 9, 12, 12, 12, 12]
+      killsWithCriteriaCareer: [1, 2, 3, 3, 3, 3, 4, 4, 4, 4]
     killCriteria:
       -
         1: ["STR_CYBERDISC", "STR_LIVE_TERRORIST", "FACTION_HOSTILE", "STATUS_DEAD"]
@@ -1336,7 +1336,7 @@ commendations:
     description: STR_MEDAL_ALLBATTLETYPES_DESCRIPTION
     sprite: 00
     criteria:
-      killsWithCriteriaCareer: [3, 6, 9, 9, 9, 9, 12, 12, 12, 12]
+      killsWithCriteriaCareer: [1, 2, 3, 4, 5, 6, 7, 8, 8, 9]
     killCriteria:
       -
         1: ["BT_FIREARM", "FACTION_HOSTILE", "STATUS_DEAD"]
@@ -1352,7 +1352,7 @@ commendations:
     description: STR_MEDAL_ALLRANKS_DESCRIPTION
     sprite: 00
     criteria:
-      killsWithCriteriaCareer: [3, 6, 9, 9, 9, 9, 12, 12, 12, 12]
+      killsWithCriteriaCareer: [1, 2, 3, 3, 3, 3, 4, 4, 4, 4]
     killCriteria:
       -
         1: ["STR_LIVE_SOLDIER", "FACTION_HOSTILE", "STATUS_DEAD"]
@@ -1382,7 +1382,7 @@ commendations:
     description: STR_MEDAL_MEDIKIT_DESCRIPTION
     sprite: 00
     criteria:
-      totalWholeMedikit: [3, 6, 9, 9, 9, 9, 12, 12, 12, 12]
+      totalWholeMedikit: [1, 2, 3, 3, 3, 3, 4, 4, 4, 4]
 ufopaedia:
   - id: STR_MEDAL_MILITARY_CROSS_NAME
     type_id: 7
