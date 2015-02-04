@@ -1,237 +1,4 @@
 # Merged SAPPER and SECTOPOD_KILL medals in.  Corrected names and numbers in UFOPedia section.
-extraSprites:
-  - type: Commendations
-    width: 31
-    height: 8
-    files:
-      0: Resources/Commendations/
-  - type: CommendationDecorations
-    width: 31
-    height: 8
-    files:
-      0: Resources/CommendationDecorations/
-  - type: MILITARY_CROSS
-    singleImage: true
-    width: 320
-    height: 200
-    files:
-      0: Resources/Medals/MEDAL_MILITARY_CROSS.png    
-  - type: MEDAL_OF_HEROISM
-    singleImage: true
-    width: 320
-    height: 200
-    files:
-      0: Resources/Medals/MEDAL_MEDAL_OF_HEROISM.png
-  - type: STAR_OF_VALOR
-    singleImage: true
-    width: 320
-    height: 200
-    files:
-      0: Resources/Medals/MEDAL_STAR_OF_VALOR.png  
-  - type: DBLKILL
-    singleImage: true
-    width: 320
-    height: 200
-    files:
-      0: Resources/Medals/MEDAL_DBLKILL.png 
-  - type: FALLEN
-    singleImage: true
-    width: 320
-    height: 200
-    files:
-      0: Resources/Medals/MEDAL_FALLEN.png  
-  - type: SERVICE
-    singleImage: true
-    width: 320
-    height: 200
-    files:
-      0: Resources/Medals/MEDAL_SERVICE_MEDAL.png 
-  - type: HONOR_CROSS
-    singleImage: true
-    width: 320
-    height: 200
-    files:
-      0: Resources/Medals/MEDAL_HONOR_CROSS.png 
-  - type: LONGEST_NIGHT
-    singleImage: true
-    width: 320
-    height: 200
-    files:
-      0: Resources/Medals/MEDAL_LONGEST_NIGHT.png
-  - type: ORDER_OF_EARTH
-    singleImage: true
-    width: 320
-    height: 200
-    files:
-      0: Resources/Medals/MEDAL_ORDER_OF_EARTH.png
-  - type: PURPLE_HEART
-    singleImage: true
-    width: 320
-    height: 200
-    files:
-      0: Resources/Medals/MEDAL_PURPLE_HEART.png
-  - type: CRIMSON_HEART
-    singleImage: true
-    width: 320
-    height: 200
-    files:
-      0: Resources/Medals/MEDAL_CRIMSON_HEART.png    
-  - type: ORDER_OF_RESTRAINT
-    singleImage: true
-    width: 320
-    height: 200
-    files:
-      0: Resources/Medals/MEDAL_ORDER_OF_RESTRAINT.png
-  - type: MAN_OF_STEEL
-    singleImage: true
-    width: 320
-    height: 200
-    files:
-      0: Resources/Medals/MEDAL_MAN_OF_STEEL.png  
-  - type: MERIT_STAR
-    singleImage: true
-    width: 320
-    height: 200
-    files:
-      0: Resources/Medals/MEDAL_MERIT_STAR.png  
-  - type: ALIEN_BASE_ASSAULT
-    singleImage: true
-    width: 320
-    height: 200
-    files:
-      0: Resources/Medals/MEDAL_ALIEN_BASE_ASSAULT.png        
-  - type: DEFENDER
-    singleImage: true
-    width: 320
-    height: 200
-    files:
-      0: Resources/Medals/MEDAL_DEFENDER.png
-  - type: TRAP
-    singleImage: true
-    width: 320
-    height: 200
-    files:
-      0: Resources/Medals/MEDAL_TRAP.png
-  - type: VALIANT_CRUX
-    singleImage: true
-    width: 320
-    height: 200
-    files:
-      0: Resources/Medals/MEDAL_VALIANT_CRUX.png
-  - type: REACTIONFIRE
-    singleImage: true
-    width: 320
-    height: 200
-    files:
-      0: Resources/Medals/MEDAL_REACTIONFIRE.png
-  - type: BOLTS_CROSS
-    singleImage: true
-    width: 320
-    height: 200
-    files:
-      0: Resources/Medals/MEDAL_BOLTS_CROSS.png
-  - type: GRENADIERS_MEDAL
-    singleImage: true
-    width: 320
-    height: 200
-    files:
-      0: Resources/Medals/MEDAL_GRENADIERS_MEDAL.png
-  - type: BLACK_CROSS
-    singleImage: true
-    width: 320
-    height: 200
-    files:
-      0: Resources/Medals/MEDAL_BLACK_CROSS.png
-  - type: STAR_OF_ASCLEPIUS
-    singleImage: true
-    width: 320
-    height: 200
-    files:
-      0: Resources/Medals/MEDAL_STAR_OF_ASCLEPIUS.png
-  - type: CAMPAIGN_RIBBON
-    singleImage: true
-    width: 320
-    height: 200
-    files:
-      0: Resources/Medals/MEDAL_CAMPAIGN_RIBBON.png
-  - type: WEAPON_PROFICIENCY
-    singleImage: true
-    width: 320
-    height: 200
-    files:
-      0: Resources/Medals/MEDAL_WEAPON_PROFICIENCY.png
-  - type: DISTINGUISHED_SERVICE
-    singleImage: true
-    width: 320
-    height: 200
-    files:
-      0: Resources/Medals/MEDAL_DISTINGUISHED_SERVICE.png
-  - type: HELLRAISER
-    singleImage: true
-    width: 320
-    height: 200
-    files:
-      0: Resources/Medals/MEDAL_HELLRAISER.png
-  - type: LUCKYSHOT
-    singleImage: true
-    width: 320
-    height: 200
-    files:
-      0: Resources/Medals/MEDAL_LUCKYSHOT.png
-  - type: IRON_MAN
-    singleImage: true
-    width: 320
-    height: 200
-    files:
-      0: Resources/Medals/MEDAL_IRON_MAN.png   
-  - type: XENOCIDE
-    singleImage: true
-    width: 320
-    height: 200
-    files:
-      0: Resources/Medals/MEDAL_XENOCIDE_MEDAL.png
-  - type: SNIPER
-    singleImage: true
-    width: 320
-    height: 200
-    files:
-      0: Resources/Medals/MEDAL_SNIPER.png  
-  - type: NIKE_CROSS
-    singleImage: true
-    width: 320
-    height: 200
-    files:
-      0: Resources/Medals/MEDAL_NIKE_CROSS.png
-  - type: ORDER_OF_GLORY
-    singleImage: true
-    width: 320
-    height: 200
-    files:
-      0: Resources/Medals/MEDAL_ORDER_OF_GLORY.png
-  - type: SAPPER
-    singleImage: true
-    width: 320
-    height: 200
-    files:
-      0: Resources/Medals/MEDAL_SAPPER.png
-  - type: SECTOPOD_KILL
-    singleImage: true
-    width: 320
-    height: 200
-    files:
-      0: Resources/Medals/MEDAL_SECTOPOD_KILL.png
-  - type: MERCY_CROSS
-    singleImage: true
-    width: 320
-    height: 200
-    files:
-      0: Resources/Medals/MEDAL_MERCY_CROSS.png         
-  - type: PLACEHOLDER
-    singleImage: true
-    width: 320
-    height: 200
-    files:
-      0: Resources/Medals/MEDAL_PLACEHOLDER.png        
 extraStrings:
   - type: en-US
     strings:
@@ -315,28 +82,28 @@ extraStrings:
      STR_MEDAL_SAPPER_DESCRIPTION: "Given to a soldier who kills a metal foe with a high explosive pack"
      STR_MEDAL_SECTOPOD_KILL_MEDAL_NAME: "Metal Menace Citation"
      STR_MEDAL_SECTOPOD_KILL_MEDAL_DESCRIPTION: "Given to a soldier that kills the most fearsome enemy construct: The Sectopod!"
-     STR_MEDAL_MERCY_CROSS_NAME: "Captus Cross"
+     STR_MEDAL_MERCY_CROSS_NAME: "Mercy Cross"
      STR_MEDAL_MERCY_CROSS_DESCRIPTION: "Given to a soldier who single handedly stunned every alien in a mission."
      STR_MEDAL_HEADSHOT_NAME: "Head Hunter"
      STR_MEDAL_HEADSHOT_DESCRIPTION: "Given to a soldier with a steady hand who has landed multiple headshots."
      STR_MEDAL_REARSHOT_NAME: "Cunning Citation"
      STR_MEDAL_REARSHOT_DESCRIPTION: "Given to a soldier who has demonstrated cunning, able to surprise enemies and kill them from behind."
      STR_MEDAL_FLANKSHOT_NAME: "Tactition Citation"
-     STR_MEDAL_FLANKSHOT_DESCRIPTION: "Given to a soldier who has demonstratd great tactic, able to flank and kill enemies."
+     STR_MEDAL_FLANKSHOT_DESCRIPTION: "Given to a soldier who has demonstrated great tactics, able to flank and kill enemies."
      STR_MEDAL_HEALER_NAME: "Hippocratic Star"
      STR_MEDAL_HEALER_DESCRIPTION: "Given to a soldier who has performed medical services in the field."
      STR_MEDAL_ALLUFOS_NAME: "UFO Recovery Citation"
      STR_MEDAL_ALLUFOS_DESCRIPTION: "Given to a soldier who has participated in missions involving every UFO type."
      STR_MEDAL_ALLMISSIONS_NAME: "To Hell and Back Medal"
-     STR_MEDAL_ALLMISSIONS_DESCRIPTION: "Given to a soldier who as participated in every mission type."
+     STR_MEDAL_ALLMISSIONS_DESCRIPTION: "Given to a soldier who has participated in every mission type."
      STR_MEDAL_ANTITERROR_NAME: "Anti-Terrorist Award"
-     STR_MEDAL_ANTITERROR_DESCRIPTION: "Given to a soldier who as killed all types of terror threats."
+     STR_MEDAL_ANTITERROR_DESCRIPTION: "Given to a soldier who has killed all types of terror threats."
      STR_MEDAL_ALLBATTLETYPES_NAME: "Lethality Award"
      STR_MEDAL_ALLBATTLETYPES_DESCRIPTION: "Given to a soldier who has demonstrated lethal abilities with all types of weapons."
      STR_MEDAL_NIGHTOPS_NAME: "Night Ops Specialist"
-     STR_MEDAL_NIGHTOPS_DESCRIPTION: "Given to a soldier who as been part of several night missions."
+     STR_MEDAL_NIGHTOPS_DESCRIPTION: "Given to a soldier who has been part of several night missions."
      STR_MEDAL_ALLRANKS_NAME: "Taking Names"
-     STR_MEDAL_ALLRANKS_DESCRIPTION: "Given to a soldier who as killed aliens of all ranks."
+     STR_MEDAL_ALLRANKS_DESCRIPTION: "Given to a soldier who has killed aliens of all ranks."
      STR_MEDAL_ORIGINAL8_NAME: "First to Serve"
      STR_MEDAL_ORIGINAL8_DESCRIPTION: "Given to a soldier who was first in line to combat the enemy unknown."
      STR_MEDAL_STATGAIN_NAME: "Improvement Citation"
@@ -491,28 +258,28 @@ extraStrings:
      STR_MEDAL_SAPPER_DESCRIPTION: "Given to a soldier who kills a metal foe with a high explosive pack"
      STR_MEDAL_SECTOPOD_KILL_MEDAL_NAME: "Metal Menace Citation"
      STR_MEDAL_SECTOPOD_KILL_MEDAL_DESCRIPTION: "Given to a soldier that kills the most fearsome enemy construct: The Sectopod!"
-     STR_MEDAL_MERCY_CROSS_NAME: "Captus Cross"
+     STR_MEDAL_MERCY_CROSS_NAME: "Mercy Cross"
      STR_MEDAL_MERCY_CROSS_DESCRIPTION: "Given to a soldier who single handedly stunned every alien in a mission."
      STR_MEDAL_HEADSHOT_NAME: "Head Hunter"
      STR_MEDAL_HEADSHOT_DESCRIPTION: "Given to a soldier with a steady hand who has landed multiple headshots."
      STR_MEDAL_REARSHOT_NAME: "Cunning Citation"
      STR_MEDAL_REARSHOT_DESCRIPTION: "Given to a soldier who has demonstrated cunning, able to surprise enemies and kill them from behind."
      STR_MEDAL_FLANKSHOT_NAME: "Tactition Citation"
-     STR_MEDAL_FLANKSHOT_DESCRIPTION: "Given to a soldier who has demonstratd great tactic, able to flank and kill enemies."
+     STR_MEDAL_FLANKSHOT_DESCRIPTION: "Given to a soldier who has demonstrated great tactics, able to flank and kill enemies."
      STR_MEDAL_HEALER_NAME: "Hippocratic Star"
      STR_MEDAL_HEALER_DESCRIPTION: "Given to a soldier who has performed medical services in the field."
      STR_MEDAL_ALLUFOS_NAME: "UFO Recovery Citation"
      STR_MEDAL_ALLUFOS_DESCRIPTION: "Given to a soldier who has participated in missions involving every UFO type."
      STR_MEDAL_ALLMISSIONS_NAME: "To Hell and Back Medal"
-     STR_MEDAL_ALLMISSIONS_DESCRIPTION: "Given to a soldier who as participated in every mission type."
+     STR_MEDAL_ALLMISSIONS_DESCRIPTION: "Given to a soldier who has participated in every mission type."
      STR_MEDAL_ANTITERROR_NAME: "Anti-Terrorist Award"
-     STR_MEDAL_ANTITERROR_DESCRIPTION: "Given to a soldier who as killed all types of terror threats."
+     STR_MEDAL_ANTITERROR_DESCRIPTION: "Given to a soldier who has killed all types of terror threats."
      STR_MEDAL_ALLBATTLETYPES_NAME: "Lethality Award"
      STR_MEDAL_ALLBATTLETYPES_DESCRIPTION: "Given to a soldier who has demonstrated lethal abilities with all types of weapons."
      STR_MEDAL_NIGHTOPS_NAME: "Night Ops Specialist"
-     STR_MEDAL_NIGHTOPS_DESCRIPTION: "Given to a soldier who as been part of several night missions."
+     STR_MEDAL_NIGHTOPS_DESCRIPTION: "Given to a soldier who has been part of several night missions."
      STR_MEDAL_ALLRANKS_NAME: "Taking Names"
-     STR_MEDAL_ALLRANKS_DESCRIPTION: "Given to a soldier who as killed aliens of all ranks."
+     STR_MEDAL_ALLRANKS_DESCRIPTION: "Given to a soldier who has killed aliens of all ranks."
      STR_MEDAL_ORIGINAL8_NAME: "First to Serve"
      STR_MEDAL_ORIGINAL8_DESCRIPTION: "Given to a soldier who was first in line to combat the enemy unknown."
      STR_MEDAL_STATGAIN_NAME: "Improvement Citation"
