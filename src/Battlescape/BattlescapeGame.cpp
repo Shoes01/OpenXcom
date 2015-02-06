@@ -508,10 +508,7 @@ void BattlescapeGame::checkForCasualties(BattleItem *murderweapon, BattleUnit *m
 
 	killStatWeapon = "STR_WEAPON_UNKNOWN";
 	killStatWeaponAmmo = "STR_WEAPON_UNKNOWN";
-	if (murderer != 0)
-	{
-		killStatMission = _save->getGeoscapeSave()->getMissionStatistics()->size();
-	}
+	killStatMission = _save->getGeoscapeSave()->getMissionStatistics()->size();
 	if (_save->getSide() == FACTION_PLAYER)
 	{
 		killStatTurn = _save->getTurn()*3 + 0;
@@ -652,6 +649,48 @@ void BattlescapeGame::checkForCasualties(BattleItem *murderweapon, BattleUnit *m
 		
 		if ((*j)->getHealth() == 0 && (*j)->getStatus() != STATUS_DEAD && (*j)->getStatus() != STATUS_COLLAPSING)
 		{
+			// Assume that, in absence of a murderer and an explosion, fire killed victim.
+			// Assume that the fire that killed victim was started by the unit who hit victim with DT_IN.
+			if (!murderer && !terrainExplosion)
+			{
+				for (std::vector<BattleUnit*>::const_iterator i = _save->getUnits()->begin(); i != _save->getUnits()->end(); ++i)
+				{
+					if ((*i)->getId() == victim->getMurdererId())
+					{
+						murderer = (*i);
+						// Now find a plausible weapon. First a gun loaded with IN ammo, then a gun that can use IN ammo found in the inventory,
+						// then simlpy the IN thing.
+						for (std::vector<BattleItem*>::iterator it = murderer->getInventory()->begin(); it != murderer->getInventory()->end(); ++it)
+						{
+							if ((*it)->getRules()->getBattleType() == BT_FIREARM && (*it)->getAmmoItem()->getRules()->getDamageType() == DT_IN)
+							{
+								killStatWeaponAmmo = (*it)->getAmmoItem()->getRules()->getName();
+								killStatWeapon = (*it)->getRules()->getName();
+								break;
+							}
+							else if ((*it)->getRules()->getDamageType() == DT_IN)
+							{
+								killStatWeaponAmmo = (*it)->getRules()->getName();
+								if ((*it)->getRules()->getBattleType() == BT_AMMO)
+								{
+									for (std::vector<std::string>::iterator c = (*it)->getRules()->getCompatibleAmmo()->begin(); c != (*it)->getRules()->getCompatibleAmmo()->end(); ++c)
+									{
+										if ((*c) == killStatWeaponAmmo)
+										{
+											killStatWeapon = (*it)->getRules()->getName();
+										}
+									}
+								}
+								else if ((*it)->getRules()->getBattleType() == BT_GRENADE || (*it)->getRules()->getBattleType() == BT_PROXIMITYGRENADE)
+								{
+									killStatWeapon = (*it)->getRules()->getName();
+								}
+							}
+						}
+					}
+				}
+			}
+
 			if (murderer)
 			{
 				if (murderer->getGeoscapeSoldier() && murderer->getFaction() == FACTION_PLAYER)
