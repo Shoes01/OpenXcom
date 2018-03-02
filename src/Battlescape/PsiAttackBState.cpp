@@ -169,7 +169,7 @@ void PsiAttackBState::psiAttack()
 			if (!_unit->getStatistics()->duplicateEntry(STATUS_PANICKING, _target->getId()))
 			{
 				killStat.status = STATUS_PANICKING;
-				_unit->getStatistics()->kills.push_back(new BattleUnitKills(killStat));				
+				_unit->getStatistics()->kills.push_back(new BattleUnitKills(killStat));
 			}
 			if (_parent->getSave()->getSide() == FACTION_PLAYER)
 			{
@@ -182,7 +182,7 @@ void PsiAttackBState::psiAttack()
 			if (!_unit->getStatistics()->duplicateEntry(STATUS_TURNING, _target->getId()))
 			{
 				killStat.status = STATUS_TURNING;
-				_unit->getStatistics()->kills.push_back(new BattleUnitKills(killStat));				
+				_unit->getStatistics()->kills.push_back(new BattleUnitKills(killStat));
 			}
 			_target->setMindControllerId(_unit->getId());
 			_target->convertToFaction(_unit->getFaction());
@@ -194,17 +194,9 @@ void PsiAttackBState::psiAttack()
 			// if all units from either faction are mind controlled - auto-end the mission.
 			if (_parent->getSave()->getSide() == FACTION_PLAYER)
 			{
-				if (Options::battleAutoEnd && Options::allowPsionicCapture)
+				if (Options::allowPsionicCapture)
 				{
-					int liveAliens = 0;
-					int liveSoldiers = 0;
-					_parent->tallyUnits(liveAliens, liveSoldiers);
-					if (liveAliens == 0 || liveSoldiers == 0)
-					{
-						_parent->getSave()->setSelectedUnit(0);
-						_parent->cancelCurrentAction(true);
-						_parent->requestEndTurn();
-					}
+					_parent->autoEndBattle();
 				}
 				game->pushState(new InfoboxState(game->getLanguage()->getString("STR_MIND_CONTROL_SUCCESSFUL")));
 				_parent->getSave()->getBattleState()->updateSoldierInfo();

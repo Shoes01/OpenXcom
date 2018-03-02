@@ -42,7 +42,7 @@ class Particle;
 class Tile
 {
 public:
-	static struct SerializationKey 
+	static struct SerializationKey
 	{
 		// how many bytes to store for each variable or each member of array of the same name
 		Uint8 index; // for indexing the actual tile array
@@ -50,7 +50,7 @@ public:
 		Uint8 _mapDataID;
 		Uint8 _smoke;
 		Uint8 _fire;
-        Uint8 boolFields;
+		Uint8 boolFields;
 		Uint32 totalBytes; // per structure, including any data not mentioned here and accounting for all array members!
 	} serializationKey;
 	
@@ -81,7 +81,7 @@ protected:
 	std::list<Particle*> _particles;
 public:
 	/// Creates a tile.
-	Tile(const Position& pos);
+	Tile(Position pos);
 	/// Cleans up a tile.
 	~Tile();
 	/// Load the tile from yaml
@@ -122,7 +122,7 @@ public:
 	 * Gets the tile's position.
 	 * @return position
 	 */
-	const Position& getPosition() const
+	Position getPosition() const
 	{
 		return _pos;
 	}
@@ -208,17 +208,17 @@ public:
 	/// Get top-most item
 	int getTopItemSprite();
 	/// New turn preparations.
-	void prepareNewTurn();
+	void prepareNewTurn(bool smokeDamage);
 	/// Get inventory on this tile.
 	std::vector<BattleItem *> *getInventory();
 	/// Set the tile marker color.
 	void setMarkerColor(int color);
 	/// Get the tile marker color.
-	int getMarkerColor();
+	int getMarkerColor() const;
 	/// Set the tile visible flag.
 	void setVisible(int visibility);
 	/// Get the tile visible flag.
-	int getVisible();
+	int getVisible() const;
 	/// set the direction (used for path previewing)
 	void setPreview(int dir);
 	/// retrieve the direction stored by the pathfinding.
@@ -232,9 +232,9 @@ public:
 	/// increment the overlap value on this tile.
 	void addOverlap();
 	/// set the danger flag on this tile (so the AI will avoid it).
-	void setDangerous();
+	void setDangerous(bool danger);
 	/// check the danger flag on this tile.
-	bool getDangerous();
+	bool getDangerous() const;
 	/// adds a particle to this tile's array.
 	void addParticle(Particle *particle);
 	/// gets a pointer to this tile's particle array.

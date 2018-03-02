@@ -40,6 +40,7 @@ class Mod;
 class Ufo : public MovingTarget
 {
 public:
+	static const char *ALTITUDE_STRING[];
 	enum UfoStatus { FLYING, LANDED, CRASHED, DESTROYED };
 private:
 	const RuleUfo *_rules;
@@ -56,6 +57,9 @@ private:
 	int _shootingAt, _hitFrame, _fireCountdown, _escapeCountdown;
 	/// Calculates a new speed vector to the destination.
 	void calculateSpeed();
+
+	using MovingTarget::load;
+	using MovingTarget::save;
 public:
 	/// Creates a UFO of the specified type.
 	Ufo(const RuleUfo *rules);
@@ -75,8 +79,8 @@ public:
 	int getId() const;
 	/// Sets the UFO's ID.
 	void setId(int id);
-	/// Gets the UFO's name.
-	std::wstring getName(Language *lang) const;
+	/// Gets the UFO's default name.
+	std::wstring getDefaultName(Language *lang) const;
 	/// Gets the UFO's marker.
 	int getMarker() const;
 	/// Gets the UFO's amount of damage.
@@ -95,6 +99,8 @@ public:
 	std::string getDirection() const;
 	/// Gets the UFO's altitude.
 	std::string getAltitude() const;
+	/// Gets the UFO's altitude.
+	int getAltitudeInt() const;
 	/// Sets the UFO's altitude.
 	void setAltitude(const std::string &altitude);
 	/// Gets the UFO status
@@ -152,13 +158,13 @@ public:
 	/// Sets the UFO's hit frame.
 	void setHitFrame(int frame);
 	/// Gets the UFO's hit frame.
-	int getHitFrame();
+	int getHitFrame() const;
 	void setFireCountdown(int time);
-	int getFireCountdown();
+	int getFireCountdown() const;
 	void setEscapeCountdown(int time);
-	int getEscapeCountdown();
+	int getEscapeCountdown() const;
 	void setInterceptionProcessed(bool processed);
-	bool getInterceptionProcessed();
+	bool getInterceptionProcessed() const;
 
 };
 

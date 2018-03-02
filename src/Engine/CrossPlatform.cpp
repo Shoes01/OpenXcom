@@ -16,6 +16,9 @@
  * You should have received a copy of the GNU General Public License
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
+#ifdef _MSC_VER
+#define _CRT_SECURE_NO_WARNINGS
+#endif
 #include "CrossPlatform.h"
 #include <exception>
 #include <algorithm>
@@ -23,11 +26,14 @@
 #include <string>
 #include <locale>
 #include <stdint.h>
+#include <time.h>
 #include <sys/stat.h>
+#include <signal.h>
 #include "../dirent.h"
 #include "Logger.h"
 #include "Exception.h"
 #include "Options.h"
+#include "Language.h"
 #ifdef _WIN32
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -36,19 +42,19 @@
 #include <windows.h>
 #include <shlobj.h>
 #include <shlwapi.h>
+#ifdef _MSC_VER
 #include <dbghelp.h>
-#ifndef SHGFP_TYPE_CURRENT
-#define SHGFP_TYPE_CURRENT 0
 #endif
 #define EXCEPTION_CODE_CXX 0xe06d7363
 #ifndef __GNUC__
 #pragma comment(lib, "advapi32.lib")
 #pragma comment(lib, "shell32.lib")
 #pragma comment(lib, "shlwapi.lib")
+#ifdef _MSC_VER
 #pragma comment(lib, "dbghelp.lib")
 #endif
+#endif
 #else
-#include "Language.h"
 #include <iostream>
 #include <fstream>
 #include <SDL_image.h>
@@ -73,11 +79,6 @@ namespace OpenXcom
 namespace CrossPlatform
 {
 	std::string errorDlg;
-#ifdef _WIN32
-	const char PATH_SEPARATOR = '\\';
-#else
-	const char PATH_SEPARATOR = '/';
-#endif
 
 /**
  * Determines the available Linux error dialogs.
@@ -87,12 +88,16 @@ void getErrorDialog()
 #ifndef _WIN32
 	if (system(NULL))
 	{
-		if (system("which kdialog") == 0)
-			errorDlg = "kdialog";
-		else if (system("which xdialog") == 0)
-			errorDlg = "xdialog";
-		else if (system("which gdialog") == 0)
-			errorDlg = "gdialog";
+		if (getenv("KDE_SESSION_UID") && system("which kdialog 2>&1 > /dev/null") == 0)
+			errorDlg = "kdialog --error ";
+		else if (system("which zenity 2>&1 > /dev/null") == 0)
+			errorDlg = "zenity --error --text=";
+		else if (system("which kdialog 2>&1 > /dev/null") == 0)
+			errorDlg = "kdialog --error ";
+		else if (system("which gdialog 2>&1 > /dev/null") == 0)
+			errorDlg = "gdialog --msgbox ";
+		else if (system("which xdialog 2>&1 > /dev/null") == 0)
+			errorDlg = "xdialog --msgbox ";
 	}
 #endif
 }
@@ -112,8 +117,9 @@ void showError(const std::string &error)
 	}
 	else
 	{
-		std::string cmd = errorDlg;
-		cmd += " --title \"OpenXcom Error\" --error \"" + error + "\"";
+		std::string nError = '"' + error + '"';
+		Language::replace(nError, "\n", "\\n");
+		std::string cmd = errorDlg + nError;
 		if (system(cmd.c_str()) != 0)
 			std::cerr << error << std::endl;
 	}
@@ -129,13 +135,11 @@ void showError(const std::string &error)
 static char const *getHome()
 {
 	char const *home = getenv("HOME");
-#ifndef _WIN32
 	if (!home)
 	{
 		struct passwd *const pwd = getpwuid(getuid());
 		home = pwd->pw_dir;
 	}
-#endif
 	return home;
 }
 #endif
@@ -157,7 +161,7 @@ std::vector<std::string> findDataFolders()
 	char path[MAX_PATH];
 
 	// Get Documents folder
-	if (SUCCEEDED(SHGetFolderPathA(NULL, CSIDL_PERSONAL, NULL, SHGFP_TYPE_CURRENT, path)))
+	if (SHGetSpecialFolderPathA(NULL, path, CSIDL_PERSONAL, FALSE))
 	{
 		PathAppendA(path, "OpenXcom\\");
 		list.push_back(path);
@@ -215,16 +219,13 @@ std::vector<std::string> findDataFolders()
 	list.push_back("/Users/Shared/OpenXcom/");
 #else
 	list.push_back("/usr/local/share/openxcom/");
-#ifndef __FreeBSD__
 	list.push_back("/usr/share/openxcom/");
-#endif
 #ifdef DATADIR
 	snprintf(path, MAXPATHLEN, "%s/", DATADIR);
 	list.push_back(path);
 #endif
 
 #endif
-	
 	// Get working directory
 	list.push_back("./");
 #endif
@@ -246,12 +247,11 @@ std::vector<std::string> findUserFolders()
 	return list;
 #endif
 
-	
 #ifdef _WIN32
 	char path[MAX_PATH];
 
 	// Get Documents folder
-	if (SUCCEEDED(SHGetFolderPathA(NULL, CSIDL_PERSONAL, NULL, SHGFP_TYPE_CURRENT, path)))
+	if (SHGetSpecialFolderPathA(NULL, path, CSIDL_PERSONAL, FALSE))
 	{
 		PathAppendA(path, "OpenXcom\\");
 		list.push_back(path);
@@ -535,7 +535,7 @@ bool fileExists(const std::string &path)
 		return 1;
 	}
 	return 0;
-#else 
+#else
 	struct stat info;
 	return (stat(path.c_str(), &info) == 0 && S_ISREG(info.st_mode));
 #endif
@@ -557,13 +557,7 @@ bool deleteFile(const std::string &path)
 
 std::string baseFilename(const std::string &path)
 {
-	size_t sep = path.find_last_of(
-#ifdef _WIN32
-		"/\\"
-#else
-		"/"
-#endif
-		);
+	size_t sep = path.find_last_of("/\\");
 	std::string filename;
 	if (sep == std::string::npos)
 	{
@@ -593,7 +587,7 @@ std::string sanitizeFilename(const std::string &filename)
 		if ((*i) == '<' ||
 			(*i) == '>' ||
 			(*i) == ':' ||
-			(*i) == '"' || 
+			(*i) == '"' ||
 			(*i) == '/' ||
 			(*i) == '?' ||
 			(*i) == '\\')
@@ -759,13 +753,20 @@ std::pair<std::wstring, std::wstring> timeToString(time_t time)
 bool naturalCompare(const std::wstring &a, const std::wstring &b)
 {
 #if defined(_WIN32) && (!defined(__MINGW32__) || defined(__MINGW64_VERSION_MAJOR))
-	return (StrCmpLogicalW(a.c_str(), b.c_str()) < 0);
-#else
-	// sorry unix users you get ASCII sort
-	std::wstring::const_iterator i, j;
-	for (i = a.begin(), j = b.begin(); i != a.end() && j != b.end() && tolower(*i) == tolower(*j); i++, j++);
-	return (i != a.end() && j != b.end() && tolower(*i) < tolower(*j));
+	typedef int (WINAPI *WinStrCmp)(PCWSTR, PCWSTR);
+	WinStrCmp pWinStrCmp = (WinStrCmp)GetProcAddress(GetModuleHandleA("shlwapi.dll"), "StrCmpLogicalW");
+	if (pWinStrCmp)
+	{
+		return (pWinStrCmp(a.c_str(), b.c_str()) < 0);
+	}
+	else
 #endif
+	{
+		// sorry unix users you get ASCII sort
+		std::wstring::const_iterator i, j;
+		for (i = a.begin(), j = b.begin(); i != a.end() && j != b.end() && tolower(*i) == tolower(*j); i++, j++);
+		return (i != a.end() && j != b.end() && tolower(*i) < tolower(*j));
+	}
 }
 
 /**
@@ -902,7 +903,7 @@ void setWindowIcon(int winResource, const std::string &unixPath)
  */
 void stackTrace(void *ctx)
 {
-#ifdef _WIN32
+#ifdef _MSC_VER
 	const int MAX_SYMBOL_LENGTH = 1024;
 	CONTEXT context;
 	if (ctx != 0)
@@ -911,13 +912,9 @@ void stackTrace(void *ctx)
 	}
 	else
 	{
-		// TODO: Doesn't work on MinGW
-#if 0
 		memset(&context, 0, sizeof(CONTEXT));
 		context.ContextFlags = CONTEXT_FULL;
 		RtlCaptureContext(&context);
-#endif
-		return;
 	}
 	HANDLE thread = GetCurrentThread();
 	HANDLE process = GetCurrentProcess();
@@ -951,7 +948,8 @@ void stackTrace(void *ctx)
 	frame.AddrStack.Offset = context.IntSp;
 	frame.AddrStack.Mode = AddrModeFlat;
 #else
-	#warning Stack trace not supported on this architecture
+	// TODO: Stack trace not supported on this architecture
+	Log(LOG_FATAL) << "Unfortunately, no stack trace information is available";
 	return;
 #endif
 	SYMBOL_INFO *symbol = (SYMBOL_INFO *)malloc(sizeof(SYMBOL_INFO) + (MAX_SYMBOL_LENGTH - 1) * sizeof(TCHAR));
@@ -992,6 +990,11 @@ void stackTrace(void *ctx)
 	}
 	SymCleanup(process);
 #else
+#ifdef _WIN32
+	// TODO: Figure out stack trace on MinGW, use dbg
+	Log(LOG_FATAL) << "Unfortunately, no stack trace information is available";
+	return;
+#else
 	const int MAX_STACK_FRAMES = 16;
 	void *array[MAX_STACK_FRAMES];
 	size_t size = backtrace(array, MAX_STACK_FRAMES);
@@ -1004,25 +1007,23 @@ void stackTrace(void *ctx)
 
 	free(strings);
 #endif
+#endif
 }
 
 /**
- * Generates a quick timestamp.
- * @return String in D-M-Y_H_M_S format.
+ * Generates a timestamp of the current time.
+ * @return String in D-M-Y_H-M-S format.
  */
-std::string timestamp()
+std::string now()
 {
 	const int MAX_LEN = 25, MAX_RESULT = 80;
+	char result[MAX_RESULT] = { 0 };
 #ifdef _WIN32
 	char date[MAX_LEN], time[MAX_LEN];
-	if (GetDateFormatA(LOCALE_INVARIANT, 0, 0,
-		"dd'-'MM'-'yyyy", date, MAX_LEN) == 0)
-		return "Error in Now()";
-	if (GetTimeFormatA(LOCALE_INVARIANT, TIME_FORCE24HOURFORMAT, 0,
-		"HH'-'mm'-'ss", time, MAX_LEN) == 0)
-		return "Error in Now()";
-
-	char result[MAX_RESULT] = { 0 };
+	if (GetDateFormatA(LOCALE_INVARIANT, 0, 0, "dd'-'MM'-'yyyy", date, MAX_LEN) == 0)
+		return "00-00-0000";
+	if (GetTimeFormatA(LOCALE_INVARIANT, TIME_FORCE24HOURFORMAT, 0, "HH'-'mm'-'ss", time, MAX_LEN) == 0)
+		return "00-00-00";
 	sprintf(result, "%s_%s", date, time);
 #else
 	char buffer[MAX_LEN];
@@ -1031,7 +1032,6 @@ std::string timestamp()
 	time(&rawtime);
 	timeinfo = localtime(&rawtime);
 	strftime(buffer, MAX_LEN, "%d-%m-%Y_%H-%M-%S", timeinfo);
-	char result[MAX_RESULT] = { 0 };
 	sprintf(result, "%s", buffer);
 #endif
 	return result;
@@ -1045,21 +1045,26 @@ std::string timestamp()
 void crashDump(void *ex, const std::string &err)
 {
 	std::ostringstream error;
-#ifdef _WIN32
+#ifdef _MSC_VER
 	PEXCEPTION_POINTERS exception = (PEXCEPTION_POINTERS)ex;
-	if (exception->ExceptionRecord->ExceptionCode == EXCEPTION_CODE_CXX)
+	std::exception *cppException = 0;
+	switch (exception->ExceptionRecord->ExceptionCode)
 	{
-		std::exception *cppException = (std::exception *)exception->ExceptionRecord->ExceptionInformation[1];
+	case EXCEPTION_CODE_CXX:
+		cppException = (std::exception *)exception->ExceptionRecord->ExceptionInformation[1];
 		error << cppException->what();
-	}
-	else
-	{
+		break;
+	case EXCEPTION_ACCESS_VIOLATION:
+		error << "Memory access violation. This usually indicates something missing in a mod.";
+		break;
+	default:
 		error << "code 0x" << std::hex << exception->ExceptionRecord->ExceptionCode;
+		break;
 	}
 	Log(LOG_FATAL) << "A fatal error has occurred: " << error.str();
 	stackTrace(exception->ContextRecord);
 	std::string dumpName = Options::getUserFolder();
-	dumpName += timestamp() + ".dmp";
+	dumpName += now() + ".dmp";
 	HANDLE dumpFile = CreateFileA(dumpName.c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
 	MINIDUMP_EXCEPTION_INFORMATION exceptionInformation;
 	exceptionInformation.ThreadId = GetCurrentThreadId();
@@ -1081,7 +1086,15 @@ void crashDump(void *ex, const std::string &err)
 	else
 	{
 		int signal = *((int*)ex);
-		error << "signal " << signal;
+		switch (signal)
+		{
+		case SIGSEGV:
+			error << "Segmentation fault. This usually indicates something missing in a mod.";
+			break;
+		default:
+			error << "signal " << signal;
+			break;
+		}
 	}
 	Log(LOG_FATAL) << "A fatal error has occurred: " << error.str();
 	stackTrace(0);
@@ -1089,9 +1102,10 @@ void crashDump(void *ex, const std::string &err)
 	std::ostringstream msg;
 	msg << "OpenXcom has crashed: " << error.str() << std::endl;
 	msg << "Extra information has been saved to openxcom.log." << std::endl;
-	msg << "If this was unexpected, please report this to the developers.";
+	msg << "If this error was unexpected, please report it to the developers.";
 	showError(msg.str());
 }
 
 }
+
 }

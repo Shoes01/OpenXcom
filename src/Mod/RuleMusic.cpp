@@ -30,7 +30,7 @@ namespace OpenXcom
  * also, 0.76 is roughly optimal for all the TFTD tracks.
  * @param type String defining the type.
  */
-RuleMusic::RuleMusic(const std::string &type) : _type(type), _catPos(INT_MAX), _normalization(0.76) 
+RuleMusic::RuleMusic(const std::string &type) : _type(type), _catPos(INT_MAX), _normalization(0.76f) 
 {
 }
 
@@ -52,7 +52,7 @@ void RuleMusic::load(const YAML::Node& node)
  * Gets the track's index in the catalog file.
  * @return the track's index in the file.
  */
-int RuleMusic::getCatPos()
+int RuleMusic::getCatPos() const
 {
 	return _catPos;
 }
@@ -61,7 +61,7 @@ int RuleMusic::getCatPos()
  * Gets the track's normalization level.
  * @return the track's normalization value.
  */
-float RuleMusic::getNormalization()
+float RuleMusic::getNormalization() const
 {
 	return _normalization;
 }

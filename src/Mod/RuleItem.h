@@ -52,8 +52,8 @@ private:
 	int _accuracyAuto, _accuracySnap, _accuracyAimed, _tuAuto, _tuSnap, _tuAimed;
 	int _clipSize, _accuracyMelee, _tuMelee;
 	BattleType _battleType;
-	bool _twoHanded, _waypoint, _fixedWeapon;
-	int _invWidth, _invHeight;
+	bool _twoHanded, _fixedWeapon;
+	int _waypoints, _invWidth, _invHeight;
 	int _painKiller, _heal, _stimulant;
 	int _woundRecovery, _healthRecovery, _stunRecovery, _energyRecovery;
 	int _tuUse;
@@ -65,7 +65,7 @@ private:
 	bool _flatRate, _arcingShot;
 	int _listOrder, _maxRange, _aimRange, _snapRange, _autoRange, _minRange, _dropoff, _bulletSpeed, _explosionSpeed, _autoShots, _shotgunPellets;
 	std::string _zombieUnit;
-	bool _strengthApplied, _skillApplied, _LOSRequired, _underwaterOnly;
+	bool _strengthApplied, _skillApplied, _LOSRequired, _underwaterOnly, _landOnly;
 	int _meleeSound, _meleePower, _meleeAnimation, _meleeHitSound, _specialType, _vaporColor, _vaporDensity, _vaporProbability;
 public:
 	/// Creates a blank item ruleset.
@@ -98,10 +98,10 @@ public:
 	int getHandSprite() const;
 	/// Gets if the item is two-handed.
 	bool isTwoHanded() const;
-	/// Gets if the item is a launcher.
-	bool isWaypoint() const;
 	/// Gets if the item is fixed.
 	bool isFixed() const;
+	/// Gets if the item is a launcher.
+	int getWaypoints() const;
 	/// Gets the item's bullet sprite reference.
 	int getBulletSprite() const;
 	/// Gets the item's fire sound.
@@ -218,8 +218,10 @@ public:
 	int getMeleeAnimation() const;
 	/// Check if LOS is required to use this item (only applies to psionic type items)
 	bool isLOSRequired() const;
-	/// Is this item restricted to use underwater?
+	/// Is this item restricted to underwater use?
 	bool isWaterOnly() const;
+	/// Is this item restricted to land use?
+	bool isLandOnly() const;
 	/// Get the associated special type of this item.
 	int getSpecialType() const;
 	/// Get the color offset to use for the vapor trail.

@@ -32,10 +32,11 @@ namespace OpenXcom
 /**
  * Initializes all the elements in the EndResearch screen.
  * @param game Pointer to the core game.
- * @param research Pointer to the completed research.
+ * @param newResearch Pointer to the completed research (or 0, if the ufopedia article shouldn't popup again).
  * @param bonus Pointer to bonus unlocked research.
+ * @param research Pointer to the research project.
  */
-ResearchCompleteState::ResearchCompleteState(const RuleResearch * research, const RuleResearch * bonus): _research(research), _bonus(bonus)
+ResearchCompleteState::ResearchCompleteState(const RuleResearch *newResearch, const RuleResearch *bonus, const RuleResearch *research) : _research(newResearch), _bonus(bonus)
 {
 	_screen = false;
 
@@ -47,13 +48,13 @@ ResearchCompleteState::ResearchCompleteState(const RuleResearch * research, cons
 	_txtResearch = new Text(230, 32, 45, 96);
 
 	// Set palette
-	setInterface("geoResearch");
+	setInterface("geoResearchComplete");
 
-	add(_window, "window", "geoResearch");
-	add(_btnOk, "button", "geoResearch");
-	add(_btnReport, "button", "geoResearch");
-	add(_txtTitle, "text1", "geoResearch");
-	add(_txtResearch, "text2", "geoResearch");
+	add(_window, "window", "geoResearchComplete");
+	add(_btnOk, "button", "geoResearchComplete");
+	add(_btnReport, "button", "geoResearchComplete");
+	add(_txtTitle, "text1", "geoResearchComplete");
+	add(_txtResearch, "text2", "geoResearchComplete");
 
 	centerAllSurfaces();
 

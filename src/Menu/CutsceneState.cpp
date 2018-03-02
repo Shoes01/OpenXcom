@@ -77,18 +77,18 @@ void CutsceneState::init()
 	bool fmv = false, slide = false;
 	if (!videoRule->getVideos()->empty())
 	{
-		std::string file = FileMap::getFilePath(videoRule->getVideos()->front());
+		const std::string& file = FileMap::getFilePath(videoRule->getVideos()->front());
 		fmv = CrossPlatform::fileExists(file);
 	}
 	if (!videoRule->getSlides()->empty())
 	{
-		std::string file = FileMap::getFilePath(videoRule->getSlides()->front().imagePath);
+		const std::string& file = FileMap::getFilePath(videoRule->getSlides()->front().imagePath);
 		slide = CrossPlatform::fileExists(file);
 	}
 
 	if (fmv && (!slide || Options::preferredVideo == VIDEO_FMV))
 	{
-		_game->pushState(new VideoState(videoRule->getVideos(), videoRule->useUfoAudioSequence()));
+		_game->pushState(new VideoState(videoRule->getVideos(), videoRule->getAudioTracks(), videoRule->useUfoAudioSequence()));
 	}
 	else if (slide && (!fmv || Options::preferredVideo == VIDEO_SLIDE))
 	{
@@ -116,4 +116,5 @@ void CutsceneState::resetDisplay(bool wasLetterboxed)
 	Screen::updateScale(Options::geoscapeScale, Options::geoscapeScale, Options::baseXGeoscape, Options::baseYGeoscape, true);
 	_game->getScreen()->resetDisplay(false);
 }
+
 }

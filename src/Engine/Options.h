@@ -101,12 +101,16 @@ namespace Options
 	void switchDisplay();
 	/// returns the id of the active master mod
 	std::string getActiveMaster();
+	/// Updates the reservedSpace for master mods if necessary
+	void updateReservedSpace();
 	/// Maps resources in active mods to the virtual file system
 	void mapResources();
 	/// Gets the map of mod ids to mod infos
 	const std::map<std::string, ModInfo> &getModInfos();
 	/// Refreshes the mods and filemaps.
 	void updateMods();
+	/// Gets the list of currently active mods.
+	std::vector<const ModInfo*> getActiveMods();
 }
 
 }

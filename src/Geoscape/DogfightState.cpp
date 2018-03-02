@@ -17,6 +17,7 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "DogfightState.h"
+#include <cmath>
 #include <sstream>
 #include "GeoscapeState.h"
 #include "../Engine/Game.h"
@@ -233,8 +234,8 @@ const int DogfightState::_projectileBlobs[4][6][3] =
  */
 DogfightState::DogfightState(GeoscapeState *state, Craft *craft, Ufo *ufo) : _state(state), _craft(craft), _ufo(ufo), _timeout(50), _currentDist(640), _targetDist(560),
 			_w1FireCountdown(0), _w2FireCountdown(0), _end(false), _destroyUfo(false), _destroyCraft(false), _ufoBreakingOff(false), _weapon1Enabled(true), _weapon2Enabled(true),
-			_minimized(false), _endDogfight(false), _animatingHit(false), _waitForPoly(false), _ufoSize(0), _craftHeight(0), _currentCraftDamageColor(0), _interceptionNumber(0),
-			_interceptionsCount(0), _x(0), _y(0), _minimizedIconX(0), _minimizedIconY(0)
+			_minimized(false), _endDogfight(false), _animatingHit(false), _waitForPoly(false), _waitForAltitude(false), _ufoSize(0), _craftHeight(0), _currentCraftDamageColor(0),
+			_interceptionNumber(0), _interceptionsCount(0), _x(0), _y(0), _minimizedIconX(0), _minimizedIconY(0)
 {
 	_screen = false;
 
@@ -377,6 +378,21 @@ DogfightState::DogfightState(GeoscapeState *state, Craft *craft, Ufo *ufo) : _st
 
 	// Draw correct number on the minimized dogfight icon.
 	std::wostringstream ss1;
+	if (_craft->getInterceptionOrder() == 0)
+	{
+		int maxInterceptionOrder = 0;
+		for (std::vector<Base*>::iterator baseIt = _game->getSavedGame()->getBases()->begin(); baseIt != _game->getSavedGame()->getBases()->end(); ++baseIt)
+		{
+			for (std::vector<Craft*>::iterator craftIt = (*baseIt)->getCrafts()->begin(); craftIt != (*baseIt)->getCrafts()->end(); ++craftIt)
+			{
+				if ((*craftIt)->getInterceptionOrder() > maxInterceptionOrder)
+				{
+					maxInterceptionOrder = (*craftIt)->getInterceptionOrder();
+				}
+			}
+		}
+		_craft->setInterceptionOrder(++maxInterceptionOrder);
+	}
 	ss1 << _craft->getInterceptionOrder();
 	_txtInterceptionNumber->setText(ss1.str());
 	_txtInterceptionNumber->setVisible(false);
@@ -555,7 +571,10 @@ DogfightState::~DogfightState()
 		_projectiles.pop_back();
 	}
 	if (_craft)
+	{
 		_craft->setInDogfight(false);
+		_craft->setInterceptionOrder(0);
+	}
 	// set the ufo as "free" for the next engagement (as applicable)
 	if (_ufo)
 		_ufo->setInterceptionProcessed(false);
@@ -997,6 +1016,22 @@ void DogfightState::update()
 		if (!_destroyCraft && (_destroyUfo || _mode == _btnDisengage))
 		{
 			_craft->returnToBase();
+		}
+		if (_ufo->isCrashed())
+		{
+			for (std::vector<Target*>::iterator i = _ufo->getFollowers()->begin(); i != _ufo->getFollowers()->end();)
+			{
+				Craft* c = dynamic_cast<Craft*>(*i);
+				if (c != 0 && c->getNumSoldiers() == 0 && c->getNumVehicles() == 0)
+				{
+					c->returnToBase();
+					i = _ufo->getFollowers()->begin();
+				}
+				else
+				{
+					++i;
+				}
+			}
 		}
 		endDogfight();
 	}
@@ -1641,22 +1676,19 @@ void DogfightState::setMinimized(const bool minimized)
  */
 void DogfightState::btnMinimizedIconClick(Action *)
 {
-	if (_craft->getDestination()->getSiteDepth() > _craft->getRules()->getMaxDepth())
+	if (_craft->getRules()->isWaterOnly() && _ufo->getAltitudeInt() > _craft->getRules()->getMaxAltitude())
 	{
 		_state->popup(new DogfightErrorState(_craft, tr("STR_UNABLE_TO_ENGAGE_DEPTH")));
+		setWaitForAltitude(true);
+	}
+	else if (_craft->getRules()->isWaterOnly() && !_state->getGlobe()->insideLand(_craft->getLongitude(), _craft->getLatitude()))
+	{
+		_state->popup(new DogfightErrorState(_craft, tr("STR_UNABLE_TO_ENGAGE_AIRBORNE")));
+		setWaitForPoly(true);
 	}
 	else
 	{
-		bool underwater = _craft->getRules()->getMaxDepth() > 0;
-		if (underwater && !_state->getGlobe()->insideLand(_craft->getLongitude(), _craft->getLatitude()))
-		{
-			_state->popup(new DogfightErrorState(_craft, tr("STR_UNABLE_TO_ENGAGE_AIRBORNE")));
-			setWaitForPoly(true);
-		}
-		else
-		{
-			setMinimized(false);
-		}
+		setMinimized(false);
 	}
 }
 
@@ -1792,9 +1824,18 @@ bool DogfightState::dogfightEnded() const
  * Returns the UFO associated to this dogfight.
  * @return Returns pointer to UFO object associated to this dogfight.
  */
-Ufo* DogfightState::getUfo() const
+Ufo *DogfightState::getUfo() const
 {
 	return _ufo;
+}
+
+/**
+ * Returns the craft associated to this dogfight.
+ * @return Returns pointer to craft object associated to this dogfight.
+ */
+Craft *DogfightState::getCraft() const
+{
+	return _craft;
 }
 
 /**
@@ -1821,8 +1862,19 @@ void DogfightState::setWaitForPoly(bool wait)
 	_waitForPoly = wait;
 }
 
-bool DogfightState::getWaitForPoly()
+bool DogfightState::getWaitForPoly() const
 {
 	return _waitForPoly;
 }
+
+void DogfightState::setWaitForAltitude(bool wait)
+{
+	_waitForAltitude = wait;
+}
+
+bool DogfightState::getWaitForAltitude() const
+{
+	return _waitForAltitude;
+}
+
 }

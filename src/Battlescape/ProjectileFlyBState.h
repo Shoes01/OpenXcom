@@ -59,9 +59,10 @@ public:
 	/// Calculates the maximum throwing range.
 	static int getMaxThrowDistance(int weight, int strength, int level);
 	/// Set the origin voxel, used for the blaster launcher.
-	void setOriginVoxel(Position pos);
+	void setOriginVoxel(const Position& pos);
 	/// Set the boolean flag to angle a blaster bomb towards the floor.
 	void targetFloor();
+	void projectileHitUnit(Position pos);
 
 };
 

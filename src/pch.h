@@ -6,6 +6,12 @@
 //#include <crtdbg.h>
 
 // c++ headers
+#ifdef _MSC_VER
+#ifndef _SCL_SECURE_NO_WARNINGS
+#define _SCL_SECURE_NO_WARNINGS
+#endif
+#define _CRT_SECURE_NO_WARNINGS
+#endif
 #define _USE_MATH_DEFINES
 #include <algorithm>
 #include <assert.h>
@@ -28,12 +34,9 @@
 #include <functional>
 #include <iomanip>
 #include <iostream>
-#include <limits.h>
-#include <limits>
 #include <list>
 #include <locale>
 #include <map>
-#include <math.h>
 #include <memory.h>
 #include <queue>
 #include <set>
@@ -61,7 +64,6 @@
 #include <windows.h>
 #include <malloc.h>
 #else
-#include <alloca.h>
 #include <dirent.h>
 #include <execinfo.h>
 #include <pwd.h>

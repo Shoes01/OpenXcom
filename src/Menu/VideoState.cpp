@@ -42,8 +42,8 @@ namespace OpenXcom
  * @param game Pointer to the core game.
  * @param wasLetterBoxed Was the game letterboxed?
  */
-VideoState::VideoState(const std::vector<std::string> *videos, bool useUfoAudioSequence)
-		: _videos(videos), _useUfoAudioSequence(useUfoAudioSequence)
+VideoState::VideoState(const std::vector<std::string> *videos, const std::vector<std::string> *tracks, bool useUfoAudioSequence)
+		: _videos(videos), _tracks(tracks), _useUfoAudioSequence(useUfoAudioSequence)
 {
 }
 
@@ -115,7 +115,7 @@ static soundInFile sample3CatOnlySounds[]=
 {"SAMPLE3.CAT", 30, 32}, // energise
 {"SAMPLE3.CAT", 21, 32}, // hatch
 {"SAMPLE3.CAT", 0, 64}, // phizz -- no equivalent in sample3.cat?
-{"SAMPLE3.CAT", 13, 32}, // warning 
+{"SAMPLE3.CAT", 13, 32}, // warning
 {"SAMPLE3.CAT", 14, 32}, // detected
 {"SAMPLE3.CAT", 19, 64}, // UFO flyby whoosh?
 {"SAMPLE3.CAT", 3, 32}, // growl
@@ -150,7 +150,7 @@ static soundInFile hybridIntroSounds[]=
 {"SAMPLE3.CAT", 30, 32}, // energise
 {"SAMPLE3.CAT", 21, 32}, // hatch
 {"INTRO.CAT", 0x11, 64}, // phizz
-{"SAMPLE3.CAT", 13, 32}, // warning 
+{"SAMPLE3.CAT", 13, 32}, // warning
 {"SAMPLE3.CAT", 14, 32}, // detected
 {"SAMPLE3.CAT", 19, 64}, // UFO flyby whoosh?
 {"INTRO.CAT", 0x15, 32}, // growl
@@ -171,7 +171,7 @@ static soundInFile *introSounds[] =
 };
 
 
-typedef struct 
+typedef struct
 {
 	int frameNumber;
 	int sound;
@@ -354,7 +354,7 @@ static struct AudioSequence
 					//Mix_HookMusicFinished(_FlcPlayer::stop);
 					break;
 				}
-#endif		
+#endif
 			}
 			else if (command & 0x400)
 			{
@@ -369,8 +369,8 @@ static struct AudioSequence
 					soundInFile *sf = (*sounds) + command;
 					int channel = trackPosition % 4; // use at most four channels to play sound effects
 					double ratio = (double)Options::soundVolume / MIX_MAX_VOLUME;
-					Log(LOG_DEBUG) << "playing: " << sf->catFile << ":" << sf->sound << " for index " << command; 
-					s = mod->getSound(sf->catFile, sf->sound);
+					Log(LOG_DEBUG) << "playing: " << sf->catFile << ":" << sf->sound << " for index " << command;
+					s = mod->getSound(sf->catFile, sf->sound, false);
 					if (s)
 					{
 						s->play(channel);
@@ -426,9 +426,17 @@ void VideoState::init()
 	int dy = (Options::baseYResolution - Screen::ORIGINAL_HEIGHT) / 2;
 
 	FlcPlayer *flcPlayer = NULL;
+	size_t audioCounter = 0;
 	for (std::vector<std::string>::const_iterator it = _videos->begin(); it != _videos->end(); ++it)
 	{
-		std::string videoFileName = FileMap::getFilePath(*it);
+		bool useInternalAudio = true;
+		if (!_tracks->empty() && _tracks->size() > audioCounter && _game->getMod()->getMusic(_tracks->at(audioCounter)))
+		{
+			_game->getMod()->getMusic(_tracks->at(audioCounter))->play(0);
+			useInternalAudio = false;
+		}
+		audioCounter++;
+		const std::string& videoFileName = FileMap::getFilePath(*it);
 
 		if (!CrossPlatform::fileExists(videoFileName))
 		{
@@ -447,7 +455,7 @@ void VideoState::init()
 
 		flcPlayer->init(videoFileName.c_str(),
 			 _useUfoAudioSequence ? &audioHandler : NULL,
-			 _game, dx, dy);
+			 _game, useInternalAudio, dx, dy);
 		flcPlayer->play(_useUfoAudioSequence);
 		if (_useUfoAudioSequence)
 		{
@@ -487,7 +495,7 @@ void VideoState::init()
 		}
 		else
 		{
-			Mix_HaltMusic();			
+			Mix_HaltMusic();
 		}
 	}
 	else

@@ -46,12 +46,12 @@ CommendationLateState::CommendationLateState(std::vector<Soldier*> soldiersMedal
 	_lstSoldiers = new TextList(288, 128, 8, 32);
 
 	// Set palette
-	setInterface("soldierMemorial");
+	setInterface("commendationsLate");
 
-	add(_window, "window", "soldierMemorial");
-	add(_btnOk, "button", "soldierMemorial");
-	add(_txtTitle, "text", "soldierMemorial");
-	add(_lstSoldiers, "list", "soldierMemorial");
+	add(_window, "window", "commendationsLate");
+	add(_btnOk, "button", "commendationsLate");
+	add(_txtTitle, "text", "commendationsLate");
+	add(_lstSoldiers, "list", "commendationsLate");
 
 	centerAllSurfaces();
 
@@ -143,7 +143,7 @@ CommendationLateState::CommendationLateState(std::vector<Soldier*> soldiersMedal
 						{
 							skipCounter++;
 						}
-						vectorIterator++;					
+						vectorIterator++;
 					}
 					// Establish comms name
 					// Medal name
@@ -159,14 +159,14 @@ CommendationLateState::CommendationLateState(std::vector<Soldier*> soldiersMedal
 					_lstSoldiers->addRow(5, wssCommendation.str().c_str(), L"", L"", L"", tr((*soldierComm)->getDecorationLevelName(skipCounter)).c_str());
 					break;
 				}
-			} // END SOLDIER COMMS LOOP			
-      
+			} // END SOLDIER COMMS LOOP
+	  
 			if (noun == "noNoun")
 			{
 				++commList;
 			}
 		} // END COMMS LOOPS
-	} // END SOLDIER LOOP    
+	} // END SOLDIER LOOP
 }
 
 /**

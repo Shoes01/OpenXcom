@@ -35,6 +35,7 @@
 #include "../Savegame/Waypoint.h"
 #include "SelectDestinationState.h"
 #include "../Engine/Options.h"
+#include "Globe.h"
 
 namespace OpenXcom
 {
@@ -73,28 +74,28 @@ GeoscapeCraftState::GeoscapeCraftState(Craft *craft, Globe *globe, Waypoint *way
 	_txtHWP = new Text(80, 9, 164, 76);
 
 	// Set palette
-	setInterface("geoCraftScreens");
+	setInterface("geoCraft");
 
-	add(_window, "window", "geoCraftScreens");
-	add(_btnBase, "button", "geoCraftScreens");
-	add(_btnTarget, "button", "geoCraftScreens");
-	add(_btnPatrol, "button", "geoCraftScreens");
-	add(_btnCancel, "button", "geoCraftScreens");
-	add(_txtTitle, "text1", "geoCraftScreens");
-	add(_txtStatus, "text1", "geoCraftScreens");
-	add(_txtBase, "text3", "geoCraftScreens");
-	add(_txtSpeed, "text3", "geoCraftScreens");
-	add(_txtMaxSpeed, "text3", "geoCraftScreens");
-	add(_txtAltitude, "text3", "geoCraftScreens");
-	add(_txtFuel, "text3", "geoCraftScreens");
-	add(_txtDamage, "text3", "geoCraftScreens");
-	add(_txtW1Name, "text3", "geoCraftScreens");
-	add(_txtW1Ammo, "text3", "geoCraftScreens");
-	add(_txtW2Name, "text3", "geoCraftScreens");
-	add(_txtW2Ammo, "text3", "geoCraftScreens");
-	add(_txtRedirect, "text3", "geoCraftScreens");
-	add(_txtSoldier, "text3", "geoCraftScreens");
-	add(_txtHWP, "text3", "geoCraftScreens");
+	add(_window, "window", "geoCraft");
+	add(_btnBase, "button", "geoCraft");
+	add(_btnTarget, "button", "geoCraft");
+	add(_btnPatrol, "button", "geoCraft");
+	add(_btnCancel, "button", "geoCraft");
+	add(_txtTitle, "text1", "geoCraft");
+	add(_txtStatus, "text1", "geoCraft");
+	add(_txtBase, "text3", "geoCraft");
+	add(_txtSpeed, "text3", "geoCraft");
+	add(_txtMaxSpeed, "text3", "geoCraft");
+	add(_txtAltitude, "text3", "geoCraft");
+	add(_txtFuel, "text3", "geoCraft");
+	add(_txtDamage, "text3", "geoCraft");
+	add(_txtW1Name, "text3", "geoCraft");
+	add(_txtW1Ammo, "text3", "geoCraft");
+	add(_txtW2Name, "text3", "geoCraft");
+	add(_txtW2Ammo, "text3", "geoCraft");
+	add(_txtRedirect, "text3", "geoCraft");
+	add(_txtSoldier, "text3", "geoCraft");
+	add(_txtHWP, "text3", "geoCraft");
 
 	centerAllSurfaces();
 
@@ -180,6 +181,10 @@ GeoscapeCraftState::GeoscapeCraftState(Craft *craft, Globe *globe, Waypoint *way
 	_txtMaxSpeed->setText(tr("STR_MAXIMUM_SPEED_UC").arg(Text::formatNumber(_craft->getRules()->getMaxSpeed())));
 
 	std::string altitude = _craft->getAltitude() == "STR_GROUND" ? "STR_GROUNDED" : _craft->getAltitude();
+	if (_craft->getRules()->isWaterOnly() && !_globe->insideLand(_craft->getLongitude(), _craft->getLatitude()))
+	{
+		altitude = "STR_AIRBORNE";
+	}
 	_txtAltitude->setText(tr("STR_ALTITUDE_").arg(tr(altitude)));
 
 	_txtFuel->setText(tr("STR_FUEL").arg(Text::formatPercentage(_craft->getFuelPercentage())));

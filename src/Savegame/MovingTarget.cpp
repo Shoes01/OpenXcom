@@ -16,9 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
-#define _USE_MATH_DEFINES
 #include "MovingTarget.h"
-#include <cmath>
 #include "../fmath.h"
 #include "SerializationHelper.h"
 #include "../Engine/Options.h"
@@ -158,12 +156,9 @@ void MovingTarget::setSpeed(int speed)
  */
 void MovingTarget::calculateSpeed()
 {
+	calculateMeetPoint();
 	if (_dest != 0)
 	{
-		// Find the meet point
-		if (Options::meetingPoint) calculateMeetPoint();
-		else {_meetPointLat = _dest->getLatitude(); _meetPointLon = _dest->getLongitude();}
-
 		double dLon, dLat, length;
 		dLon = sin(_meetPointLon - _lon) * cos(_meetPointLat);
 		dLat = cos(_lat) * sin(_meetPointLat) - sin(_lat) * cos(_meetPointLat) * cos(_meetPointLon - _lon);
@@ -225,8 +220,18 @@ void MovingTarget::move()
 void MovingTarget::calculateMeetPoint()
 {
 	// Initialize
-	_meetPointLat = _dest->getLatitude();
-	_meetPointLon = _dest->getLongitude();
+	if (_dest != 0)
+	{
+		_meetPointLat = _dest->getLatitude();
+		_meetPointLon = _dest->getLongitude();
+	}
+	else
+	{
+		_meetPointLat = _lat;
+		_meetPointLon = _lon;
+	}
+
+	if (!_dest || !Options::meetingPoint) return;
 
 	MovingTarget *u = dynamic_cast<MovingTarget*>(_dest);
 	if (!u || !u->getDestination()) return;
@@ -234,7 +239,6 @@ void MovingTarget::calculateMeetPoint()
 	// Speed ratio
 	if (AreSame(u->getSpeedRadian(), 0.0)) return;
 	const double speedRatio = _speedRadian/ u->getSpeedRadian();
-	if (speedRatio <= 1) return;
 
 	// The direction pseudovector
 	double	nx = cos(u->getLatitude())*sin(u->getLongitude())*sin(u->getDestination()->getLatitude()) -
@@ -248,25 +252,25 @@ void MovingTarget::calculateMeetPoint()
 	ny *= nk;
 	nz *= nk;
 
-	// Initialize
-	double path=0, distance;
-
-	// Finding the meeting point
-	do
+	// Finding the meeting point. Don't search further than halfway across the
+	// globe (distance from interceptor's current point >= 1), as that may 
+	// cause the interceptor to go the wrong way later.
+	for (double path = 0, distance = 1;
+		path < M_PI && distance - path*speedRatio > 0 && path*speedRatio < 1;
+		path += _speedRadian)
 	{
 		_meetPointLat += nx*sin(_meetPointLon) - ny*cos(_meetPointLon);
-		if (abs(_meetPointLat) < M_PI_2) _meetPointLon += nz - (nx*cos(_meetPointLon) + ny*sin(_meetPointLon))*tan(_meetPointLat); else _meetPointLon += M_PI;
-		path += _speedRadian;
+		if (std::abs(_meetPointLat) < M_PI_2) _meetPointLon += nz - (nx*cos(_meetPointLon) + ny*sin(_meetPointLon))*tan(_meetPointLat); else _meetPointLon += M_PI;
 
 		distance = acos(cos(_lat) * cos(_meetPointLat) * cos(_meetPointLon - _lon) + sin(_lat) * sin(_meetPointLat));
-	} while (path < M_PI && distance - path*speedRatio > 0);
+	}
 
 	// Correction overflowing angles
 	double lonSign = Sign(_meetPointLon);
 	double latSign = Sign(_meetPointLat);
-	while (abs(_meetPointLon) > M_PI) _meetPointLon -= lonSign * 2 * M_PI;
-	while (abs(_meetPointLat) > M_PI) _meetPointLat -= latSign * 2 * M_PI;
-	if (abs(_meetPointLat) > M_PI_2) { _meetPointLat = latSign * abs(2 * M_PI - abs(_meetPointLat)); _meetPointLon -= lonSign * M_PI; }
+	while (std::abs(_meetPointLon) > M_PI) _meetPointLon -= lonSign * 2 * M_PI;
+	while (std::abs(_meetPointLat) > M_PI) _meetPointLat -= latSign * 2 * M_PI;
+	if (std::abs(_meetPointLat) > M_PI_2) { _meetPointLat = latSign * std::abs(2 * M_PI - std::abs(_meetPointLat)); _meetPointLon -= lonSign * M_PI; }
 }
 
 /**

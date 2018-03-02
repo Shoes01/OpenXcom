@@ -17,11 +17,12 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "RuleResearch.h"
+#include "../Engine/Exception.h"
 
 namespace OpenXcom
 {
 
-RuleResearch::RuleResearch(const std::string & name) : _name(name), _cost(0), _points(0), _needItem(false), _listOrder(0)
+RuleResearch::RuleResearch(const std::string & name) : _name(name), _cost(0), _points(0), _needItem(false), _destroyItem(false), _listOrder(0)
 {
 }
 
@@ -42,10 +43,16 @@ void RuleResearch::load(const YAML::Node &node, int listOrder)
 	_getOneFree = node["getOneFree"].as< std::vector<std::string> >(_getOneFree);
 	_requires = node["requires"].as< std::vector<std::string> >(_requires);
 	_needItem = node["needItem"].as<bool>(_needItem);
+	_destroyItem = node["destroyItem"].as<bool>(_destroyItem);
 	_listOrder = node["listOrder"].as<int>(_listOrder);
 	if (!_listOrder)
 	{
 		_listOrder = listOrder;
+	}
+	// This is necessary, research code assumes it!
+	if (!_requires.empty() && _cost != 0)
+	{
+		throw Exception("Research topic " + _name + " has requirements, but the cost is not zero. Sorry, this is not allowed!");
 	}
 }
 
@@ -85,6 +92,14 @@ bool RuleResearch::needItem() const
 	return _needItem;
 }
 
+/**
+ * Checks if this ResearchProject needs a corresponding Item to be researched.
+ *  @return True if the ResearchProject needs a corresponding item.
+ */
+bool RuleResearch::destroyItem() const
+{
+	return _destroyItem;
+}
 /**
  * Gets the list of ResearchProjects unlocked by this research.
  * @return The list of ResearchProjects.

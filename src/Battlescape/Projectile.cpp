@@ -16,8 +16,6 @@
  * You should have received a copy of the GNU General Public License
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
-#define _USE_MATH_DEFINES
-#include <cmath>
 #include "Projectile.h"
 #include "TileEngine.h"
 #include "Map.h"
@@ -34,6 +32,7 @@
 #include "../Savegame/Tile.h"
 #include "../Engine/RNG.h"
 #include "../Engine/Options.h"
+#include "../fmath.h"
 
 namespace OpenXcom
 {
@@ -118,7 +117,7 @@ int Projectile::calculateTrajectory(double accuracy)
 	return calculateTrajectory(accuracy, originVoxel);
 }
 
-int Projectile::calculateTrajectory(double accuracy, Position originVoxel, bool excludeUnit)
+int Projectile::calculateTrajectory(double accuracy, const Position& originVoxel, bool excludeUnit)
 {
 	Tile *targetTile = _save->getTile(_action.target);
 	BattleUnit *bu = _action.actor;
@@ -219,51 +218,108 @@ int Projectile::calculateThrow(double accuracy)
 	Tile *targetTile = _save->getTile(_action.target);
 		
 	Position originVoxel = _save->getTileEngine()->getOriginVoxel(_action, 0);
-	Position targetVoxel = _action.target * Position(16,16,24) + Position(8,8, (2 + -targetTile->getTerrainLevel()));
+	Position targetVoxel;
+	std::vector<Position> targets;
+	double curvature;
+	targetVoxel = _action.target * Position(16,16,24) + Position(8,8, (1 + -targetTile->getTerrainLevel()));
+	targets.clear();
+	bool forced = false;
 
-	if (_action.type != BA_THROW)
+	if (_action.type == BA_THROW)
+	{
+		targets.push_back(targetVoxel);
+	}
+	else 
 	{
 		BattleUnit *tu = targetTile->getUnit();
 		if (!tu && _action.target.z > 0 && targetTile->hasNoFloor(0))
 			tu = _save->getTile(_action.target - Position(0, 0, 1))->getUnit();
-		if (tu)
+		if (Options::forceFire && (SDL_GetModState() & KMOD_CTRL) != 0 && _save->getSide() == FACTION_PLAYER)
 		{
-			targetVoxel.z += ((tu->getHeight()/2) + tu->getFloatHeight()) - 2;
+			targets.push_back(_action.target * Position(16,16,24) + Position(0, 0, 12));
+			forced = true;
+		}
+		else if (tu && ((_action.actor->getFaction() != FACTION_PLAYER) ||
+			tu->getVisible()))
+		{ //unit
+			targetVoxel.z += tu->getFloatHeight(); //ground level is the base
+			targets.push_back(targetVoxel + Position(0, 0, tu->getHeight()/2 + 1));
+			targets.push_back(targetVoxel + Position(0, 0, 2));
+			targets.push_back(targetVoxel + Position(0, 0, tu->getHeight() - 1));
+		}
+		else if (targetTile->getMapData(O_OBJECT) != 0)
+		{
+			targetVoxel = _action.target * Position(16,16,24) + Position(8,8,0);
+			targets.push_back(targetVoxel + Position(0, 0, 13));
+			targets.push_back(targetVoxel + Position(0, 0, 8));
+			targets.push_back(targetVoxel + Position(0, 0, 23));
+			targets.push_back(targetVoxel + Position(0, 0, 2));
+		}
+		else if (targetTile->getMapData(O_NORTHWALL) != 0)
+		{
+			targetVoxel = _action.target * Position(16,16,24) + Position(8,0,0);
+			targets.push_back(targetVoxel + Position(0, 0, 13));
+			targets.push_back(targetVoxel + Position(0, 0, 8));
+			targets.push_back(targetVoxel + Position(0, 0, 20));
+			targets.push_back(targetVoxel + Position(0, 0, 3));
+		}
+		else if (targetTile->getMapData(O_WESTWALL) != 0)
+ 		{
+			targetVoxel = _action.target * Position(16,16,24) + Position(0,8,0);
+			targets.push_back(targetVoxel + Position(0, 0, 13));
+			targets.push_back(targetVoxel + Position(0, 0, 8));
+			targets.push_back(targetVoxel + Position(0, 0, 20));
+			targets.push_back(targetVoxel + Position(0, 0, 2));
+		}
+		else if (targetTile->getMapData(O_FLOOR) != 0)
+		{
+			targets.push_back(targetVoxel);
 		}
 	}
 
-	double curvature = 0.0;
-	int retVal = V_OUTOFBOUNDS;
-	if (_save->getTileEngine()->validateThrow(_action, originVoxel, targetVoxel, &curvature, &retVal))
+	int test = V_OUTOFBOUNDS;
+	for (std::vector<Position>::iterator i = targets.begin(); i != targets.end(); ++i)
 	{
-		int test = V_OUTOFBOUNDS;
-		// finally do a line calculation and store this trajectory, make sure it's valid.
-		while (test == V_OUTOFBOUNDS)
+		targetVoxel = *i;
+		if (_save->getTileEngine()->validateThrow(_action, originVoxel, targetVoxel, &curvature, &test, forced))
 		{
-			Position deltas = targetVoxel;
-			// apply some accuracy modifiers
+			break;
+		}
+	}
+	if (!forced && test == V_OUTOFBOUNDS) return test; //no line of fire
+
+	test = V_OUTOFBOUNDS;
+	// finally do a line calculation and store this trajectory, make sure it's valid.
+	while (test == V_OUTOFBOUNDS)
+	{
+		Position deltas = targetVoxel;
+		// apply some accuracy modifiers
+		_trajectory.clear();
+		if (_action.type == BA_THROW)
+		{
 			applyAccuracy(originVoxel, &deltas, accuracy, true, false); //calling for best flavor
 			deltas -= targetVoxel;
-			_trajectory.clear();
-			test = _save->getTileEngine()->calculateParabola(originVoxel, targetVoxel, true, &_trajectory, _action.actor, curvature, deltas);
-
-			Position endPoint = _trajectory.back();
-			endPoint.x /= 16;
-			endPoint.y /= 16;
-			endPoint.z /= 24;
-			Tile *endTile = _save->getTile(endPoint);
-			// check if the item would land on a tile with a blocking object
-			if (_action.type == BA_THROW
-				&& endTile
-				&& endTile->getMapData(O_OBJECT)
-				&& endTile->getMapData(O_OBJECT)->getTUCost(MT_WALK) == 255)
-			{
-				test = V_OUTOFBOUNDS;
-			}
 		}
-		return retVal;
+		else
+		{
+			applyAccuracy(originVoxel, &targetVoxel, accuracy, true, false); //arcing shot deviation
+			deltas = Position(0,0,0);
+		}
+		test = _save->getTileEngine()->calculateParabola(originVoxel, targetVoxel, true, &_trajectory, _action.actor, curvature, deltas);
+		if (forced) return O_OBJECT; //fake hit
+		Position endPoint = _trajectory.back() / Position (16, 16, 24);
+		Tile *endTile = _save->getTile(endPoint);
+		// check if the item would land on a tile with a blocking object
+		if (_action.type == BA_THROW
+			&& endTile
+			&& endTile->getMapData(O_OBJECT)
+			&& endTile->getMapData(O_OBJECT)->getTUCost(MT_WALK) == 255
+			&& !(endTile->isBigWall() && (endTile->getMapData(O_OBJECT)->getBigWall()<1 || endTile->getMapData(O_OBJECT)->getBigWall()>3)))
+		{
+			test = V_OUTOFBOUNDS; 
+		}
 	}
-	return V_OUTOFBOUNDS;
+	return test;
 }
 
 /**
@@ -274,7 +330,7 @@ int Projectile::calculateThrow(double accuracy)
  * @param keepRange Whether range affects accuracy.
  * @param extendLine should this line get extended to maximum distance?
  */
-void Projectile::applyAccuracy(const Position& origin, Position *target, double accuracy, bool keepRange, bool extendLine)
+void Projectile::applyAccuracy(Position origin, Position *target, double accuracy, bool keepRange, bool extendLine)
 {
 	int xdiff = origin.x - target->x;
 	int ydiff = origin.y - target->y;
@@ -440,7 +496,7 @@ void Projectile::skipTrajectory()
  * Gets the Position of origin for the projectile
  * @return origin as a tile position.
  */
-Position Projectile::getOrigin()
+Position Projectile::getOrigin() const
 {
 	// instead of using the actor's position, we'll use the voxel origin translated to a tile position
 	// this is a workaround for large units.
@@ -453,7 +509,7 @@ Position Projectile::getOrigin()
  * but rather the targetted tile
  * @return target as a tile position.
  */
-Position Projectile::getTarget()
+Position Projectile::getTarget() const
 {
 	return _action.target;
 }
@@ -486,4 +542,5 @@ void Projectile::addVaporCloud()
 		}
 	}
 }
+
 }

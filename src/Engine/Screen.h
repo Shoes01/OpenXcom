@@ -61,9 +61,9 @@ public:
 	/// Cleans up the display screen.
 	~Screen();
 	/// Get horizontal offset.
-	int getDX();
+	int getDX() const;
 	/// Get vertical offset.
-	int getDY();
+	int getDY() const;
 	/// Gets the internal buffer.
 	Surface *getSurface();
 	/// Handles keyboard events.
@@ -93,9 +93,9 @@ public:
 	/// Takes a screenshot.
 	void screenshot(const std::string &filename) const;
 	/// Checks whether a 32bit scaler is requested and works for the selected resolution
-	static bool is32bitEnabled();
+	static bool use32bitScaler();
 	/// Checks whether OpenGL output is requested
-	static bool isOpenGLEnabled();
+	static bool useOpenGL();
 	/// update the game scale as required.
 	static void updateScale(int &type, int selection, int &x, int &y, bool change);
 };

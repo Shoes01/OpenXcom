@@ -20,6 +20,8 @@
 #include <vector>
 #include <string>
 #include <yaml-cpp/yaml.h>
+#include "Mod.h"
+#include "../Savegame/WeightedOptions.h"
 
 namespace OpenXcom
 {
@@ -47,6 +49,7 @@ struct BriefingData
 	BriefingData() : palette(0), textOffset(0), music("GMDEFEND"), background("BACK16.SCR"), showCraft(true), showTarget(true) { /*Empty by Design*/ };
 };
 enum ChronoTrigger { FORCE_LOSE, FORCE_ABORT, FORCE_WIN };
+enum EscapeType { ESCAPE_NONE, ESCAPE_EXIT, ESCAPE_ENTRY, ESCAPE_EITHER };
 /**
  * Represents a specific type of Alien Deployment.
  * Contains constant info about a Alien Deployment like
@@ -66,27 +69,29 @@ private:
 	std::vector<std::string> _terrains, _music;
 	int _shade;
 	std::string _nextStage, _race, _script;
-	bool _finalDestination;
-	std::string _winCutscene, _loseCutscene;
+	bool _finalDestination, _isAlienBase;
+	std::string _winCutscene, _loseCutscene, _abortCutscene;
 	std::string _alert, _alertBackground;
 	BriefingData _briefingData;
 	std::string _markerName, _objectivePopup, _objectiveCompleteText, _objectiveFailedText;
-	int _markerIcon, _durationMin, _durationMax, _minDepth, _maxDepth, _minSiteDepth, _maxSiteDepth;
+	WeightedOptions _genMission;
+	int _markerIcon, _durationMin, _durationMax, _minDepth, _maxDepth, _minSiteDepth, _maxSiteDepth, _genMissionFrequency;
 	int _objectiveType, _objectivesRequired, _objectiveCompleteScore, _objectiveFailedScore, _despawnPenalty, _points, _turnLimit, _cheatTurn;
 	ChronoTrigger _chronoTrigger;
+	EscapeType _escapeType;
 public:
 	/// Creates a blank Alien Deployment ruleset.
 	AlienDeployment(const std::string &type);
 	/// Cleans up the Alien Deployment ruleset.
 	~AlienDeployment();
 	/// Loads Alien Deployment data from YAML.
-	void load(const YAML::Node& node);
+	void load(const YAML::Node& node, Mod *mod);
 	/// Gets the Alien Deployment's type.
 	std::string getType() const;
 	/// Gets a pointer to the data.
 	std::vector<DeploymentData>* getDeploymentData();
 	/// Gets dimensions.
-	void getDimensions(int *width, int *length, int *height);
+	void getDimensions(int *width, int *length, int *height) const;
 	/// Gets civilians.
 	int getCivilians() const;
 	/// Gets the terrain for battlescape generation.
@@ -105,6 +110,8 @@ public:
 	std::string getWinCutscene() const;
 	/// Gets the cutscene to play when this mission is lost.
 	std::string getLoseCutscene() const;
+	/// Gets the cutscene to play when this mission is aborted.
+	std::string getAbortCutscene() const;
 	/// Gets the alert message for this mission type.
 	std::string getAlertMessage() const;
 	/// Gets the alert background for this mission type.
@@ -149,6 +156,15 @@ public:
 	ChronoTrigger getChronoTrigger() const;
 	/// Gets which turn the aliens start cheating on.
 	int getCheatTurn() const;
+	/// Gets whether or not this is an alien base (purely for new battle mode)
+	bool isAlienBase() const;
+
+	std::string getGenMissionType() const;
+
+	int getGenMissionFrequency() const;
+
+	EscapeType getEscapeType() const;
+
 };
 
 }

@@ -23,6 +23,8 @@
 #include "TileEngine.h"
 #include "../Savegame/BattleUnit.h"
 #include "../Engine/RNG.h"
+#include "BattlescapeGame.h"
+#include "../Savegame/SavedBattleGame.h"
 
 namespace OpenXcom
 {
@@ -56,7 +58,7 @@ void UnitPanicBState::init()
 void UnitPanicBState::think()
 {
 	if (_unit)
-	{	
+	{
 		// berserking requires handling here, as the target selection isn't completely random
 		// and needs updating between shots.
 		if (!_unit->isOut() && _shotsFired < 10 && _berserking)
@@ -66,7 +68,7 @@ void UnitPanicBState::think()
 			ba.actor = _unit;
 			ba.weapon = _unit->getMainHandWeapon();
 			if (ba.weapon && (ba.weapon->getRules()->getTUSnap() || ba.weapon->getRules()->getTUAuto()) 
-				&& (_parent->getDepth() != 0 || ba.weapon->getRules()->isWaterOnly() == false))
+				&& _parent->getSave()->isItemUsable(ba.weapon->getRules()))
 			{
 				// make autoshots if possible.
 				if (ba.weapon->getRules()->getTUAuto())

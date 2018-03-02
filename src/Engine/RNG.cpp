@@ -17,7 +17,7 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "RNG.h"
-#include <math.h>
+#include <cmath>
 #include <time.h>
 #include <stdlib.h>
 #ifndef UINT64_MAX
@@ -90,7 +90,7 @@ int generate(int min, int max)
 double generate(double min, double max)
 {
 	double num = next();
-	return (double)(num / ((double)UINT64_MAX / (max - min)) + min);
+	return (num / ((double)UINT64_MAX / (max - min)) + min);
 }
 
 /**
@@ -102,7 +102,7 @@ double generate(double min, double max)
  */
 int seedless(int min, int max)
 {
-	return (int)(rand() % (max - min + 1) + min);
+	return (rand() % (max - min + 1) + min);
 }
 
 
@@ -164,4 +164,5 @@ int generateEx(int max)
 }
 
 }
+
 }

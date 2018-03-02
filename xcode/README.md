@@ -11,7 +11,7 @@ If you want to save yourself the trouble - don’t do it manually, use Homebrew 
 
 This guide assumes you listened to the previous recommendation and had your dependencies installed with brew terminal command (for Homebrew), like this:
 ```
-$ brew install cmake yaml-cpp —-with-static-lib sdl sdl_gfx sdl_image sdl_mixer --with-flac --with-libmikmod --with-libvorbis --with-static-lib
+$ brew install cmake yaml-cpp --with-static-lib sdl sdl_gfx sdl_image sdl_mixer --with-flac --with-libmikmod --with-libvorbis --with-static-lib
 ```
 or port terminal command (for MacPorts), like this:
 ```
@@ -35,4 +35,4 @@ Or, if you prefer to keep your build always separate from the game data files fo
 
 1. Enjoy!
 
-Should you require any further assistance regarding the OSX build - feel free to ask around on the official forums - http://openxcom.org/forum/ or contact us directly on GitHub - http://github.com/luciderous, http://github.com/rcreasey
+Should you require any further assistance regarding the OSX build - feel free to ask around on the official forums - https://openxcom.org/forum/ or contact us directly on GitHub - http://github.com/luciderous, http://github.com/rcreasey

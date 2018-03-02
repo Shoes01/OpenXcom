@@ -79,7 +79,7 @@ ActionMenuState::ActionMenuState(BattleAction *action, int x, int y) : _action(a
 
 	if (weapon->getBattleType() == BT_FIREARM)
 	{
-		if (weapon->isWaypoint() || (_action->weapon->getAmmoItem() && _action->weapon->getAmmoItem()->getRules()->isWaypoint()))
+		if (weapon->getWaypoints() != 0 || (_action->weapon->getAmmoItem() && _action->weapon->getAmmoItem()->getRules()->getWaypoints() != 0))
 		{
 			addItem(BA_LAUNCH, "STR_LAUNCH_MISSILE", &id);
 		}
@@ -215,11 +215,17 @@ void ActionMenuState::btnActionMenuItemClick(Action *action)
 			_action->result = "STR_UNABLE_TO_USE_ALIEN_ARTIFACT_UNTIL_RESEARCHED";
 			_game->popState();
 		}
-		else if (weapon->isWaterOnly() &&
-			_game->getSavedGame()->getSavedBattle()->getDepth() == 0 &&
-			_action->type != BA_THROW)
+		else if (_action->type != BA_THROW &&
+			!_game->getSavedGame()->getSavedBattle()->isItemUsable(weapon))
 		{
-			_action->result = "STR_UNDERWATER_EQUIPMENT";
+			if (weapon->isWaterOnly())
+			{
+				_action->result = "STR_UNDERWATER_EQUIPMENT";
+			}
+			else if (weapon->isLandOnly())
+			{
+				_action->result = "STR_LAND_EQUIPMENT";
+			}
 			_game->popState();
 		}
 		else if (_action->type == BA_PRIME)

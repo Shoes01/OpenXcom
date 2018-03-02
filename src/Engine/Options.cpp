@@ -52,6 +52,7 @@ std::vector<std::string> _userList;
 std::map<std::string, std::string> _commandLine;
 std::vector<OptionInfo> _info;
 std::map<std::string, ModInfo> _modInfos;
+std::string _masterMod;
 
 /**
  * Sets up the options by creating their OptionInfo metadata.
@@ -114,17 +115,18 @@ void create()
 	_info.push_back(OptionInfo("globeAllRadarsOnBaseBuild", &globeAllRadarsOnBaseBuild, true));
 	_info.push_back(OptionInfo("audioSampleRate", &audioSampleRate, 22050));
 	_info.push_back(OptionInfo("audioBitDepth", &audioBitDepth, 16));
+	_info.push_back(OptionInfo("audioChunkSize", &audioChunkSize, 1024));
 	_info.push_back(OptionInfo("pauseMode", &pauseMode, 0));
 	_info.push_back(OptionInfo("battleNotifyDeath", &battleNotifyDeath, false));
 	_info.push_back(OptionInfo("showFundsOnGeoscape", &showFundsOnGeoscape, false));
 	_info.push_back(OptionInfo("allowResize", &allowResize, false));
-	_info.push_back(OptionInfo("windowedModePositionX", &windowedModePositionX, -1));
-	_info.push_back(OptionInfo("windowedModePositionY", &windowedModePositionY, -1));
+	_info.push_back(OptionInfo("windowedModePositionX", &windowedModePositionX, 0));
+	_info.push_back(OptionInfo("windowedModePositionY", &windowedModePositionY, 0));
 	_info.push_back(OptionInfo("borderless", &borderless, false));
 	_info.push_back(OptionInfo("captureMouse", (bool*)&captureMouse, false));
 	_info.push_back(OptionInfo("battleTooltips", &battleTooltips, true));
 	_info.push_back(OptionInfo("keepAspectRatio", &keepAspectRatio, true));
-	_info.push_back(OptionInfo("nonSquarePixelRatio", &nonSquarePixelRatio, false));	
+	_info.push_back(OptionInfo("nonSquarePixelRatio", &nonSquarePixelRatio, false));
 	_info.push_back(OptionInfo("cursorInBlackBandsInFullscreen", &cursorInBlackBandsInFullscreen, false));
 	_info.push_back(OptionInfo("cursorInBlackBandsInWindow", &cursorInBlackBandsInWindow, true));
 	_info.push_back(OptionInfo("cursorInBlackBandsInBorderlessWindow", &cursorInBlackBandsInBorderlessWindow, false));
@@ -138,6 +140,7 @@ void create()
 	_info.push_back(OptionInfo("preferredVideo", (int*)&preferredVideo, VIDEO_FMV));
 	_info.push_back(OptionInfo("musicAlwaysLoop", &musicAlwaysLoop, false));
 	_info.push_back(OptionInfo("touchEnabled", &touchEnabled, false));
+	_info.push_back(OptionInfo("rootWindowedMode", &rootWindowedMode, false));
 
 	// advanced options
 	_info.push_back(OptionInfo("playIntro", &playIntro, true, "STR_PLAYINTRO", "STR_GENERAL"));
@@ -174,7 +177,7 @@ void create()
 	_info.push_back(OptionInfo("globeSeasons", &globeSeasons, false, "STR_GLOBESEASONS", "STR_GEOSCAPE"));
 	_info.push_back(OptionInfo("psiStrengthEval", &psiStrengthEval, false, "STR_PSISTRENGTHEVAL", "STR_GEOSCAPE"));
 	_info.push_back(OptionInfo("canTransferCraftsWhileAirborne", &canTransferCraftsWhileAirborne, false, "STR_CANTRANSFERCRAFTSWHILEAIRBORNE", "STR_GEOSCAPE")); // When the craft can reach the destination base with its fuel
-	_info.push_back(OptionInfo("spendResearchedItems", &spendResearchedItems, false, "STR_SPENDRESEARCHEDITEMS", "STR_GEOSCAPE"));
+	_info.push_back(OptionInfo("retainCorpses", &retainCorpses, false, "STR_RETAINCORPSES", "STR_GEOSCAPE"));
 	_info.push_back(OptionInfo("fieldPromotions", &fieldPromotions, false, "STR_FIELDPROMOTIONS", "STR_GEOSCAPE"));
 	_info.push_back(OptionInfo("meetingPoint", &meetingPoint, false, "STR_MEETINGPOINT", "STR_GEOSCAPE"));
 	
@@ -447,7 +450,7 @@ static void _scanMods(const std::string &modsDir)
 	std::vector<std::string> contents = CrossPlatform::getFolderContents(modsDir);
 	for (std::vector<std::string>::iterator i = contents.begin(); i != contents.end(); ++i)
 	{
-		std::string modPath = modsDir + "/" + *i;
+		std::string modPath = modsDir + CrossPlatform::PATH_SEPARATOR + *i;
 		if (!CrossPlatform::folderExists(modPath))
 		{
 			// skip non-directories (e.g. README.txt)
@@ -514,12 +517,15 @@ bool init(int argc, char *argv[])
 	s += "openxcom.log";
 	Logger::logFile() = s;
 	FILE *file = fopen(Logger::logFile().c_str(), "w");
-	if (!file)
+	if (file)
 	{
-		throw Exception(s + " not found");
+		fflush(file);
+		fclose(file);
 	}
-	fflush(file);
-	fclose(file);
+	else
+	{
+		Log(LOG_WARNING) << "Couldn't create log file, switching to stderr";
+	}
 	Log(LOG_INFO) << "Data folder is: " << _dataFolder;
 	Log(LOG_INFO) << "Data search is: ";
 	for (std::vector<std::string>::iterator i = _dataList.begin(); i != _dataList.end(); ++i)
@@ -530,14 +536,14 @@ bool init(int argc, char *argv[])
 	Log(LOG_INFO) << "Config folder is: " << _configFolder;
 	Log(LOG_INFO) << "Options loaded successfully.";
 
-	// pick up stuff in common
-	FileMap::load("common", CrossPlatform::searchDataFolder("common"), true);
-
 	return true;
 }
 
 void updateMods()
 {
+	// pick up stuff in common before-hand
+	FileMap::load("common", CrossPlatform::searchDataFolder("common"), true);
+
 	std::string modPath = CrossPlatform::searchDataFolder("standard");
 	Log(LOG_INFO) << "Scanning standard mods in '" << modPath << "'...";
 	_scanMods(modPath);
@@ -553,7 +559,7 @@ void updateMods()
 			|| (i->first == "xcom1" && !_ufoIsInstalled())
 			|| (i->first == "xcom2" && !_tftdIsInstalled()))
 		{
-			Log(LOG_INFO) << "removing references to missing mod: " << i->first;
+			Log(LOG_VERBOSE) << "removing references to missing mod: " << i->first;
 			i = mods.erase(i);
 			continue;
 		}
@@ -635,38 +641,26 @@ void updateMods()
 		{
 			Log(LOG_INFO) << "no master already active; activating " << inactiveMaster;
 			std::find(mods.begin(), mods.end(), std::pair<std::string, bool>(inactiveMaster, false))->second = true;
+			_masterMod = inactiveMaster;
 		}
 	}
+	else
+	{
+		_masterMod = activeMaster;
+	}
 
+	updateReservedSpace();
 	mapResources();
 	userSplitMasters();
 }
 
+/**
+ * Gets the currently active master mod.
+ * @return Mod id.
+ */
 std::string getActiveMaster()
 {
-	std::string curMaster;
-	for (std::vector< std::pair<std::string, bool> >::const_iterator i = mods.begin(); i != mods.end(); ++i)
-	{
-		if (!i->second)
-		{
-			// we're only looking for active mods
-			continue;
-		}
-
-		ModInfo modInfo = _modInfos.find(i->first)->second;
-		if (!modInfo.isMaster())
-		{
-			continue;
-		}
-
-		curMaster = modInfo.getId();
-		break;
-	}
-	if (curMaster.empty())
-	{
-		Log(LOG_ERROR) << "cannot determine current active master";
-	}
-	return curMaster;
+	return _masterMod;
 }
 
 static void _loadMod(const ModInfo &modInfo, std::set<std::string> circDepCheck)
@@ -711,12 +705,14 @@ static void _loadMod(const ModInfo &modInfo, std::set<std::string> circDepCheck)
 	}
 }
 
-void mapResources()
+void updateReservedSpace()
 {
-	Log(LOG_INFO) << "Mapping resource files...";
-	FileMap::clear();
+	Log(LOG_VERBOSE) << "Updating reservedSpace for master mods if necessary...";
 
 	std::string curMaster = getActiveMaster();
+	Log(LOG_VERBOSE) << "curMaster = " << curMaster;
+
+	int maxSize = 1;
 	for (std::vector< std::pair<std::string, bool> >::reverse_iterator i = mods.rbegin(); i != mods.rend(); ++i)
 	{
 		if (!i->second)
@@ -732,10 +728,59 @@ void mapResources()
 			continue;
 		}
 
+		if (modInfo.getReservedSpace() > maxSize)
+		{
+			maxSize = modInfo.getReservedSpace();
+		}
+	}
+
+	if (maxSize > 1)
+	{
+		// Small hack: update ALL masters, not only active master!
+		// this is because, there can be a hierarchy of multiple masters (e.g. xcom1 master > fluffyUnicorns master > some fluffyUnicorns mod)
+		// and the one that needs to be updated is actually the "root", i.e. xcom1 master
+		for (std::map<std::string, ModInfo>::iterator i = _modInfos.begin(); i != _modInfos.end(); ++i)
+		{
+			if (i->second.isMaster())
+			{
+				if (i->second.getReservedSpace() < maxSize)
+				{
+					i->second.setReservedSpace(maxSize);
+					Log(LOG_INFO) << "reservedSpace for: " << i->first << " updated to: " << i->second.getReservedSpace();
+				}
+				else
+				{
+					Log(LOG_INFO) << "reservedSpace for: " << i->first << " is: " << i->second.getReservedSpace();
+				}
+			}
+		}
+	}
+}
+
+void mapResources()
+{
+	Log(LOG_INFO) << "Mapping resource files...";
+	FileMap::clear();
+
+	for (std::vector< std::pair<std::string, bool> >::reverse_iterator i = mods.rbegin(); i != mods.rend(); ++i)
+	{
+		if (!i->second)
+		{
+			Log(LOG_VERBOSE) << "skipping inactive mod: " << i->first;
+			continue;
+		}
+
+		const ModInfo &modInfo = _modInfos.find(i->first)->second;
+		if (!modInfo.canActivate(_masterMod))
+		{
+			Log(LOG_VERBOSE) << "skipping mod for non-current master: " << i->first << "(" << modInfo.getMaster() << " != " << _masterMod << ")";
+			continue;
+		}
+
 		std::set<std::string> circDepCheck;
 		_loadMod(modInfo, circDepCheck);
 	}
-	// pick up stuff in common
+	// TODO: Figure out why we still need to check common here
 	FileMap::load("common", CrossPlatform::searchDataFolder("common"), true);
 	Log(LOG_INFO) << "Resources files mapped successfully.";
 }
@@ -755,7 +800,11 @@ void setFolders()
 	if (_userFolder.empty())
 	{
 		std::vector<std::string> user = CrossPlatform::findUserFolders();
-		_configFolder = CrossPlatform::findConfigFolder();
+
+		if (_configFolder.empty())
+		{
+			_configFolder = CrossPlatform::findConfigFolder();
+		}
 
 		// Look for an existing user folder
 		for (std::vector<std::string>::reverse_iterator i = user.rbegin(); i != user.rend(); ++i)
@@ -800,19 +849,12 @@ void setFolders()
 void userSplitMasters()
 {
 	// get list of master mods
-	const std::map<std::string, ModInfo> &modInfos(Options::getModInfos());
-	if (modInfos.empty())
-	{
-		return;
-	}
 	std::vector<std::string> masters;
-	for (std::vector< std::pair<std::string, bool> >::const_iterator i = Options::mods.begin(); i != Options::mods.end(); ++i)
+	for (std::map<std::string, ModInfo>::const_iterator i = _modInfos.begin(); i != _modInfos.end(); ++i)
 	{
-		std::string modId = i->first;
-		ModInfo modInfo = modInfos.find(modId)->second;
-		if (modInfo.isMaster())
+		if (i->second.isMaster())
 		{
-			masters.push_back(modId);
+			masters.push_back(i->first);
 		}
 	}
 
@@ -829,7 +871,7 @@ void userSplitMasters()
 			{
 				saves = CrossPlatform::getFolderContents(_userFolder, "sav");
 				std::vector<std::string> autosaves = CrossPlatform::getFolderContents(_userFolder, "asav");
-				saves.insert(saves.end(), autosaves.begin(), autosaves.end());				
+				saves.insert(saves.end(), autosaves.begin(), autosaves.end());
 			}
 			for (std::vector<std::string>::iterator j = saves.begin(); j != saves.end();)
 			{
@@ -838,7 +880,7 @@ void userSplitMasters()
 				std::vector<std::string> mods = doc["mods"].as<std::vector< std::string> >(std::vector<std::string>());
 				if (std::find(mods.begin(), mods.end(), (*i)) != mods.end())
 				{
-					std::string dstFile = masterFolder + "/" + (*j);
+					std::string dstFile = masterFolder + CrossPlatform::PATH_SEPARATOR + (*j);
 					CrossPlatform::moveFile(srcFile, dstFile);
 					j = saves.erase(j);
 				}
@@ -922,6 +964,52 @@ void load(const std::string &filename)
 	}
 }
 
+void writeNode(const YAML::Node& node, YAML::Emitter& emitter)
+{
+	switch (node.Type())
+	{
+		case YAML::NodeType::Sequence:
+		{
+			emitter << YAML::BeginSeq;
+			for (size_t i = 0; i < node.size(); i++)
+			{
+				writeNode(node[i], emitter);
+			}
+			emitter << YAML::EndSeq;
+			break;
+		}
+		case YAML::NodeType::Map:
+		{
+			emitter << YAML::BeginMap;
+
+			// First collect all the keys
+			std::vector<std::string> keys(node.size());
+			int key_it = 0;
+			for (YAML::const_iterator it = node.begin(); it != node.end(); ++it)
+			{
+				keys[key_it++] = it->first.as<std::string>();
+			}
+
+			// Then sort them
+			std::sort(keys.begin(), keys.end());
+
+			// Then emit all the entries in sorted order.
+			for(size_t i = 0; i < keys.size(); i++)
+			{
+				emitter << YAML::Key;
+				emitter << keys[i];
+				emitter << YAML::Value;
+				writeNode(node[keys[i]], emitter);
+			}
+			emitter << YAML::EndMap;
+			break;
+		}
+		default:
+			emitter << node;
+			break;
+	}
+}
+
 /**
  * Saves options to a YAML file.
  * @param filename YAML filename.
@@ -954,9 +1042,9 @@ void save(const std::string &filename)
 			doc["mods"].push_back(mod);
 		}
 
-		out << doc;
+		writeNode(doc, out);
 
-		sav << out.c_str();
+		sav << out.c_str() << std::endl;
 	}
 	catch (YAML::Exception &e)
 	{
@@ -1022,7 +1110,7 @@ std::string getConfigFolder()
  */
 std::string getMasterUserFolder()
 {
-	return _userFolder + getActiveMaster() + "/";
+	return _userFolder + _masterMod + CrossPlatform::PATH_SEPARATOR;
 }
 
 /**
@@ -1032,6 +1120,29 @@ std::string getMasterUserFolder()
 const std::vector<OptionInfo> &getOptionInfo()
 {
 	return _info;
+}
+
+/**
+ * Returns a list of currently active mods.
+ * They must be enabled and activable.
+ * @sa ModInfo::canActivate
+ * @return List of info for the active mods.
+ */
+std::vector<const ModInfo *> getActiveMods()
+{
+	std::vector<const ModInfo*> activeMods;
+	for (std::vector< std::pair<std::string, bool> >::iterator i = mods.begin(); i != mods.end(); ++i)
+	{
+		if (i->second)
+		{
+			const ModInfo *info = &_modInfos.at(i->first);
+			if (info->canActivate(_masterMod))
+			{
+				activeMods.push_back(info);
+			}
+		}
+	}
+	return activeMods;
 }
 
 /**
@@ -1049,6 +1160,12 @@ void backupDisplay()
 	Options::newHQXFilter = Options::useHQXFilter;
 	Options::newOpenGLShader = Options::useOpenGLShader;
 	Options::newXBRZFilter = Options::useXBRZFilter;
+	Options::newRootWindowedMode = Options::rootWindowedMode;
+	Options::newWindowedModePositionX = Options::windowedModePositionX;
+	Options::newWindowedModePositionY = Options::windowedModePositionY;
+	Options::newFullscreen = Options::fullscreen;
+	Options::newAllowResize = Options::allowResize;
+	Options::newBorderless = Options::borderless;
 }
 
 /**
@@ -1056,7 +1173,7 @@ void backupDisplay()
  * testing a new display setup.
  */
 void switchDisplay()
-{	
+{
 	std::swap(displayWidth, newDisplayWidth);
 	std::swap(displayHeight, newDisplayHeight);
 	std::swap(useOpenGL, newOpenGL);
@@ -1066,7 +1183,14 @@ void switchDisplay()
 	std::swap(useHQXFilter, newHQXFilter);
 	std::swap(useOpenGLShader, newOpenGLShader);
 	std::swap(useXBRZFilter, newXBRZFilter);
+	std::swap(rootWindowedMode, newRootWindowedMode);
+	std::swap(windowedModePositionX, newWindowedModePositionX);
+	std::swap(windowedModePositionY, newWindowedModePositionY);
+	std::swap(fullscreen, newFullscreen);
+	std::swap(allowResize, newAllowResize);
+	std::swap(borderless, newBorderless);
 }
 
 }
+
 }

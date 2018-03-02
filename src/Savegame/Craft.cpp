@@ -16,9 +16,8 @@
  * You should have received a copy of the GNU General Public License
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
-#define _USE_MATH_DEFINES
 #include "Craft.h"
-#include <cmath>
+#include "../fmath.h"
 #include "../Engine/Language.h"
 #include "../Engine/RNG.h"
 #include "../Mod/RuleCraft.h"
@@ -143,17 +142,13 @@ void Craft::load(const YAML::Node &node, const Mod *mod, SavedGame *save)
 		}
 		else
 		{
-			Log(LOG_ERROR) << "Failed to load item " << type;			
+			Log(LOG_ERROR) << "Failed to load item " << type;
 		}
 	}
 	_status = node["status"].as<std::string>(_status);
 	_lowFuel = node["lowFuel"].as<bool>(_lowFuel);
 	_mission = node["mission"].as<bool>(_mission);
 	_interceptionOrder = node["interceptionOrder"].as<int>(_interceptionOrder);
-	if (const YAML::Node &name = node["name"])
-	{
-		_name = Language::utf8ToWstr(name.as<std::string>());
-	}
 	if (const YAML::Node &dest = node["dest"])
 	{
 		std::string type = dest["type"].as<std::string>();
@@ -184,28 +179,26 @@ void Craft::load(const YAML::Node &node, const Mod *mod, SavedGame *save)
 				}
 			}
 		}
-		else if (type == "STR_ALIEN_BASE")
-		{
-			for (std::vector<AlienBase*>::iterator i = save->getAlienBases()->begin(); i != save->getAlienBases()->end(); ++i)
-			{
-				if ((*i)->getId() == id)
-				{
-					setDestination(*i);
-					break;
-				}
-			}
-		}
 		else
 		{
 			// Backwards compatibility
 			if (type == "STR_ALIEN_TERROR")
 				type = "STR_TERROR_SITE";
-			for (std::vector<MissionSite*>::iterator i = save->getMissionSites()->begin(); i != save->getMissionSites()->end(); ++i)
+			bool found = false;
+			for (std::vector<MissionSite*>::iterator i = save->getMissionSites()->begin(); i != save->getMissionSites()->end() && !found; ++i)
 			{
 				if ((*i)->getId() == id && (*i)->getDeployment()->getMarkerName() == type)
 				{
 					setDestination(*i);
-					break;
+					found = true;
+				}
+			}
+			for (std::vector<AlienBase*>::iterator i = save->getAlienBases()->begin(); i != save->getAlienBases()->end() && !found; ++i)
+			{
+				if ((*i)->getId() == id && (*i)->getDeployment()->getMarkerName() == type)
+				{
+					setDestination(*i);
+					found = true;
 				}
 			}
 		}
@@ -256,8 +249,6 @@ YAML::Node Craft::save() const
 		node["interceptionOrder"] = _interceptionOrder;
 	if (_takeoff != 0)
 		node["takeoff"] = _takeoff;
-	if (!_name.empty())
-		node["name"] = Language::wstrToUtf8(_name);
 	return node;
 }
 
@@ -319,25 +310,13 @@ int Craft::getId() const
 }
 
 /**
- * Returns the craft's unique identifying name.
- * If there's no custom name, the language default is used.
+ * Returns the craft's unique default name.
  * @param lang Language to get strings from.
  * @return Full name.
  */
-std::wstring Craft::getName(Language *lang) const
+std::wstring Craft::getDefaultName(Language *lang) const
 {
-	if (_name.empty())
-		return lang->getString("STR_CRAFTNAME").arg(lang->getString(_rules->getType())).arg(_id);
-	return _name;
-}
-
-/**
- * Changes the craft's custom name.
- * @param newName New custom name. If set to blank, the language default is used.
- */
-void Craft::setName(const std::wstring &newName)
-{
-	_name = newName;
+	return lang->getString("STR_CRAFTNAME").arg(lang->getString(_rules->getType())).arg(_id);
 }
 
 /**
@@ -702,7 +681,7 @@ void Craft::think()
 	}
 	if (reachedDestination() && _dest == (Target*)_base)
 	{
-		setInterceptionOrder(0);
+		setInterceptionOrder(0); // just to be sure
 		checkup();
 		setDestination(0);
 		setSpeed(0);
@@ -1031,6 +1010,29 @@ void Craft::unload(const Mod *mod)
 			(*s)->setCraft(0);
 		}
 	}
+}
+
+/**
+ * Checks if an item can be reused by the craft and
+ * updates its status appropriately.
+ * @param item Item ID.
+ */
+void Craft::reuseItem(const std::string& item)
+{
+	if (_status != "STR_READY")
+		return;
+	// Check if it's ammo to reload the craft
+	for (std::vector<CraftWeapon*>::iterator w = _weapons.begin(); w != _weapons.end(); ++w)
+	{
+		if ((*w) != 0 && item == (*w)->getRules()->getClipItem() && (*w)->getAmmo() < (*w)->getRules()->getAmmoMax())
+		{
+			(*w)->setRearming(true);
+			_status = "STR_REARMING";
+		}
+	}
+	// Check if it's fuel to refuel the craft
+	if (item == _rules->getRefuelItem() && _fuel < _rules->getMaxFuel())
+		_status = "STR_REFUELLING";
 }
 
 }

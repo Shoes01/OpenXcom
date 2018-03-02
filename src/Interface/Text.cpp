@@ -35,7 +35,7 @@ namespace OpenXcom
  * @param x X position in pixels.
  * @param y Y position in pixels.
  */
-Text::Text(int width, int height, int x, int y) : Surface(width, height, x, y), _big(0), _small(0), _font(0), _lang(0), _wrap(false), _invert(false), _contrast(false), _indent(false), _align(ALIGN_LEFT), _valign(ALIGN_TOP), _color(0), _color2(0)
+Text::Text(int width, int height, int x, int y) : InteractiveSurface(width, height, x, y), _big(0), _small(0), _font(0), _lang(0), _wrap(false), _invert(false), _contrast(false), _indent(false), _align(ALIGN_LEFT), _valign(ALIGN_TOP), _color(0), _color2(0)
 {
 }
 
@@ -250,6 +250,16 @@ void Text::setVerticalAlign(TextVAlign valign)
 }
 
 /**
+ * Returns the way the text is aligned vertically
+ * relative to the drawing area.
+ * @return Horizontal alignment.
+ */
+TextVAlign Text::getVerticalAlign() const
+{
+	return _valign;
+}
+
+/**
  * Changes the color used to render the text. Unlike regular graphics,
  * fonts are greyscale so they need to be assigned a specific position
  * in the palette to be displayed.
@@ -417,7 +427,7 @@ void Text::processText()
 			word += charWidth;
 
 			// Wordwrap if the last word doesn't fit the line
-			if (_wrap && width >= getWidth() && !start)
+			if (_wrap && width >= getWidth() && (!start || _lang->getTextWrapping() == WRAP_LETTERS))
 			{
 				size_t indentLocation = c;
 				if (_lang->getTextWrapping() == WRAP_WORDS || Font::isSpace((*str)[c]))

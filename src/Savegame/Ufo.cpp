@@ -18,8 +18,6 @@
  */
 #include "Ufo.h"
 #include <assert.h>
-#define _USE_MATH_DEFINES
-#include <math.h>
 #include <algorithm>
 #include "../fmath.h"
 #include "Craft.h"
@@ -35,6 +33,14 @@
 
 namespace OpenXcom
 {
+
+const char *Ufo::ALTITUDE_STRING[] = {
+	"STR_GROUND",
+	"STR_VERY_LOW",
+	"STR_LOW_UC",
+	"STR_HIGH_UC",
+	"STR_VERY_HIGH"
+};
 
 /**
  * Initializes a UFO of the specified type.
@@ -156,12 +162,17 @@ void Ufo::load(const YAML::Node &node, const Mod &mod, SavedGame &game)
 		if (found == game.getAlienMissions().end())
 		{
 			// Corrupt save file.
-			throw Exception("Unknown mission, save file is corrupt.");
+			throw Exception("Unknown UFO mission, save file is corrupt.");
 		}
 		_mission = *found;
 
 		std::string tid = node["trajectory"].as<std::string>();
 		_trajectory = mod.getUfoTrajectory(tid);
+		if (_trajectory == 0)
+		{
+			// Corrupt save file.
+			throw Exception("Unknown UFO trajectory, save file is corrupt.");
+		}
 		_trajectoryPoint = node["trajectoryPoint"].as<size_t>(_trajectoryPoint);
 	}
 	_fireCountdown = node["fireCountdown"].as<int>(_fireCountdown);
@@ -262,11 +273,11 @@ void Ufo::setId(int id)
 }
 
 /**
- * Returns the UFO's unique identifying name.
+ * Returns the UFO's unique default name.
  * @param lang Language to get strings from.
  * @return Full name.
  */
-std::wstring Ufo::getName(Language *lang) const
+std::wstring Ufo::getDefaultName(Language *lang) const
 {
 	switch (_status)
 	{
@@ -384,11 +395,27 @@ std::string Ufo::getDirection() const
 
 /**
  * Returns the current altitude of the UFO.
- * @return Altitude.
+ * @return Altitude as string ID.
  */
 std::string Ufo::getAltitude() const
 {
 	return _altitude;
+}
+
+/**
+ * Returns the current altitude of the UFO.
+ * @return Altitude as integer (0-4).
+ */
+int Ufo::getAltitudeInt() const
+{
+	for (size_t i = 0; i < 5; ++i)
+	{
+		if (ALTITUDE_STRING[i] == _altitude)
+		{
+			return i;
+		}
+	}
+	return -1;
 }
 
 /**
@@ -739,8 +766,7 @@ void Ufo::setHitFrame(int frame)
  * Gets the UFO's hit frame.
  * @return the hit frame.
  */
-///
-int Ufo::getHitFrame()
+int Ufo::getHitFrame() const
 {
 	return _hitFrame;
 }
@@ -758,7 +784,7 @@ void Ufo::setEscapeCountdown(int time)
  * Gets the escape timer for dogfights.
  * @return how many ticks until the ship tries to leave.
  */
-int Ufo::getEscapeCountdown()
+int Ufo::getEscapeCountdown() const
 {
 	return _escapeCountdown;
 }
@@ -776,7 +802,7 @@ void Ufo::setFireCountdown(int time)
  * Gets the number of ticks until the ufo is ready to fire.
  * @return ticks until weapon is ready.
  */
-int Ufo::getFireCountdown()
+int Ufo::getFireCountdown() const
 {
 	return _fireCountdown;
 }
@@ -796,8 +822,9 @@ void Ufo::setInterceptionProcessed(bool processed)
  * Gets if the ufo has had its timers decremented on this cycle of interception updates.
  * @return if this ufo has already been processed.
  */
-bool Ufo::getInterceptionProcessed()
+bool Ufo::getInterceptionProcessed() const
 {
 	return _processedIntercept;
 }
+
 }

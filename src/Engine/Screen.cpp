@@ -21,7 +21,7 @@
 #include <sstream>
 #include <cmath>
 #include <iomanip>
-#include <limits.h>
+#include <climits>
 #include "../lodepng.h"
 #include "Exception.h"
 #include "Surface.h"
@@ -51,7 +51,7 @@ void Screen::makeVideoFlags()
 	{
 		_flags |= SDL_ASYNCBLIT;
 	}
-	if (isOpenGLEnabled())
+	if (useOpenGL())
 	{
 		_flags = SDL_OPENGL;
 		SDL_GL_SetAttribute( SDL_GL_RED_SIZE, 5 );
@@ -66,7 +66,7 @@ void Screen::makeVideoFlags()
 	}
 	
 	// Handle window positioning
-	if (Options::windowedModePositionX != -1 || Options::windowedModePositionY != -1)
+	if (!Options::fullscreen && Options::rootWindowedMode)
 	{
 		std::ostringstream ss;
 		ss << "SDL_VIDEO_WINDOW_POS=" << std::dec << Options::windowedModePositionX << "," << Options::windowedModePositionY;
@@ -92,14 +92,9 @@ void Screen::makeVideoFlags()
 	if (Options::borderless)
 	{
 		_flags |= SDL_NOFRAME;
-		SDL_putenv(const_cast<char*>("SDL_VIDEO_CENTERED=center"));
-	}
-	else
-	{
-		SDL_putenv(const_cast<char*>("SDL_VIDEO_CENTERED="));
 	}
 
-	_bpp = (is32bitEnabled() || isOpenGLEnabled()) ? 32 : 8;
+	_bpp = (use32bitScaler() || useOpenGL()) ? 32 : 8;
 	_baseWidth = Options::baseXResolution;
 	_baseHeight = Options::baseYResolution;
 }
@@ -111,7 +106,7 @@ void Screen::makeVideoFlags()
  */
 Screen::Screen() : _baseWidth(ORIGINAL_WIDTH), _baseHeight(ORIGINAL_HEIGHT), _scaleX(1.0), _scaleY(1.0), _flags(0), _numColors(0), _firstColor(0), _pushPalette(false), _surface(0)
 {
-	resetDisplay();	
+	resetDisplay();
 	memset(deferredPalette, 0, 256*sizeof(SDL_Color));
 }
 
@@ -150,7 +145,7 @@ void Screen::handle(Action *action)
 				case 1: Timer::gameSlowSpeed = 5; break;
 				case 5: Timer::gameSlowSpeed = 15; break;
 				default: Timer::gameSlowSpeed = 1; break;
-			}				
+			}
 		}
 	}
 	
@@ -185,7 +180,7 @@ void Screen::handle(Action *action)
  */
 void Screen::flip()
 {
-	if (getWidth() != _baseWidth || getHeight() != _baseHeight || isOpenGLEnabled())
+	if (getWidth() != _baseWidth || getHeight() != _baseHeight || useOpenGL())
 	{
 		Zoom::flipWithZoom(_surface->getSurface(), _screen, _topBlackBand, _bottomBlackBand, _leftBlackBand, _rightBlackBand, &glOutput);
 	}
@@ -313,12 +308,12 @@ void Screen::resetDisplay(bool resetVideo)
 #endif
 	makeVideoFlags();
 
-	if (!_surface || (_surface->getSurface()->format->BitsPerPixel != _bpp || 
+	if (!_surface || (_surface->getSurface()->format->BitsPerPixel != _bpp ||
 		_surface->getSurface()->w != _baseWidth ||
 		_surface->getSurface()->h != _baseHeight)) // don't reallocate _surface if not necessary, it's a waste of CPU cycles
 	{
 		if (_surface) delete _surface;
-		_surface = new Surface(_baseWidth, _baseHeight, 0, 0, Screen::is32bitEnabled() ? 32 : 8); // only HQX needs 32bpp for this surface; the OpenGL class has its own 32bpp buffer
+		_surface = new Surface(_baseWidth, _baseHeight, 0, 0, Screen::use32bitScaler() ? 32 : 8); // only HQX/XBRZ needs 32bpp for this surface; the OpenGL class has its own 32bpp buffer
 		if (_surface->getSurface()->format->BitsPerPixel == 8) _surface->setPalette(deferredPalette);
 	}
 	SDL_SetColorKey(_surface->getSurface(), 0, 0); // turn off color key! 
@@ -350,6 +345,10 @@ void Screen::resetDisplay(bool resetVideo)
 			_screen = SDL_SetVideoMode(640, 400, _bpp, _flags);
 			if (_screen == 0)
 			{
+				if (_flags & SDL_OPENGL)
+				{
+					Options::useOpenGL = false;
+				}
 				throw Exception(SDL_GetError());
 			}
 		}
@@ -412,7 +411,7 @@ void Screen::resetDisplay(bool resetVideo)
 		else
 		{
 			_cursorLeftBlackBand = 0;
-		}		
+		}
 	}
 	else if (_scaleY > _scaleX && Options::keepAspectRatio)
 	{
@@ -422,7 +421,7 @@ void Screen::resetDisplay(bool resetVideo)
 		{
 			_topBlackBand = 0;
 		}
-        _bottomBlackBand = getHeight() - targetHeight - _topBlackBand;
+		_bottomBlackBand = getHeight() - targetHeight - _topBlackBand;
 		if (_bottomBlackBand < 0)
 		{
 			_bottomBlackBand = 0;
@@ -438,21 +437,27 @@ void Screen::resetDisplay(bool resetVideo)
 		else
 		{
 			_cursorTopBlackBand = 0;
-		}		
+		}
 	}
 	else
 	{
 		_topBlackBand = _bottomBlackBand = _leftBlackBand = _rightBlackBand = _cursorTopBlackBand = _cursorLeftBlackBand = 0;
 	}
 
-	if (isOpenGLEnabled()) 
+	if (useOpenGL()) 
 	{
 #ifndef __NO_OPENGL
+		OpenGL::checkErrors = Options::checkOpenGLErrors;
 		glOutput.init(_baseWidth, _baseHeight);
 		glOutput.linear = Options::useOpenGLSmoothing; // setting from shader file will override this, though
-		glOutput.set_shader(FileMap::getFilePath(Options::useOpenGLShader).c_str());
+		if (!FileMap::isResourcesEmpty())
+		{
+			if (!glOutput.set_shader(FileMap::getFilePath(Options::useOpenGLShader).c_str()))
+			{
+				Options::useOpenGLShader = "";
+			}
+		}
 		glOutput.setVSync(Options::vSyncForOpenGL);
-		OpenGL::checkErrors = Options::checkOpenGLErrors;
 #endif
 	}
 
@@ -506,7 +511,7 @@ void Screen::screenshot(const std::string &filename) const
 {
 	SDL_Surface *screenshot = SDL_AllocSurface(0, getWidth() - getWidth()%4, getHeight(), 24, 0xff, 0xff00, 0xff0000, 0);
 	
-	if (isOpenGLEnabled())
+	if (useOpenGL())
 	{
 #ifndef __NO_OPENGL
 		GLenum format = GL_RGB;
@@ -533,29 +538,42 @@ void Screen::screenshot(const std::string &filename) const
 }
 
 
-/** 
+/**
  * Check whether a 32bpp scaler has been selected.
  * @return if it is enabled with a compatible resolution.
  */
-bool Screen::is32bitEnabled()
+bool Screen::use32bitScaler()
 {
 	int w = Options::displayWidth;
 	int h = Options::displayHeight;
 	int baseW = Options::baseXResolution;
 	int baseH = Options::baseYResolution;
+	int maxScale = 0;
 
-	return ((Options::useHQXFilter || Options::useXBRZFilter) && (
-			(w == baseW * 2 && h == baseH * 2) ||
-			(w == baseW * 3 && h == baseH * 3) ||
-			(w == baseW * 4 && h == baseH * 4) ||
-			(w == baseW * 5 && h == baseH * 5 && Options::useXBRZFilter)));
+	if (Options::useHQXFilter)
+	{
+		maxScale = 4;
+	}
+	else if (Options::useXBRZFilter)
+	{
+		maxScale = 6;
+	}
+
+	for (int i = 2; i <= maxScale; i++)
+	{
+		if (w == baseW * i && h == baseH * i)
+		{
+			return true;
+		}
+	}
+	return false;
 }
 
 /**
  * Check if OpenGL is enabled.
  * @return if it is enabled.
  */
-bool Screen::isOpenGLEnabled()
+bool Screen::useOpenGL()
 {
 #ifdef __NO_OPENGL
 	return false;
@@ -568,7 +586,7 @@ bool Screen::isOpenGLEnabled()
  * Gets the Horizontal offset from the mid-point of the screen, in pixels.
  * @return the horizontal offset.
  */
-int Screen::getDX()
+int Screen::getDX() const
 {
 	return (_baseWidth - ORIGINAL_WIDTH) / 2;
 }
@@ -577,7 +595,7 @@ int Screen::getDX()
  * Gets the Vertical offset from the mid-point of the screen, in pixels.
  * @return the vertical offset.
  */
-int Screen::getDY()
+int Screen::getDY() const
 {
 	return (_baseHeight - ORIGINAL_HEIGHT) / 2;
 }

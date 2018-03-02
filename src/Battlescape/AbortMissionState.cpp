@@ -69,7 +69,7 @@ AbortMissionState::AbortMissionState(SavedBattleGame *battleGame, BattlescapeSta
 	AlienDeployment *deployment = _game->getMod()->getDeployment(_battleGame->getMissionType());
 	if (deployment != 0)
 	{
-		exit = !deployment->getNextStage().empty();
+		exit = !deployment->getNextStage().empty() || deployment->getEscapeType() == ESCAPE_EXIT || deployment->getEscapeType() == ESCAPE_EITHER;
 		const std::vector<MapScript*> *scripts = _game->getMod()->getMapScript(deployment->getScript());
 		if (scripts != 0)
 		{
@@ -126,11 +126,11 @@ AbortMissionState::AbortMissionState(SavedBattleGame *battleGame, BattlescapeSta
 	_txtInEntrance->setHighContrast(true);
 	if (craft)
 	{
-		_txtInEntrance->setText(tr("STR_UNITS_IN_CRAFT", _inEntrance));		
+		_txtInEntrance->setText(tr("STR_UNITS_IN_CRAFT", _inEntrance));
 	}
 	else
 	{
-		_txtInEntrance->setText(tr("STR_UNITS_IN_ENTRANCE", _inEntrance));		
+		_txtInEntrance->setText(tr("STR_UNITS_IN_ENTRANCE", _inEntrance));
 	}
 
 	_txtInExit->setBig();

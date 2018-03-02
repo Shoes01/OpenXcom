@@ -16,7 +16,6 @@
  * You should have received a copy of the GNU General Public License
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
-#define _USE_MATH_DEFINES
 #include "StatString.h"
 #include <vector>
 #include "../Engine/Language.h"
@@ -44,15 +43,15 @@ StatString::~StatString()
  */
 void StatString::load(const YAML::Node &node)
 {
-    std::string conditionNames[] = {"psiStrength", "psiSkill", "bravery", "strength", "firing", "reactions", "stamina", "tu", "health", "throwing", "melee", "psiTraining"};
+	std::string conditionNames[] = {"psiStrength", "psiSkill", "bravery", "strength", "firing", "reactions", "stamina", "tu", "health", "throwing", "melee", "psiTraining"};
 	_stringToBeAddedIfAllConditionsAreMet = node["string"].as<std::string>(_stringToBeAddedIfAllConditionsAreMet);
-    for (size_t i = 0; i < sizeof(conditionNames)/sizeof(conditionNames[0]); i++)
+	for (size_t i = 0; i < sizeof(conditionNames)/sizeof(conditionNames[0]); i++)
 	{
-        if (node[conditionNames[i]])
+		if (node[conditionNames[i]])
 		{
-            _conditions.push_back(getCondition(conditionNames[i], node));
-        }
-    }
+			_conditions.push_back(getCondition(conditionNames[i], node));
+		}
+	}
 }
 
 /**
@@ -119,6 +118,14 @@ std::wstring StatString::calcStatString(UnitStats &currentStats, const std::vect
 			if (name != currentStatsMap.end())
 			{
 				conditionsMet = conditionsMet && (*j)->isMet(name->second, currentStats.psiSkill > 0 || psiStrengthEval);
+			}
+			else
+			{
+				// if name == currentStatsMap.end() we've searched for a stat that doesn't exist.
+				// this means psi training. if there's no "psiTraining" stat in the statsMap,
+				// this soldier isn't in training, so we won't append his name with the psiTraining tag.
+				// presumably conditionsMet was originally initialized as false, but for whatever reason that was changed, hence this.
+				conditionsMet = false;
 			}
 		}
 		if (conditionsMet)

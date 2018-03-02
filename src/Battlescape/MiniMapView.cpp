@@ -16,11 +16,11 @@
  * You should have received a copy of the GNU General Public License
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
-#include <cmath>
 #include <algorithm>
 #include "../fmath.h"
 #include "MiniMapView.h"
 #include "MiniMapState.h"
+#include "Pathfinding.h"
 #include "../Savegame/Tile.h"
 #include "Camera.h"
 #include "../Engine/Action.h"
@@ -67,7 +67,7 @@ void MiniMapView::draw()
 	{
 		return;
 	}
-	drawRect(0, 0, getWidth(), getHeight(), 0);
+	drawRect(0, 0, getWidth(), getHeight(), 15);
 	this->lock();
 	for (int lvl = 0; lvl <= _camera->getCenterPosition().z; lvl++)
 	{
@@ -86,20 +86,22 @@ void MiniMapView::draw()
 					px++;
 					continue;
 				}
-				if (t->isDiscovered(2))
+				for (int i = 0; i < 4; i++)
 				{
-					for (int i = 0; i < 4; i++)
-					{
-						data = t->getMapData(i);
+					data = t->getMapData(i);
 
-						Surface * s = 0;
-						if (data && data->getMiniMapIndex())
-						{
-							s = _set->getFrame (data->getMiniMapIndex()+35);
-						}
+					if (data && data->getMiniMapIndex())
+					{
+						Surface * s = _set->getFrame (data->getMiniMapIndex()+35);
 						if (s)
 						{
-							s->blitNShade(this, x, y, t->getShade());
+							int shade = 16;
+							if (t->isDiscovered(2))
+							{
+								shade = t->getShade();
+								if (shade > 7) shade = 7; //vanilla
+							}
+							s->blitNShade(this, x, y, shade);
 						}
 					}
 				}
@@ -112,7 +114,14 @@ void MiniMapView::draw()
 					frame += t->getPosition().x - t->getUnit()->getPosition().x;
 					frame += _frame * size * size;
 					Surface * s = _set->getFrame(frame);
-					s->blitNShade(this, x, y, 0);
+					if (size > 1 && t->getUnit()->getFaction() == FACTION_NEUTRAL)
+					{
+						s->blitNShade(this, x, y, 0, false, Pathfinding::red);
+					}
+					else
+					{
+						s->blitNShade(this, x, y, 0);
+					}
 				}
 				// perhaps (at least one) item on this tile?
 				if (t->isDiscovered(2) && !t->getInventory()->empty())
@@ -407,4 +416,5 @@ void MiniMapView::stopScrolling(Action *action)
 	// reset our "mouse position stored" flag
 	_cursorPosition.z = 0;
 }
+
 }

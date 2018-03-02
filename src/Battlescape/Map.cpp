@@ -16,8 +16,6 @@
  * You should have received a copy of the GNU General Public License
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
-#define _USE_MATH_DEFINES
-#include <cmath>
 #include <fstream>
 #include "Map.h"
 #include "Camera.h"
@@ -49,6 +47,7 @@
 #include "../Savegame/SavedGame.h"
 #include "../Interface/NumberText.h"
 #include "../Interface/Text.h"
+#include "../fmath.h"
 
 
 /*
@@ -138,7 +137,7 @@ void Map::init()
 	int b = 15; // black
 	int pixels[81] = { 0, 0, b, b, b, b, b, 0, 0,
 					   0, 0, b, f, f, f, b, 0, 0,
-				       0, 0, b, f, f, f, b, 0, 0,
+					   0, 0, b, f, f, f, b, 0, 0,
 					   b, b, b, f, f, f, b, b, b,
 					   b, f, f, f, f, f, f, f, b,
 					   0, b, f, f, f, f, f, b, 0,
@@ -824,7 +823,7 @@ void Map::drawTerrain(Surface *surface)
 							}
 						}
 					}
-			        unit = tile->getUnit();
+					unit = tile->getUnit();
 					// Draw soldier
 					if (unit && (unit->getVisible() || _save->getDebugMode()))
 					{
@@ -868,22 +867,25 @@ void Map::drawTerrain(Surface *surface)
 							int part = 0;
 							part += ttile->getPosition().x - tunit->getPosition().x;
 							part += (ttile->getPosition().y - tunit->getPosition().y)*2;
-							tmpSurface = tunit->getCache(&invalid, part);
-							if (tmpSurface)
+							if (part != 1 && part != 2)
 							{
-								Position offset;
-								calculateWalkingOffset(tunit, &offset);
-								offset.y += 24;
-								tmpSurface->blitNShade(surface, screenPosition.x + offset.x - _spriteWidth / 2, screenPosition.y + offset.y, ttile->getShade());
-								if (tunit->getArmor()->getSize() > 1)
+								tmpSurface = tunit->getCache(&invalid, part);
+								if (tmpSurface)
 								{
-									offset.y += 4;
-								}
-								if (tunit->getFire() > 0)
-								{
-									frameNumber = 4 + (_animFrame / 2);
-									tmpSurface = _game->getMod()->getSurfaceSet("SMOKE.PCK")->getFrame(frameNumber);
-									tmpSurface->blitNShade(surface, screenPosition.x + offset.x, screenPosition.y + offset.y, 0);
+									Position offset;
+									calculateWalkingOffset(tunit, &offset);
+									offset.y += 24;
+									tmpSurface->blitNShade(surface, screenPosition.x + offset.x - _spriteWidth / 2, screenPosition.y + offset.y, ttile->getShade());
+									if (tunit->getArmor()->getSize() > 1)
+									{
+										offset.y += 4;
+									}
+									if (tunit->getFire() > 0)
+									{
+										frameNumber = 4 + (_animFrame / 2);
+										tmpSurface = _game->getMod()->getSurfaceSet("SMOKE.PCK")->getFrame(frameNumber);
+										tmpSurface->blitNShade(surface, screenPosition.x + offset.x, screenPosition.y + offset.y, 0);
+									}
 								}
 							}
 						}
@@ -930,13 +932,13 @@ void Map::drawTerrain(Surface *surface)
 							switch ((*i)->getSize())
 							{
 							case 3:
-								surface->setPixel(vaporX+1, vaporY+1, (*_transparencies)[((*i)->getColor() * 1024) + ((*i)->getOpacity() * 256) + surface->getPixel(vaporX+1, vaporY+1)]); 
+								surface->setPixel(vaporX+1, vaporY+1, (*_transparencies)[((*i)->getColor() * 1024) + ((*i)->getOpacity() * 256) + surface->getPixel(vaporX+1, vaporY+1)]);
 							case 2:
-								surface->setPixel(vaporX + 1, vaporY, (*_transparencies)[((*i)->getColor() * 1024) + ((*i)->getOpacity() * 256) + surface->getPixel(vaporX + 1, vaporY)]); 
+								surface->setPixel(vaporX + 1, vaporY, (*_transparencies)[((*i)->getColor() * 1024) + ((*i)->getOpacity() * 256) + surface->getPixel(vaporX + 1, vaporY)]);
 							case 1:
-								surface->setPixel(vaporX, vaporY + 1, (*_transparencies)[((*i)->getColor() * 1024) + ((*i)->getOpacity() * 256) + surface->getPixel(vaporX, vaporY + 1)]); 
+								surface->setPixel(vaporX, vaporY + 1, (*_transparencies)[((*i)->getColor() * 1024) + ((*i)->getOpacity() * 256) + surface->getPixel(vaporX, vaporY + 1)]);
 							default:
-								surface->setPixel(vaporX, vaporY, (*_transparencies)[((*i)->getColor() * 1024) + ((*i)->getOpacity() * 256) + surface->getPixel(vaporX, vaporY)]); 
+								surface->setPixel(vaporX, vaporY, (*_transparencies)[((*i)->getColor() * 1024) + ((*i)->getOpacity() * 256) + surface->getPixel(vaporX, vaporY)]);
 								break;
 							}
 						}
@@ -1016,7 +1018,7 @@ void Map::drawTerrain(Surface *surface)
 									break;
 								}
 								// at this point, let's assume the shot is adjusted and set the text amber.
-								_txtAccuracy->setColor(Palette::blockOffset(1)-1);
+								_txtAccuracy->setColor(Palette::blockOffset(Pathfinding::yellow - 1)-1);
 
 								if (distance > upperLimit)
 								{
@@ -1029,7 +1031,7 @@ void Map::drawTerrain(Surface *surface)
 								else
 								{
 									// no adjustment made? set it to green.
-									_txtAccuracy->setColor(Palette::blockOffset(4)-1);
+									_txtAccuracy->setColor(Palette::blockOffset(Pathfinding::green - 1)-1);
 								}
 
 								bool outOfRange = distance > weapon->getMaxRange();
@@ -1054,7 +1056,7 @@ void Map::drawTerrain(Surface *surface)
 								if (accuracy <= 0 || outOfRange)
 								{
 									accuracy = 0;
-									_txtAccuracy->setColor(Palette::blockOffset(2)-1);
+									_txtAccuracy->setColor(Palette::blockOffset(Pathfinding::red - 1)-1);
 								}
 								ss << accuracy;
 								ss << "%";
@@ -1486,7 +1488,7 @@ void Map::calculateWalkingOffset(BattleUnit *unit, Position *offset)
   * @param size Size of the unit we want to get the level from.
   * @return terrainlevel.
   */
-int Map::getTerrainLevel(Position pos, int size)
+int Map::getTerrainLevel(const Position& pos, int size) const
 {
 	int lowestlevel = 0;
 
@@ -1562,22 +1564,6 @@ void Map::cacheUnit(BattleUnit *unit)
 			}
 			
 			unitSprite->setBattleUnit(unit, i);
-
-			BattleItem *rhandItem = unit->getItem("STR_RIGHT_HAND");
-			BattleItem *lhandItem = unit->getItem("STR_LEFT_HAND");
-			if (rhandItem && !rhandItem->getRules()->isFixed())
-			{
-				unitSprite->setBattleItem(rhandItem);
-			}
-			if (lhandItem && !lhandItem->getRules()->isFixed())
-			{
-				unitSprite->setBattleItem(lhandItem);
-			}
-
-			if (!lhandItem && !rhandItem)
-			{
-				unitSprite->setBattleItem(0);
-			}
 			unitSprite->setSurfaces(_game->getMod()->getSurfaceSet(unit->getArmor()->getSpriteSheet()),
 									_game->getMod()->getSurfaceSet("HANDOB.PCK"),
 									_game->getMod()->getSurfaceSet("HANDOB2.PCK"));
@@ -1709,7 +1695,7 @@ void Map::setWidth(int width)
  * Get the hidden movement screen's vertical position.
  * @return the vertical position of the hidden movement window.
  */
-int Map::getMessageY()
+int Map::getMessageY() const
 {
 	return _message->getY();
 }
@@ -1717,7 +1703,7 @@ int Map::getMessageY()
 /**
  * Get the icon height.
  */
-int Map::getIconHeight()
+int Map::getIconHeight() const
 {
 	return _iconHeight;
 }
@@ -1725,7 +1711,7 @@ int Map::getIconHeight()
 /**
  * Get the icon width.
  */
-int Map::getIconWidth()
+int Map::getIconWidth() const
 {
 	return _iconWidth;
 }
@@ -1736,7 +1722,7 @@ int Map::getIconWidth()
  * @param pos the map position to calculate the sound angle from.
  * @return the angle of the sound (280 to 440).
  */
-int Map::getSoundAngle(Position pos)
+int Map::getSoundAngle(const Position& pos) const
 {
 	int midPoint = getWidth() / 2;
 	Position relativePosition;
@@ -1750,7 +1736,7 @@ int Map::getSoundAngle(Position pos)
 	// we use +- 80 instead of +- 90, so as not to go ALL the way left or right
 	// which would effectively mute the sound out of one speaker.
 	// since Mix_SetPosition uses modulo 360, we can't feed it a negative number, so add 360 instead.
-	return 360 + (relativePosition.x / (double)(midPoint / 80.0));
+	return 360 + (relativePosition.x / (midPoint / 80.0));
 }
 
 /**
@@ -1774,7 +1760,7 @@ void Map::setBlastFlash(bool flash)
  * Checks if the screen is still being rendered in EGA.
  * @return if we are still in EGA mode.
  */
-bool Map::getBlastFlash()
+bool Map::getBlastFlash() const
 {
 	return _flashScreen;
 }
