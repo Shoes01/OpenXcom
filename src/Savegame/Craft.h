@@ -53,6 +53,8 @@ private:
 	std::vector<Vehicle*> _vehicles;
 	std::string _status;
 	bool _lowFuel, _mission, _inBattlescape, _inDogfight;
+
+	using MovingTarget::load;
 public:
 	/// Creates a craft of the specified type.
 	Craft(RuleCraft *rules, Base *base, int id = 0);
@@ -172,6 +174,8 @@ public:
 	CraftId getUniqueId() const;
 	/// Unloads the craft.
 	void unload(const Mod *mod);
+	/// Reuses a base item.
+	void reuseItem(const std::string &item);
 };
 
 }

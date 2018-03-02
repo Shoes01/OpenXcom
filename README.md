@@ -4,7 +4,7 @@ OpenXcom is an open-source clone of the popular "UFO: Enemy Unknown" ("X-COM:
 UFO Defense" in the USA release) and "X-COM: Terror From the Deep" videogames
 by Microprose, licensed under the GPL and written in C++ / SDL.
 
-See more info at the [website](http://openxcom.org)
+See more info at the [website](https://openxcom.org)
 and the [wiki](http://ufopaedia.org/index.php?title=OpenXcom).
 
 Uses modified code from SDL\_gfx (LGPL) with permission from author.
@@ -137,6 +137,7 @@ Data folders:
 - $HOME/.local/share/openxcom (if $XDG\_DATA\_HOME is not defined)
 - $XDG\_DATA\_DIRS/openxcom (for each directory in $XDG\_DATA\_DIRS if $XDG\_DATA\_DIRS is defined)
 - /usr/local/share/openxcom
+- /usr/share/openxcom
 - . (the current directory)
 
 ## Configuration
@@ -155,7 +156,7 @@ OpenXcom requires the following developer libraries:
 - [SDL\_mixer](http://www.libsdl.org/projects/SDL_mixer/) (libsdl-mixer1.2)
 - [SDL\_gfx](http://www.ferzkopp.net/joomla/content/view/19/14/) (libsdl-gfx1.2), version 2.0.22 or later
 - [SDL\_image](http://www.libsdl.org/projects/SDL_image/) (libsdl-image1.2)
-- [yaml-cpp](http://code.google.com/p/yaml-cpp/), version 0.5 or later
+- [yaml-cpp](https://github.com/jbeder/yaml-cpp), version 0.5 or later
 
 The source code includes files for the following build tools:
 

@@ -37,6 +37,7 @@ class TileEngine;
 class BattleItem;
 class Mod;
 class State;
+class RuleItem;
 
 /**
  * The battlescape data that gets written to disk when the game is saved.
@@ -90,7 +91,7 @@ public:
 	/// Saves a saved battle game to YAML.
 	YAML::Node save() const;
 	/// Sets the dimensions of the map and initializes it.
-	void initMap(int mapsize_x, int mapsize_y, int mapsize_z);
+	void initMap(int mapsize_x, int mapsize_y, int mapsize_z, bool resetTerrain = true);
 	/// Initialises the pathfinding and tileengine.
 	void initUtilities(Mod *mod);
 	/// Gets the game's mapdatafiles.
@@ -126,7 +127,7 @@ public:
 	 * @param pos The position to convert.
 	 * @return A unique index.
 	 */
-	inline int getTileIndex(const Position& pos) const
+	inline int getTileIndex(Position pos) const
 	{
 		return pos.z * _mapsize_y * _mapsize_x + pos.y * _mapsize_x + pos.x;
 	}
@@ -141,7 +142,7 @@ public:
 	 * @param pos Map position.
 	 * @return Pointer to the tile at that position.
 	 */
-	inline Tile *getTile(const Position& pos) const
+	inline Tile *getTile(Position pos) const
 	{
 		if (pos.x < 0 || pos.y < 0 || pos.z < 0
 			|| pos.x >= _mapsize_x || pos.y >= _mapsize_y || pos.z >= _mapsize_z)
@@ -159,7 +160,7 @@ public:
 	/// Selects the next soldier.
 	BattleUnit *selectNextPlayerUnit(bool checkReselect = false, bool setReselect = false, bool checkInventory = false);
 	/// Selects the unit with position on map.
-	BattleUnit *selectUnit(const Position& pos);
+	BattleUnit *selectUnit(Position pos);
 	/// Gets the pathfinding object.
 	Pathfinding *getPathfinding() const;
 	/// Gets a pointer to the tileengine.
@@ -203,7 +204,7 @@ public:
 	/// Removes the body item that corresponds to the unit.
 	void removeUnconsciousBodyItem(BattleUnit *bu);
 	/// Sets or tries to set a unit of a certain size on a certain position of the map.
-	bool setUnitPosition(BattleUnit *bu, const Position &position, bool testOnly = false);
+	bool setUnitPosition(BattleUnit *bu, Position position, bool testOnly = false);
 	/// Adds this unit to the vector of falling units.
 	bool addFallingUnit(BattleUnit* unit);
 	/// Gets the vector of falling units.
@@ -225,7 +226,7 @@ public:
 	/// Checks whether a particular faction has eyes on *unit (whether any unit on that faction sees *unit).
 	bool eyesOnTarget(UnitFaction faction, BattleUnit* unit);
 	/// Attempts to place a unit on or near entryPoint.
-	bool placeUnitNearPosition(BattleUnit *unit, Position entryPoint, bool largeFriend);
+	bool placeUnitNearPosition(BattleUnit *unit, const Position& entryPoint, bool largeFriend);
 	/// Resets the turn counter.
 	void resetTurnCounter();
 	/// Resets the visibility of all tiles on the map.
@@ -269,7 +270,7 @@ public:
 	/// Get the name of the music track.
 	std::string &getMusic();
 	/// Set the name of the music track.
-	void setMusic(std::string track);
+	void setMusic(const std::string& track);
 	/// Sets the objective type for this mission.
 	void setObjectiveType(int type);
 	/// Gets the objective type of this mission.
@@ -288,7 +289,12 @@ public:
 	void setChronoTrigger(ChronoTrigger trigger);
 	/// Sets the turn to start the aliens cheating.
 	void setCheatTurn(int turn);
+	/// Check whether the battle has actually commenced or not.
 	bool isBeforeGame() const;
+	/// Checks if an item is usable on this map.
+	bool isItemUsable(RuleItem *item) const;
+	/// Reset all the unit hit state flags.
+	void resetUnitHitStates();
 };
 
 }

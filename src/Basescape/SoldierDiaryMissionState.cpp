@@ -60,22 +60,22 @@ SoldierDiaryMissionState::SoldierDiaryMissionState(Soldier *soldier, int rowEntr
 	_lstKills = new TextList(270, 32, 20, 100);
 
 	// Set palette
-	setInterface("soldierMission");
+	setInterface("soldierDiaryMission");
 
-	add(_window, "window", "soldierMission");
-	add(_btnOk, "button", "soldierMission");
-	add(_btnPrev, "button", "soldierMission");
-	add(_btnNext, "button", "soldierMission");
-	add(_txtTitle, "text", "soldierMission");
-	add(_txtUFO, "text", "soldierMission");
-	add(_txtScore, "text", "soldierMission");
-	add(_txtKills, "text", "soldierMission");
-	add(_txtLocation, "text", "soldierMission");
-	add(_txtRace, "text", "soldierMission");
-	add(_txtDaylight, "text", "soldierMission");
-	add(_txtDaysWounded, "text", "soldierMission");
-	add(_txtNoRecord, "text", "soldierMission");
-	add(_lstKills, "list", "soldierMission");
+	add(_window, "window", "soldierDiaryMission");
+	add(_btnOk, "button", "soldierDiaryMission");
+	add(_btnPrev, "button", "soldierDiaryMission");
+	add(_btnNext, "button", "soldierDiaryMission");
+	add(_txtTitle, "text", "soldierDiaryMission");
+	add(_txtUFO, "text", "soldierDiaryMission");
+	add(_txtScore, "text", "soldierDiaryMission");
+	add(_txtKills, "text", "soldierDiaryMission");
+	add(_txtLocation, "text", "soldierDiaryMission");
+	add(_txtRace, "text", "soldierDiaryMission");
+	add(_txtDaylight, "text", "soldierDiaryMission");
+	add(_txtDaysWounded, "text", "soldierDiaryMission");
+	add(_txtNoRecord, "text", "soldierDiaryMission");
+	add(_lstKills, "list", "soldierDiaryMission");
 
 	centerAllSurfaces();
 
@@ -133,8 +133,11 @@ void SoldierDiaryMissionState::init()
 	
 	_lstKills->clearList();
 	_txtTitle->setText(tr(missionStatistics->at(missionId)->type));
-	_txtUFO->setText(tr(missionStatistics->at(missionId)->ufo));
-	_txtUFO->setVisible(missionStatistics->at(missionId)->ufo != "NO_UFO");
+	if (missionStatistics->at(missionId)->isUfoMission())
+	{
+		_txtUFO->setText(tr(missionStatistics->at(missionId)->ufo));
+	}
+	_txtUFO->setVisible(missionStatistics->at(missionId)->isUfoMission());
 	_txtScore->setText(tr("STR_SCORE_VALUE").arg(missionStatistics->at(missionId)->score));
 	_txtLocation->setText(tr("STR_LOCATION").arg(tr(missionStatistics->at(missionId)->getLocationString())));
 	_txtRace->setText(tr("STR_RACE_TYPE").arg(tr(missionStatistics->at(missionId)->alienRace)));

@@ -42,8 +42,8 @@ namespace OpenXcom
  * @param game Pointer to the core game.
  * @param wasLetterBoxed Was the game letterboxed?
  */
-VideoState::VideoState(const std::vector<std::string> *videos, bool useUfoAudioSequence)
-		: _videos(videos), _useUfoAudioSequence(useUfoAudioSequence)
+VideoState::VideoState(const std::vector<std::string> *videos, const std::vector<std::string> *tracks, bool useUfoAudioSequence)
+		: _videos(videos), _tracks(tracks), _useUfoAudioSequence(useUfoAudioSequence)
 {
 }
 
@@ -370,7 +370,7 @@ static struct AudioSequence
 					int channel = trackPosition % 4; // use at most four channels to play sound effects
 					double ratio = (double)Options::soundVolume / MIX_MAX_VOLUME;
 					Log(LOG_DEBUG) << "playing: " << sf->catFile << ":" << sf->sound << " for index " << command;
-					s = mod->getSound(sf->catFile, sf->sound);
+					s = mod->getSound(sf->catFile, sf->sound, false);
 					if (s)
 					{
 						s->play(channel);
@@ -426,9 +426,17 @@ void VideoState::init()
 	int dy = (Options::baseYResolution - Screen::ORIGINAL_HEIGHT) / 2;
 
 	FlcPlayer *flcPlayer = NULL;
+	size_t audioCounter = 0;
 	for (std::vector<std::string>::const_iterator it = _videos->begin(); it != _videos->end(); ++it)
 	{
-		std::string videoFileName = FileMap::getFilePath(*it);
+		bool useInternalAudio = true;
+		if (!_tracks->empty() && _tracks->size() > audioCounter && _game->getMod()->getMusic(_tracks->at(audioCounter)))
+		{
+			_game->getMod()->getMusic(_tracks->at(audioCounter))->play(0);
+			useInternalAudio = false;
+		}
+		audioCounter++;
+		const std::string& videoFileName = FileMap::getFilePath(*it);
 
 		if (!CrossPlatform::fileExists(videoFileName))
 		{
@@ -447,7 +455,7 @@ void VideoState::init()
 
 		flcPlayer->init(videoFileName.c_str(),
 			 _useUfoAudioSequence ? &audioHandler : NULL,
-			 _game, dx, dy);
+			 _game, useInternalAudio, dx, dy);
 		flcPlayer->play(_useUfoAudioSequence);
 		if (_useUfoAudioSequence)
 		{

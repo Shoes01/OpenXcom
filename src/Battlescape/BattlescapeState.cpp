@@ -62,12 +62,14 @@
 #include "../Mod/RuleItem.h"
 #include "../Mod/AlienDeployment.h"
 #include "../Mod/Armor.h"
+#include "../Mod/RuleUfo.h"
 #include "../Savegame/SavedGame.h"
 #include "../Savegame/SavedBattleGame.h"
 #include "../Savegame/Tile.h"
 #include "../Savegame/BattleUnit.h"
 #include "../Savegame/Soldier.h"
 #include "../Savegame/BattleItem.h"
+#include "../Savegame/Ufo.h"
 #include "../Mod/RuleInterface.h"
 
 namespace OpenXcom
@@ -174,7 +176,7 @@ BattlescapeState::BattlescapeState() : _reserve(0), _firstInit(true), _isMouseSc
 	
 	// Add in custom reserve buttons
 	Surface *icons = _game->getMod()->getSurface("ICONS.PCK");
-	if (_game->getMod()->getSurface("TFTDReserve"))
+	if (_game->getMod()->getSurface("TFTDReserve", false))
 	{
 		Surface *tftdIcons = _game->getMod()->getSurface("TFTDReserve");
 		tftdIcons->setX(48);
@@ -519,10 +521,17 @@ void BattlescapeState::init()
 		_reserve = _btnReserveNone;
 		break;
 	}
-	if (_firstInit && playableUnitSelected())
+	if (_firstInit)
 	{
-		_battleGame->setupCursor();
-		_map->getCamera()->centerOnPosition(_save->getSelectedUnit()->getPosition());
+		if (!playableUnitSelected())
+		{
+			selectNextPlayerUnit();
+		}
+		if (playableUnitSelected())
+		{
+			_battleGame->setupCursor();
+			_map->getCamera()->centerOnPosition(_save->getSelectedUnit()->getPosition());
+		}
 		_firstInit = false;
 		_btnReserveNone->setGroup(&_reserve);
 		_btnReserveSnap->setGroup(&_reserve);
@@ -915,9 +924,7 @@ void BattlescapeState::btnInventoryClick(Action *)
 		updateSoldierInfo();
 	}
 	if (playableUnitSelected()
-		&& (_save->getSelectedUnit()->getArmor()->getSize() == 1 || _save->getDebugMode())
-		&& (_save->getSelectedUnit()->getOriginalFaction() == FACTION_PLAYER ||
-			_save->getSelectedUnit()->getRankString() != "STR_LIVE_TERRORIST"))
+		&& (_save->getSelectedUnit()->hasInventory() || _save->getDebugMode()))
 	{
 		// clean up the waypoints
 		if (_battleGame->getCurrentAction()->type == BA_LAUNCH)
@@ -1579,6 +1586,22 @@ inline void BattlescapeState::handle(Action *action)
 						_save->getBattleGame()->checkForCasualties(0, 0, true, false);
 						_save->getBattleGame()->handleState();
 					}
+					// "ctrl-w" - warp unit
+					else if (_save->getDebugMode() && action->getDetails()->key.keysym.sym == SDLK_w && (SDL_GetModState() & KMOD_CTRL) != 0)
+					{
+						debug(L"Beam me up Scotty");
+						BattleUnit *unit = _save->getSelectedUnit();
+						Position newPos;
+						_map->getSelectorPosition(&newPos);
+						if (unit != 0 && newPos.x >= 0)
+						{
+							unit->getTile()->setUnit(0);
+							unit->setPosition(newPos);
+							_save->getTile(newPos)->setUnit(unit);
+							_save->getTileEngine()->calculateUnitLighting();
+							_save->getBattleGame()->handleState();
+						}
+					}
 					// f11 - voxel map dump
 					else if (action->getDetails()->key.keysym.sym == SDLK_F11)
 					{
@@ -1962,10 +1985,22 @@ void BattlescapeState::finishBattle(bool abort, int inExitArea)
 	{
 		_game->getMod()->getSoundByDepth(0, _save->getAmbientSound())->stopLoop();
 	}
-	std::string nextStage;
-	if (_save->getMissionType() != "STR_UFO_GROUND_ASSAULT" && _save->getMissionType() != "STR_UFO_CRASH_RECOVERY")
+	AlienDeployment *ruleDeploy = _game->getMod()->getDeployment(_save->getMissionType());
+	if (!ruleDeploy)
 	{
-		nextStage = _game->getMod()->getDeployment(_save->getMissionType())->getNextStage();
+		for (std::vector<Ufo*>::iterator ufo =_game->getSavedGame()->getUfos()->begin(); ufo != _game->getSavedGame()->getUfos()->end(); ++ufo)
+		{
+			if ((*ufo)->isInBattlescape())
+			{
+				ruleDeploy = _game->getMod()->getDeployment((*ufo)->getRules()->getType());
+				break;
+			}
+		}
+	}
+	std::string nextStage;
+	if (ruleDeploy)
+	{
+		nextStage = ruleDeploy->getNextStage();
 	}
 
 	if (!nextStage.empty() && inExitArea)
@@ -1986,15 +2021,19 @@ void BattlescapeState::finishBattle(bool abort, int inExitArea)
 		_game->popState();
 		_game->pushState(new DebriefingState);
 		std::string cutscene;
-		if (_game->getMod()->getDeployment(_save->getMissionType()))
+		if (ruleDeploy)
 		{
-			if (abort || inExitArea == 0)
+			if (abort)
 			{
-				cutscene = _game->getMod()->getDeployment(_save->getMissionType())->getLoseCutscene();
+				cutscene = ruleDeploy->getAbortCutscene();
+			}
+			else if (inExitArea == 0)
+			{
+				cutscene = ruleDeploy->getLoseCutscene();
 			}
 			else
 			{
-				cutscene = _game->getMod()->getDeployment(_save->getMissionType())->getWinCutscene();
+				cutscene = ruleDeploy->getWinCutscene();
 			}
 		}
 		if (!cutscene.empty())
@@ -2015,8 +2054,7 @@ void BattlescapeState::finishBattle(bool abort, int inExitArea)
 			// Autosave if game is over
 			if (_game->getSavedGame()->getEnding() != END_NONE && _game->getSavedGame()->isIronman())
 			{
-				_game->getSavedGame()->setBattleGame(0);
-				_game->pushState(new SaveGameState(OPT_GEOSCAPE, SAVE_IRONMAN, _palette));
+				_game->pushState(new SaveGameState(OPT_BATTLESCAPE, SAVE_IRONMAN, _palette));
 			}
 		}
 	}

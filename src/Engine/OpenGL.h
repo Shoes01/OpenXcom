@@ -1,4 +1,4 @@
-// This file was copied from the bsnes project. 
+// This file was copied from the bsnes project.
 
 // This is the license info, from ruby.hpp:
 
@@ -19,22 +19,6 @@ namespace OpenXcom
 {
 
 class Surface;
-
-#ifndef __APPLE__
-extern PFNGLCREATEPROGRAMPROC glCreateProgram;
-extern PFNGLUSEPROGRAMPROC glUseProgram;
-extern PFNGLCREATESHADERPROC glCreateShader;
-extern PFNGLDELETESHADERPROC glDeleteShader;
-extern PFNGLSHADERSOURCEPROC glShaderSource;
-extern PFNGLCOMPILESHADERPROC glCompileShader;
-extern PFNGLATTACHSHADERPROC glAttachShader;
-extern PFNGLDETACHSHADERPROC glDetachShader;
-extern PFNGLLINKPROGRAMPROC glLinkProgram;
-extern PFNGLGETUNIFORMLOCATIONPROC glGetUniformLocation;
-extern PFNGLUNIFORM1IPROC glUniform1i;
-extern PFNGLUNIFORM2FVPROC glUniform2fv;
-extern PFNGLUNIFORM4FVPROC glUniform4fv;
-#endif
 
 std::string strGLError(GLenum glErr);
 
@@ -57,9 +41,7 @@ class OpenGL {
 public:
   GLuint gltexture;
   GLuint glprogram;
-  GLuint fragmentshader;
   bool linear;
-  GLuint vertexshader;
   bool shader_support;
 
   uint32_t *buffer;
@@ -77,7 +59,7 @@ public:
   /// make the buffer show up on screen
   void refresh(bool smooth, unsigned inwidth, unsigned inheight, unsigned outwidth, unsigned outheight, int topBlackBand, int bottomBlackBand, int leftBlackBand, int rightBlackBand);
   /// set a shader! but what kind?
-  void set_shader(const char *source);
+  bool set_shader(const char *source);
   /// same but for fragment shader?
   void set_fragment_shader(const char *source);
   /// and vertex?

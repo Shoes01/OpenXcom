@@ -1,8 +1,11 @@
 project ( OpenXcom )
 
-cmake_minimum_required ( VERSION 2.8.5 )
+cmake_minimum_required ( VERSION 3.1 )
 set ( CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules" )
 include(GNUInstallDirs)
+
+# For yaml-cpp
+set (CMAKE_CXX_STANDARD 11)
 
 option ( DEV_BUILD "Development Build. Disable this for release builds" ON )
 option ( BUILD_PACKAGE "Prepares build for creation of a package with CPack" ON )
@@ -91,6 +94,8 @@ if ( NOT OPENGL_FOUND )
     "Continuing building without OpenGL support."
     )
   add_definitions(-D__NO_OPENGL)
+else ()
+    include_directories ( ${OPENGL_INCLUDE_DIR} )
 endif ()
 
 # Read version number
@@ -145,6 +150,14 @@ if ( BUILD_PACKAGE )
       message ( FATAL_ERROR "Release package can't be built from a debug build" )
     endif ()
   endif ( )
+
+  if ( NOT CPACK_GENERATOR )
+    set ( CPACK_GENERATOR "TXZ" )
+  endif ()
+  if ( NOT CPACK_SOURCE_GENERATOR )
+    set ( CPACK_SOURCE_GENERATOR "TXZ" )
+  endif ()
+
   set ( CPACK_PACKAGE_VENDOR "The OpenXcom project" )
   set ( CPACK_PACKAGE_DESCRIPTION_SUMMARY "Open-source clone of UFO: Enemy Unknown" )
   set ( CPACK_PACKAGE_DESCRIPTION_FILE "${CMAKE_SOURCE_DIR}/cmake/modules/Description.txt" )
@@ -153,8 +166,9 @@ if ( BUILD_PACKAGE )
     set ( CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/LICENSE.txt" )
   endif ()
   set ( CPACK_PACKAGE_CONTACT "The OpenXcom project (http://www.openxcom.org)" )
-  include ( deb )
-  include ( rpm )
+
+  include ( LinuxDEB )
+  include ( LinuxRPM )
   include ( nsis )
   include ( apple )
   include ( CPack )
@@ -163,10 +177,14 @@ if ( BUILD_PACKAGE )
 endif()
 
 if ( NOT WIN32 )
-  install(FILES "${CMAKE_SOURCE_DIR}/res/linux/openxcom.desktop"     DESTINATION share/applications)
-  install(FILES "${CMAKE_SOURCE_DIR}/res/linux/icons/openxcom_48x48.png"   DESTINATION share/icons/hicolor/48x48/apps RENAME openxcom.png)
-  install(FILES "${CMAKE_SOURCE_DIR}/res/linux/icons/openxcom_128x128.png"   DESTINATION share/icons/hicolor/128x128/apps RENAME openxcom.png)
-  install(FILES "${CMAKE_SOURCE_DIR}/res/linux/icons/openxcom.svg"   DESTINATION share/icons/hicolor/scalable/apps)
+  install(FILES "${CMAKE_SOURCE_DIR}/res/linux/openxcom.desktop"
+    DESTINATION "${CMAKE_INSTALL_FULL_DATAROOTDIR}/applications")
+  install(FILES "${CMAKE_SOURCE_DIR}/res/linux/icons/openxcom_48x48.png"
+    DESTINATION "${CMAKE_INSTALL_FULL_DATAROOTDIR}/icons/hicolor/48x48/apps" RENAME openxcom.png)
+  install(FILES "${CMAKE_SOURCE_DIR}/res/linux/icons/openxcom_128x128.png"
+    DESTINATION "${CMAKE_INSTALL_FULL_DATAROOTDIR}/icons/hicolor/128x128/apps" RENAME openxcom.png)
+  install(FILES "${CMAKE_SOURCE_DIR}/res/linux/icons/openxcom.svg"
+    DESTINATION "${CMAKE_INSTALL_FULL_DATAROOTDIR}/icons/hicolor/scalable/apps")
 endif ()
 
 add_subdirectory ( docs )

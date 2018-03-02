@@ -290,7 +290,7 @@ void NewBattleState::load(const std::string &filename)
 				const std::vector<std::string> &research = mod->getResearchList();
 				for (std::vector<std::string>::const_iterator i = research.begin(); i != research.end(); ++i)
 				{
-					save->addFinishedResearch(mod->getResearch(*i));
+					save->addFinishedResearchSimple(mod->getResearch(*i));
 				}
 
 				// Generate items
@@ -445,7 +445,7 @@ void NewBattleState::initSave()
 	const std::vector<std::string> &research = mod->getResearchList();
 	for (std::vector<std::string>::const_iterator i = research.begin(); i != research.end(); ++i)
 	{
-		save->addFinishedResearch(mod->getResearch(*i));
+		save->addFinishedResearchSimple(mod->getResearch(*i));
 	}
 
 	_game->setSavedGame(save);
@@ -498,9 +498,15 @@ void NewBattleState::btnOkClick(Action *)
 		bgen.setUfo(u);
 		// either ground assault or ufo crash
 		if (RNG::generate(0,1) == 1)
+		{
+			u->setStatus(Ufo::LANDED);
 			bgame->setMissionType("STR_UFO_GROUND_ASSAULT");
+		}
 		else
+		{
+			u->setStatus(Ufo::CRASHED);
 			bgame->setMissionType("STR_UFO_CRASH_RECOVERY");
+		}
 		_game->getSavedGame()->getUfos()->push_back(u);
 	}
 	// mission site

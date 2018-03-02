@@ -81,7 +81,7 @@ protected:
 	std::list<Particle*> _particles;
 public:
 	/// Creates a tile.
-	Tile(const Position& pos);
+	Tile(Position pos);
 	/// Cleans up a tile.
 	~Tile();
 	/// Load the tile from yaml
@@ -122,7 +122,7 @@ public:
 	 * Gets the tile's position.
 	 * @return position
 	 */
-	const Position& getPosition() const
+	Position getPosition() const
 	{
 		return _pos;
 	}
@@ -208,7 +208,7 @@ public:
 	/// Get top-most item
 	int getTopItemSprite();
 	/// New turn preparations.
-	void prepareNewTurn();
+	void prepareNewTurn(bool smokeDamage);
 	/// Get inventory on this tile.
 	std::vector<BattleItem *> *getInventory();
 	/// Set the tile marker color.
@@ -232,7 +232,7 @@ public:
 	/// increment the overlap value on this tile.
 	void addOverlap();
 	/// set the danger flag on this tile (so the AI will avoid it).
-	void setDangerous();
+	void setDangerous(bool danger);
 	/// check the danger flag on this tile.
 	bool getDangerous() const;
 	/// adds a particle to this tile's array.

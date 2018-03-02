@@ -91,7 +91,7 @@ private:
 	int _motionPoints;
 	int _kills;
 	int _faceDirection; // used only during strafeing moves
-	bool _hitByFire;
+	bool _hitByFire, _hitByAnything;
 	int _moraleRestored;
 	int _coverReserve;
 	BattleUnit *_charging;
@@ -146,11 +146,11 @@ public:
 	/// Gets the BattleUnit's ID.
 	int getId() const;
 	/// Sets the unit's position
-	void setPosition(const Position& pos, bool updateLastPos = true);
+	void setPosition(Position pos, bool updateLastPos = true);
 	/// Gets the unit's position.
-	const Position& getPosition() const;
+	Position getPosition() const;
 	/// Gets the unit's position.
-	const Position& getLastPosition() const;
+	Position getLastPosition() const;
 	/// Sets the unit's direction 0-7.
 	void setDirection(int direction);
 	/// Sets the unit's face direction (only used by strafing moves)
@@ -168,7 +168,7 @@ public:
 	/// Gets the unit's status.
 	UnitStatus getStatus() const;
 	/// Start the walkingPhase
-	void startWalking(int direction, const Position &destination, Tile *tileBelowMe, bool cache);
+	void startWalking(int direction, Position destination, Tile *tileBelowMe, bool cache);
 	/// Increase the walkingPhase
 	void keepWalking(Tile *tileBelowMe, bool cache);
 	/// Gets the walking phase for animation and sound
@@ -176,9 +176,9 @@ public:
 	/// Gets the walking phase for diagonal walking
 	int getDiagonalWalkingPhase() const;
 	/// Gets the unit's destination when walking
-	const Position &getDestination() const;
+	Position getDestination() const;
 	/// Look at a certain point.
-	void lookAt(const Position &point, bool turret = false);
+	void lookAt(Position point, bool turret = false);
 	/// Look at a certain direction.
 	void lookAt(int direction, bool force = false);
 	/// Turn to the destination direction.
@@ -204,7 +204,7 @@ public:
 	/// Aim.
 	void aim(bool aiming);
 	/// Get direction to a certain point
-	int directionTo(const Position &point) const;
+	int directionTo(Position point) const;
 	/// Gets the unit's time units.
 	int getTimeUnits() const;
 	/// Gets the unit's stamina.
@@ -214,7 +214,7 @@ public:
 	/// Gets the unit's bravery.
 	int getMorale() const;
 	/// Do damage to the unit.
-	int damage(const Position &relative, int power, ItemDamageType type, bool ignoreArmor = false);
+	int damage(Position relative, int power, ItemDamageType type, bool ignoreArmor = false);
 	/// Heal stun level of the unit.
 	void healStun(int power);
 	/// Gets the unit's stun level.
@@ -327,7 +327,7 @@ public:
 	/// Updates the stats of a Geoscape soldier.
 	void updateGeoscapeStats(Soldier *soldier) const;
 	/// Check if unit eligible for squaddie promotion.
-	bool postMissionProcedures(SavedGame *geoscape);
+	bool postMissionProcedures(SavedGame *geoscape, UnitStats &statsDiff);
 	/// Get the sprite index for the minimap
 	int getMiniMapSpriteIndex() const;
 	/// Set the turret type. -1 is no turret.
@@ -485,16 +485,24 @@ public:
 	/// Get the unit murderer's weapon.
 	std::string getMurdererWeapon() const;
 	/// Set the unit murderer's weapon.
-	void setMurdererWeapon(std::string weapon);
+	void setMurdererWeapon(const std::string& weapon);
 	/// Get the unit murderer's weapon's ammo.
 	std::string getMurdererWeaponAmmo() const;
 	/// Set the unit murderer's weapon's ammo.
-	void setMurdererWeaponAmmo(std::string weaponAmmo);
+	void setMurdererWeaponAmmo(const std::string& weaponAmmo);
 	/// Set the unit mind controller's id.
 	void setMindControllerId(int id);
 	/// Get the unit mind controller's id.
 	int getMindControllerId() const;
-	
+	/// Get the unit's total firing xp for this mission.
+	int getFiringXP() const;
+	/// Artificially alter a unit's firing xp. (used for shotguns)
+	void nerfFiringXP(int newXP);
+	/// Was this unit just hit?
+	bool getHitState();
+	/// reset the unit hit state.
+	void resetHitState();
+
 };
 
 }

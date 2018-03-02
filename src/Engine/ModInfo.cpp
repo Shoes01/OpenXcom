@@ -27,12 +27,7 @@ namespace OpenXcom
 ModInfo::ModInfo(const std::string &path) :
 	 _path(path), _name(CrossPlatform::baseFilename(path)),
 	_desc("No description."), _version("1.0"), _author("unknown author"),
-	_id(_name), _master("xcom1"), _isMaster(false)
-{
-	// empty
-}
-
-ModInfo::~ModInfo()
+	_id(_name), _master("xcom1"), _isMaster(false), _reservedSpace(1)
 {
 	// empty
 }
@@ -47,6 +42,16 @@ void ModInfo::load(const std::string &filename)
 	_author   = doc["author"].as<std::string>(_author);
 	_id       = doc["id"].as<std::string>(_id);
 	_isMaster = doc["isMaster"].as<bool>(_isMaster);
+	_reservedSpace = doc["reservedSpace"].as<int>(_reservedSpace);
+
+	if (_reservedSpace < 1)
+	{
+		_reservedSpace = 1;
+	}
+	else if (_reservedSpace > 100)
+	{
+		_reservedSpace = 100;
+	}
 
 	if (_isMaster)
 	{
@@ -72,6 +77,26 @@ const std::string &ModInfo::getAuthor()      const { return _author;   }
 const std::string &ModInfo::getId()          const { return _id;       }
 const std::string &ModInfo::getMaster()      const { return _master;   }
 bool               ModInfo::isMaster()       const { return _isMaster; }
+int                ModInfo::getReservedSpace()        const { return _reservedSpace;     }
+void ModInfo::setReservedSpace(int reservedSpace)
+{
+	_reservedSpace = reservedSpace;
+}
+
+/**
+ * Checks if a given mod can be activated.
+ * It must either be:
+ * - a Master mod
+ * - a standalone mod (no master)
+ * - depend on the current Master mod
+ * @param curMaster Id of the active master mod.
+ * @return True if it's activable, false otherwise.
+*/
+bool ModInfo::canActivate(const std::string &curMaster) const
+{
+	return (isMaster() || getMaster().empty() || getMaster() == curMaster);
+}
+
 
 const std::vector<std::string> &ModInfo::getExternalResourceDirs() const { return _externalResourceDirs; }
 }

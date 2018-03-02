@@ -867,22 +867,25 @@ void Map::drawTerrain(Surface *surface)
 							int part = 0;
 							part += ttile->getPosition().x - tunit->getPosition().x;
 							part += (ttile->getPosition().y - tunit->getPosition().y)*2;
-							tmpSurface = tunit->getCache(&invalid, part);
-							if (tmpSurface)
+							if (part != 1 && part != 2)
 							{
-								Position offset;
-								calculateWalkingOffset(tunit, &offset);
-								offset.y += 24;
-								tmpSurface->blitNShade(surface, screenPosition.x + offset.x - _spriteWidth / 2, screenPosition.y + offset.y, ttile->getShade());
-								if (tunit->getArmor()->getSize() > 1)
+								tmpSurface = tunit->getCache(&invalid, part);
+								if (tmpSurface)
 								{
-									offset.y += 4;
-								}
-								if (tunit->getFire() > 0)
-								{
-									frameNumber = 4 + (_animFrame / 2);
-									tmpSurface = _game->getMod()->getSurfaceSet("SMOKE.PCK")->getFrame(frameNumber);
-									tmpSurface->blitNShade(surface, screenPosition.x + offset.x, screenPosition.y + offset.y, 0);
+									Position offset;
+									calculateWalkingOffset(tunit, &offset);
+									offset.y += 24;
+									tmpSurface->blitNShade(surface, screenPosition.x + offset.x - _spriteWidth / 2, screenPosition.y + offset.y, ttile->getShade());
+									if (tunit->getArmor()->getSize() > 1)
+									{
+										offset.y += 4;
+									}
+									if (tunit->getFire() > 0)
+									{
+										frameNumber = 4 + (_animFrame / 2);
+										tmpSurface = _game->getMod()->getSurfaceSet("SMOKE.PCK")->getFrame(frameNumber);
+										tmpSurface->blitNShade(surface, screenPosition.x + offset.x, screenPosition.y + offset.y, 0);
+									}
 								}
 							}
 						}
@@ -1485,7 +1488,7 @@ void Map::calculateWalkingOffset(BattleUnit *unit, Position *offset)
   * @param size Size of the unit we want to get the level from.
   * @return terrainlevel.
   */
-int Map::getTerrainLevel(Position pos, int size) const
+int Map::getTerrainLevel(const Position& pos, int size) const
 {
 	int lowestlevel = 0;
 
@@ -1561,22 +1564,6 @@ void Map::cacheUnit(BattleUnit *unit)
 			}
 			
 			unitSprite->setBattleUnit(unit, i);
-
-			BattleItem *rhandItem = unit->getItem("STR_RIGHT_HAND");
-			BattleItem *lhandItem = unit->getItem("STR_LEFT_HAND");
-			if (rhandItem && !rhandItem->getRules()->isFixed())
-			{
-				unitSprite->setBattleItem(rhandItem);
-			}
-			if (lhandItem && !lhandItem->getRules()->isFixed())
-			{
-				unitSprite->setBattleItem(lhandItem);
-			}
-
-			if (!lhandItem && !rhandItem)
-			{
-				unitSprite->setBattleItem(0);
-			}
 			unitSprite->setSurfaces(_game->getMod()->getSurfaceSet(unit->getArmor()->getSpriteSheet()),
 									_game->getMod()->getSurfaceSet("HANDOB.PCK"),
 									_game->getMod()->getSurfaceSet("HANDOB2.PCK"));
@@ -1735,7 +1722,7 @@ int Map::getIconWidth() const
  * @param pos the map position to calculate the sound angle from.
  * @return the angle of the sound (280 to 440).
  */
-int Map::getSoundAngle(Position pos) const
+int Map::getSoundAngle(const Position& pos) const
 {
 	int midPoint = getWidth() / 2;
 	Position relativePosition;
@@ -1749,7 +1736,7 @@ int Map::getSoundAngle(Position pos) const
 	// we use +- 80 instead of +- 90, so as not to go ALL the way left or right
 	// which would effectively mute the sound out of one speaker.
 	// since Mix_SetPosition uses modulo 360, we can't feed it a negative number, so add 360 instead.
-	return 360 + (relativePosition.x / (double)(midPoint / 80.0));
+	return 360 + (relativePosition.x / (midPoint / 80.0));
 }
 
 /**

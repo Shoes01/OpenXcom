@@ -117,13 +117,13 @@ public:
 	/// Sets state think interval.
 	void setStateInterval(Uint32 interval);
 	/// Checks for casualties in battle.
-	void checkForCasualties(BattleItem *murderweapon, BattleUnit *murderer, bool hiddenExplosion = false, bool terrainExplosion = false);
+	void checkForCasualties(BattleItem *murderweapon, BattleUnit *origMurderer, bool hiddenExplosion = false, bool terrainExplosion = false);
 	/// Checks reserved tu.
 	bool checkReservedTU(BattleUnit *bu, int tu, bool justChecking = false);
 	/// Handles unit AI.
 	void handleAI(BattleUnit *unit);
 	/// Drops an item and affects it with gravity.
-	void dropItem(const Position &position, BattleItem *item, bool newItem = false, bool removeItem = false);
+	void dropItem(Position position, BattleItem *item, bool newItem = false, bool removeItem = false);
 	/// Converts a unit into a unit of another type.
 	BattleUnit *convertUnit(BattleUnit *unit);
 	/// Handles kneeling action.
@@ -135,9 +135,9 @@ public:
 	/// Determines whether there is an action currently going on.
 	bool isBusy() const;
 	/// Activates primary action (left click).
-	void primaryAction(const Position &pos);
+	void primaryAction(Position pos);
 	/// Activates secondary action (right click).
-	void secondaryAction(const Position &pos);
+	void secondaryAction(Position pos);
 	/// Handler for the blaster launcher button.
 	void launchAction();
 	/// Handler for the psi button.
@@ -189,6 +189,9 @@ public:
 	int getDepth() const;
 	/// Sets up a mission complete notification.
 	void missionComplete();
+	std::list<BattleState*> getStates();
+	/// Auto end the battle if conditions are met.
+	void autoEndBattle();
 };
 
 }

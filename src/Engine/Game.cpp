@@ -465,30 +465,22 @@ void Game::loadLanguage(const std::string &filename)
 		throw Exception(path + ": " + std::string(e.what()));
 	}
 
-	for (std::vector< std::pair<std::string, bool> >::const_iterator i = Options::mods.begin(); i != Options::mods.end(); ++i)
+	std::vector<const ModInfo*> activeMods = Options::getActiveMods();
+	for (std::vector<const ModInfo*>::const_iterator i = activeMods.begin(); i != activeMods.end(); ++i)
 	{
-		if (i->second)
+		std::string file = (*i)->getPath() + ss.str();
+		if (CrossPlatform::fileExists(file))
 		{
-			std::string modId = i->first;
-			ModInfo modInfo = Options::getModInfos().find(modId)->second;
-			std::string file = modInfo.getPath() + ss.str();
-			if (CrossPlatform::fileExists(file))
-			{
-				_lang->load(file);
-			}
+			_lang->load(file);
 		}
 	}
 
-	ExtraStrings *strings = 0;
-	std::map<std::string, ExtraStrings *> extraStrings = _mod->getExtraStrings();
-	if (!extraStrings.empty())
+	const std::map<std::string, ExtraStrings*> &extraStrings = _mod->getExtraStrings();
+	std::map<std::string, ExtraStrings*>::const_iterator it = extraStrings.find(filename);
+	if (it != extraStrings.end())
 	{
-		if (extraStrings.find(filename) != extraStrings.end())
-		{
-			strings = extraStrings[filename];
-		}
+		_lang->load(it->second);
 	}
-	_lang->load(strings);
 }
 
 /**
@@ -637,7 +629,13 @@ void Game::initAudio()
 		format = AUDIO_S8;
 	else
 		format = AUDIO_S16SYS;
-	if (Mix_OpenAudio(Options::audioSampleRate, format, 2, 1024) != 0)
+	if (Options::audioSampleRate >= 44100)
+		Options::audioChunkSize = std::max(2048, Options::audioChunkSize);
+	else if (Options::audioSampleRate >= 22050)
+		Options::audioChunkSize = std::max(1024, Options::audioChunkSize);
+	else if (Options::audioSampleRate >= 11025)
+		Options::audioChunkSize = std::max(512, Options::audioChunkSize);
+	if (Mix_OpenAudio(Options::audioSampleRate, format, 2, Options::audioChunkSize) != 0)
 	{
 		Log(LOG_ERROR) << Mix_GetError();
 		Log(LOG_WARNING) << "No sound device detected, audio disabled.";

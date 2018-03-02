@@ -277,7 +277,7 @@ GraphsState::GraphsState() : _butRegionsOffset(0), _butCountriesOffset(0)
 	btnUfoRegionClick(0);
 
 	// Set up objects
-	if (_game->getMod()->getSurface("GRAPH.BDY"))
+	if (_game->getMod()->getSurface("GRAPH.BDY", false))
 	{
 		_game->getMod()->getSurface("GRAPH.BDY")->blit(_bg);
 	}
@@ -699,7 +699,6 @@ void GraphsState::drawCountryLines()
 	double range = upperLimit - lowerLimit;
 	double low = lowerLimit;
 	int grids = 9; // cells in grid
-	if (low<0) grids--;
 	int check = _income ? 50 : 10;
 	while (range > check * grids)
 	{
@@ -870,14 +869,13 @@ void GraphsState::drawRegionLines()
 	double low = lowerLimit;
 	int check = 10;
 	int grids = 9; // cells in grid
-	if (low<0) grids--;
 	while (range > check * grids)
 	{
 		check *= 2;
 	}
 
 	lowerLimit = 0;
-	upperLimit = check * 9;
+	upperLimit = check * grids;
 
 	if (low < 0)
 	{
@@ -1052,14 +1050,13 @@ void GraphsState::drawFinanceLines()
 	double low = lowerLimit;
 	int check = 250;
 	int grids = 9; // cells in grid
-	if (low<0) grids--;
 	while (range > check * grids)
 	{
 		check *= 2;
 	}
 
 	lowerLimit = 0;
-	upperLimit = check * 9;
+	upperLimit = check * grids;
 
 	if (low < 0)
 	{
@@ -1148,8 +1145,7 @@ void GraphsState::shiftButtons(Action *action)
 
 void GraphsState::scrollButtons(std::vector<GraphButInfo *> &toggles, std::vector<ToggleTextButton *> &buttons, size_t &offset, int step)
 {
-	// minus one, 'cause we'll already added the TOTAL button to toggles
-	if ( int(step + (int)offset) < 0 || offset + step + GRAPH_MAX_BUTTONS >= toggles.size()-1)
+	if ( int(step + (int)offset) < 0 || offset + step + GRAPH_MAX_BUTTONS >= toggles.size())
 		return;
 	// set the next offset - cheaper to do it from starters
 	offset += step;

@@ -48,7 +48,7 @@ Tile::SerializationKey Tile::serializationKey =
  * constructor
  * @param pos Position.
  */
-Tile::Tile(const Position& pos): _smoke(0), _fire(0), _explosive(0), _explosiveType(0), _pos(pos), _unit(0), _animationOffset(0), _markerColor(0), _visible(false), _preview(-1), _TUMarker(-1), _overlaps(0), _danger(false)
+Tile::Tile(Position pos): _smoke(0), _fire(0), _explosive(0), _explosiveType(0), _pos(pos), _unit(0), _animationOffset(0), _markerColor(0), _visible(false), _preview(-1), _TUMarker(-1), _overlaps(0), _danger(false)
 {
 	for (int i = 0; i < 4; ++i)
 	{
@@ -807,7 +807,7 @@ int Tile::getTopItemSprite()
  * average out any smoke added by the number of overlaps.
  * apply fire/smoke damage to units as applicable.
  */
-void Tile::prepareNewTurn()
+void Tile::prepareNewTurn(bool smokeDamage)
 {
 	// we've received new smoke in this turn, but we're not on fire, average out the smoke.
 	if ( _overlaps != 0 && _smoke != 0 && _fire == 0)
@@ -843,16 +843,18 @@ void Tile::prepareNewTurn()
 			// no fire: must be smoke
 			else
 			{
-				// try to knock this guy out.
-				if (_unit->getArmor()->getDamageModifier(DT_SMOKE) > 0.0 && _unit->getArmor()->getSize() == 1)
+				if (smokeDamage)
 				{
-					_unit->damage(Position(0,0,0), (_smoke / 4) + 1, DT_SMOKE, true);
+					// try to knock this guy out.
+					if (_unit->getArmor()->getDamageModifier(DT_SMOKE) > 0.0 && _unit->getArmor()->getSize() == 1)
+					{
+						_unit->damage(Position(0,0,0), (_smoke / 4) + 1, DT_SMOKE, true);
+					}
 				}
 			}
 		}
 	}
 	_overlaps = 0;
-	_danger = false;
 }
 
 /**
@@ -957,9 +959,9 @@ void Tile::addOverlap()
 /**
  * set the danger flag on this tile.
  */
-void Tile::setDangerous()
+void Tile::setDangerous(bool danger)
 {
-	_danger = true;
+	_danger = danger;
 }
 
 /**

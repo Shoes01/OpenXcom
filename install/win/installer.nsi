@@ -25,13 +25,18 @@
 	!define GAME_NAME "OpenXcom"
 	!define GAME_VERSION "1.0"
 	!define GAME_AUTHOR "OpenXcom Developers"
+	!include "version.nsh"
 
 ;--------------------------------
 ;General
 
 	;Name and file
-	Name "${GAME_NAME} ${GAME_VERSION}"
+	Name "${GAME_NAME} ${GAME_VERSION}${GAME_VERSION_GIT}"
+!ifdef NSIS_WIN32_MAKENSIS
 	OutFile "openxcom-v${GAME_VERSION}-win.exe"
+!else
+	OutFile "openxcom_git_master_${GAME_DATE_GIT}.exe"
+!endif
 
 	;Default installation folder
 	InstallDir "$PROGRAMFILES\${GAME_NAME}"
@@ -205,6 +210,7 @@ Section "$(SETUP_GAME)" SecMain
 	
 	SetOutPath "$INSTDIR"
 	
+!ifdef NSIS_WIN32_MAKENSIS
 ${If} ${RunningX64}
 	File "..\..\bin\x64\Release\OpenXcom.exe"
 	File "..\..\bin\x64\*.dll"
@@ -212,6 +218,9 @@ ${Else}
 	File "..\..\bin\Win32\Release\OpenXcom.exe"
 	File "..\..\bin\Win32\*.dll"
 ${EndIf}
+!else
+	File "..\..\bin\openxcom.exe"
+!endif
 	File "..\..\LICENSE.txt"
 	File "..\..\CHANGELOG.txt"
 	File "..\..\README.md"
@@ -283,7 +292,7 @@ ${EndIf}
 	WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${GAME_NAME}" "InstallLocation" "$INSTDIR"
 	WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${GAME_NAME}" "Publisher" "${GAME_AUTHOR}"
 	WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${GAME_NAME}" "UninstallString" '"$INSTDIR\Uninstall.exe"'
-	WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${GAME_NAME}" "URLInfoAbout" "http://openxcom.org"
+	WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${GAME_NAME}" "URLInfoAbout" "https://openxcom.org"
 	WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${GAME_NAME}" "NoModify" 1
 	WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${GAME_NAME}" "NoRepair" 1
 	
@@ -294,7 +303,7 @@ ${EndIf}
 	SetOutPath "$INSTDIR"
 	
 	!insertmacro MUI_STARTMENU_WRITE_BEGIN Application
-    
+	
 		CreateDirectory "$SMPROGRAMS\$StartMenuFolder"
 		CreateShortCut "$SMPROGRAMS\$StartMenuFolder\${GAME_NAME}.lnk" "$INSTDIR\OpenXcom.exe"
 		CreateShortCut "$SMPROGRAMS\$StartMenuFolder\$(SETUP_SHORTCUT_CHANGELOG).lnk" "$INSTDIR\CHANGELOG.txt"
@@ -308,24 +317,23 @@ SectionEnd
 
 Section "$(SETUP_PATCH)" SecPatch
 
-	;(uses NSISdl.dll)
-	NSISdl::download "http://openxcom.org/download/extras/universal-patch.zip" "$TEMP\universal-patch.zip"
+	;(uses inetc.dll)
+	inetc::get "https://openxcom.org/download/extras/universal-patch.zip" "$TEMP\universal-patch.zip" /end
 	Pop $0
-	StrCmp $0 success success1
-		SetDetailsView show
-		DetailPrint "download failed: $0"
-		Abort
-	success1:
-	
+	StrCmp $0 "OK" patch_ok1 patch_fail1
+		
+	patch_ok1:	
 	;(uses nsisunz.dll)
 	nsisunz::UnzipToLog "$TEMP\universal-patch.zip" "$INSTDIR\UFO"
 	Pop $0
-	StrCmp $0 "success" success2
-		SetDetailsView show
-		DetailPrint "unzipping failed: $0"
-		Abort
-	success2:
-	
+	StrCmp $0 "success" patch_ok2 patch_fail1
+		
+	patch_fail1:
+	MessageBox MB_ICONEXCLAMATION|MB_YESNO $(SETUP_WARNING_PATCH) /SD IDYES IDYES patch_ok2 IDNO patch_fail2
+	patch_fail2:
+	Abort "Error"
+		
+	patch_ok2:	
 	Delete "$TEMP\universal-patch.zip"
 
 SectionEnd
@@ -333,6 +341,12 @@ SectionEnd
 Section /o "$(SETUP_PORTABLE)" SecPortable
 
 	CreateDirectory "$INSTDIR\user"
+	
+	!insertmacro MUI_STARTMENU_WRITE_BEGIN Application
+	
+		CreateShortCut "$SMPROGRAMS\$StartMenuFolder\$(SETUP_SHORTCUT_USER).lnk" "$INSTDIR\user"
+	
+	!insertmacro MUI_STARTMENU_WRITE_END
 
 SectionEnd
 
@@ -360,11 +374,13 @@ SectionEnd
 
 Function .onInit
 
+!ifdef NSIS_WIN32_MAKENSIS
 ${If} ${RunningX64}
 	StrCpy $INSTDIR "$PROGRAMFILES64\${GAME_NAME}"
 ${Else}
 	StrCpy $INSTDIR "$PROGRAMFILES32\${GAME_NAME}"
 ${EndIf}
+!endif
 	StrCpy $StartMenuFolder "${GAME_NAME}"
 	
 	; Check for existing X-COM installs
@@ -511,7 +527,7 @@ FunctionEnd
 ;--------------------------------
 ;Uninstaller Sections
 
-Section /o "un.$(SETUP_UNDATA)" UnData
+Section "un.$(SETUP_UNDATA)" UnData
 	RMDir /r "$INSTDIR\TFTD"
 	RMDir /r "$INSTDIR\UFO"
 SectionEnd
@@ -538,7 +554,7 @@ Section "-un.Main"
 	RMDir "$INSTDIR"
 	
 	!insertmacro MUI_STARTMENU_GETFOLDER Application $StartMenuFolder
-    
+	
 	Delete "$SMPROGRAMS\$StartMenuFolder\*.*"
 	RMDir "$SMPROGRAMS\$StartMenuFolder"
 	
@@ -565,6 +581,6 @@ SectionEnd
 	VIAddVersionKey /LANG=${LANG_ENGLISH} "ProductName" "${GAME_NAME} Installer"
 	VIAddVersionKey /LANG=${LANG_ENGLISH} "ProductVersion" "${GAME_VERSION}.0.0"
 	VIAddVersionKey /LANG=${LANG_ENGLISH} "CompanyName" "${GAME_AUTHOR}"
-	VIAddVersionKey /LANG=${LANG_ENGLISH} "LegalCopyright" "Copyright 2010-2014 ${GAME_AUTHOR}"
+	VIAddVersionKey /LANG=${LANG_ENGLISH} "LegalCopyright" "Copyright 2010-2016 ${GAME_AUTHOR}"
 	VIAddVersionKey /LANG=${LANG_ENGLISH} "FileDescription" "${GAME_NAME} Installer"
 	VIAddVersionKey /LANG=${LANG_ENGLISH} "FileVersion" "${GAME_VERSION}.0.0"

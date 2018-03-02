@@ -52,7 +52,7 @@ BattleUnit::BattleUnit(Soldier *soldier, int depth) :
 	_verticalDirection(0), _status(STATUS_STANDING), _walkPhase(0), _fallPhase(0), _kneeled(false), _floating(false),
 	_dontReselect(false), _fire(0), _currentAIState(0), _visible(false), _cacheInvalid(true),
 	_expBravery(0), _expReactions(0), _expFiring(0), _expThrowing(0), _expPsiSkill(0), _expPsiStrength(0), _expMelee(0),
-	_motionPoints(0), _kills(0), _hitByFire(false), _moraleRestored(0), _coverReserve(0), _charging(0), _turnsSinceSpotted(255),
+	_motionPoints(0), _kills(0), _hitByFire(false), _hitByAnything(false), _moraleRestored(0), _coverReserve(0), _charging(0), _turnsSinceSpotted(255),
 	_statistics(), _murdererId(0), _mindControllerID(0), _fatalShotSide(SIDE_FRONT), _fatalShotBodyPart(BODYPART_HEAD),
 	_geoscapeSoldier(soldier), _unitRules(0), _rankInt(0), _turretType(-1), _hidingForTurn(false), _respawn(false)
 {
@@ -164,7 +164,7 @@ BattleUnit::BattleUnit(Unit *unit, UnitFaction faction, int id, Armor *armor, St
 	_toDirectionTurret(0),  _verticalDirection(0), _status(STATUS_STANDING), _walkPhase(0),
 	_fallPhase(0), _kneeled(false), _floating(false), _dontReselect(false), _fire(0), _currentAIState(0),
 	_visible(false), _cacheInvalid(true), _expBravery(0), _expReactions(0), _expFiring(0),
-	_expThrowing(0), _expPsiSkill(0), _expPsiStrength(0), _expMelee(0), _motionPoints(0), _kills(0), _hitByFire(false),
+	_expThrowing(0), _expPsiSkill(0), _expPsiStrength(0), _expMelee(0), _motionPoints(0), _kills(0), _hitByFire(false), _hitByAnything(false),
 	_moraleRestored(0), _coverReserve(0), _charging(0), _turnsSinceSpotted(255),
 	_statistics(), _murdererId(0), _mindControllerID(0), _fatalShotSide(SIDE_FRONT),
 	_fatalShotBodyPart(BODYPART_HEAD), _armor(armor),  _geoscapeSoldier(0), _unitRules(unit),
@@ -296,12 +296,9 @@ BattleUnit::~BattleUnit()
 {
 	for (int i = 0; i < 5; ++i)
 		if (_cache[i]) delete _cache[i];
-	if (!getGeoscapeSoldier())
+	for (std::vector<BattleUnitKills*>::const_iterator i = _statistics->kills.begin(); i != _statistics->kills.end(); ++i)
 	{
-		for (std::vector<BattleUnitKills*>::const_iterator i = _statistics->kills.begin(); i != _statistics->kills.end(); ++i)
-		{
-			delete *i;
-		}
+		delete *i;
 	}
 	delete _statistics;
 	delete _currentAIState;
@@ -486,7 +483,7 @@ int BattleUnit::getId() const
  * @param pos position
  * @param updateLastPos refresh last stored position
  */
-void BattleUnit::setPosition(const Position& pos, bool updateLastPos)
+void BattleUnit::setPosition(Position pos, bool updateLastPos)
 {
 	if (updateLastPos) { _lastPos = _pos; }
 	_pos = pos;
@@ -496,7 +493,7 @@ void BattleUnit::setPosition(const Position& pos, bool updateLastPos)
  * Gets the BattleUnit's position.
  * @return position
  */
-const Position& BattleUnit::getPosition() const
+Position BattleUnit::getPosition() const
 {
 	return _pos;
 }
@@ -505,7 +502,7 @@ const Position& BattleUnit::getPosition() const
  * Gets the BattleUnit's position.
  * @return position
  */
-const Position& BattleUnit::getLastPosition() const
+Position BattleUnit::getLastPosition() const
 {
 	return _lastPos;
 }
@@ -514,7 +511,7 @@ const Position& BattleUnit::getLastPosition() const
  * Gets the BattleUnit's destination.
  * @return destination
  */
-const Position& BattleUnit::getDestination() const
+Position BattleUnit::getDestination() const
 {
 	return _destination;
 }
@@ -603,7 +600,7 @@ UnitStatus BattleUnit::getStatus() const
  * @param tileBelowMe Which tile is currently below the unit.
  * @param cache Update cache?
  */
-void BattleUnit::startWalking(int direction, const Position &destination, Tile *tileBelowMe, bool cache)
+void BattleUnit::startWalking(int direction, Position destination, Tile *tileBelowMe, bool cache)
 {
 	if (direction >= Pathfinding::DIR_UP)
 	{
@@ -747,7 +744,7 @@ int BattleUnit::getDiagonalWalkingPhase() const
  * @param point Position to look at.
  * @param turret True to turn the turret, false to turn the unit.
  */
-void BattleUnit::lookAt(const Position &point, bool turret)
+void BattleUnit::lookAt(Position point, bool turret)
 {
 	int dir = directionTo (point);
 
@@ -990,7 +987,7 @@ void BattleUnit::aim(bool aiming)
  * @param point given position.
  * @return direction.
  */
-int BattleUnit::directionTo(const Position &point) const
+int BattleUnit::directionTo(Position point) const
 {
 	double ox = point.x - _pos.x;
 	double oy = point.y - _pos.y;
@@ -1078,11 +1075,11 @@ int BattleUnit::getMorale() const
  * @param ignoreArmor Should the damage ignore armor resistance?
  * @return damage done after adjustment
  */
-int BattleUnit::damage(const Position &relative, int power, ItemDamageType type, bool ignoreArmor)
+int BattleUnit::damage(Position relative, int power, ItemDamageType type, bool ignoreArmor)
 {
 	UnitSide side = SIDE_FRONT;
 	UnitBodyPart bodypart = BODYPART_TORSO;
-
+	_hitByAnything = true;
 	if (power <= 0)
 	{
 		return 0;
@@ -1136,7 +1133,7 @@ int BattleUnit::damage(const Position &relative, int power, ItemDamageType type,
 			case 6:	side = SIDE_LEFT; 										break;
 			case 7:	side = RNG::generate(0,2) < 2 ? SIDE_FRONT:SIDE_LEFT; 	break;
 			}
-			if (relative.z > getHeight())
+			if (relative.z >= getHeight())
 			{
 				bodypart = BODYPART_HEAD;
 			}
@@ -1642,6 +1639,11 @@ void BattleUnit::prepareNewTurn(bool fullProcess)
 	if (_faction != _originalFaction)
 	{
 		_faction = _originalFaction;
+		if (_faction == FACTION_PLAYER && _currentAIState)
+		{
+			delete _currentAIState;
+			_currentAIState = 0;
+		}
 	}
 	else
 	{
@@ -2153,9 +2155,10 @@ void BattleUnit::updateGeoscapeStats(Soldier *soldier) const
  * Check if unit eligible for squaddie promotion. If yes, promote the unit.
  * Increase the mission counter. Calculate the experience increases.
  * @param geoscape Pointer to geoscape save.
+ * @param statsDiff (out) The passed UnitStats struct will be filled with the stats differences.
  * @return True if the soldier was eligible for squaddie promotion.
  */
-bool BattleUnit::postMissionProcedures(SavedGame *geoscape)
+bool BattleUnit::postMissionProcedures(SavedGame *geoscape, UnitStats &statsDiff)
 {
 	Soldier *s = geoscape->getSoldier(_id);
 	if (s == 0)
@@ -2166,6 +2169,7 @@ bool BattleUnit::postMissionProcedures(SavedGame *geoscape)
 	updateGeoscapeStats(s);
 
 	UnitStats *stats = s->getCurrentStats();
+	statsDiff -= *stats;        // subtract old stats
 	const UnitStats caps = s->getRules()->getStatCaps();
 	int healthLoss = _stats.health - _health;
 
@@ -2200,8 +2204,10 @@ bool BattleUnit::postMissionProcedures(SavedGame *geoscape)
 		stats->psiStrength += improveStat(_expPsiStrength);
 	}
 
+	bool hasImproved = false;
 	if (_expBravery || _expReactions || _expFiring || _expPsiSkill || _expPsiStrength || _expMelee)
 	{
+		hasImproved = true;
 		if (s->getRank() == RANK_ROOKIE)
 			s->promoteRank();
 		int v;
@@ -2213,13 +2219,12 @@ bool BattleUnit::postMissionProcedures(SavedGame *geoscape)
 		if (v > 0) stats->strength += RNG::generate(0, v/10 + 2);
 		v = caps.stamina - stats->stamina;
 		if (v > 0) stats->stamina += RNG::generate(0, v/10 + 2);
-		return true;
 	}
-	else
-	{
-		return false;
+
+	statsDiff += *stats; // add new stats
+
+	return hasImproved;
 	}
-}
 
 /**
  * Converts the number of experience to the stat increase.
@@ -2260,7 +2265,10 @@ int BattleUnit::getMiniMapSpriteIndex() const
 		else
 			return 24;
 	case FACTION_NEUTRAL:
-		return 6;
+		if (_armor->getSize() == 1)
+			return 6;
+		else
+			return 12;
 	default:
 		if (_armor->getSize() == 1)
 			return 0;
@@ -2307,14 +2315,22 @@ int BattleUnit::getFatalWound(int part) const
  */
 void BattleUnit::heal(int part, int woundAmount, int healthAmount)
 {
-	if (part < 0 || part > 5)
+	if (part < 0 || part > 5 || !_fatalWounds[part])
+	{
 		return;
-	if (!_fatalWounds[part])
-		return;
+	}
+
 	_fatalWounds[part] -= woundAmount;
+	if (_fatalWounds[part] < 0)
+	{
+		_fatalWounds[part] = 0;
+	}
+
 	_health += healthAmount;
 	if (_health > getBaseStats()->health)
+	{
 		_health = getBaseStats()->health;
+	}
 }
 
 /**
@@ -2484,7 +2500,7 @@ int BattleUnit::getMoveSound() const
  */
 bool BattleUnit::isWoundable() const
 {
-	return (_type=="SOLDIER" || (Options::alienBleeding && _faction != FACTION_PLAYER && _armor->getSize() == 1));
+	return (_type=="SOLDIER" || (Options::alienBleeding && _originalFaction != FACTION_PLAYER && _armor->getSize() == 1));
 }
 
 /**
@@ -3106,7 +3122,7 @@ void BattleUnit::recoverTimeUnits()
 		TURecovery = int(encumbrance * TURecovery);
 	}
 	// Each fatal wound to the left or right leg reduces the soldier's TUs by 10%.
-	TURecovery -= (TURecovery * (_fatalWounds[BODYPART_LEFTLEG]+_fatalWounds[BODYPART_RIGHTLEG] * 10))/100;
+	TURecovery -= (TURecovery * ((_fatalWounds[BODYPART_LEFTLEG]+_fatalWounds[BODYPART_RIGHTLEG]) * 10))/100;
 	setTimeUnits(TURecovery);
 
 	// recover energy
@@ -3198,7 +3214,7 @@ std::string BattleUnit::getMurdererWeapon() const
  * Set the murderer's weapon.
  * @param string murderer's weapon.
  */
-void BattleUnit::setMurdererWeapon(std::string weapon)
+void BattleUnit::setMurdererWeapon(const std::string& weapon)
 {
 	_murdererWeapon = weapon;
 }
@@ -3216,7 +3232,7 @@ std::string BattleUnit::getMurdererWeaponAmmo() const
  * Set the murderer's weapon's ammo.
  * @param string murderer weapon ammo.
  */
-void BattleUnit::setMurdererWeaponAmmo(std::string weaponAmmo)
+void BattleUnit::setMurdererWeaponAmmo(const std::string& weaponAmmo)
 {
 	_murdererWeaponAmmo = weaponAmmo;
 }
@@ -3237,6 +3253,38 @@ void BattleUnit::setMindControllerId(int id)
 int BattleUnit::getMindControllerId() const
 {
 	return _mindControllerID;
+}
+
+/**
+ * Get the unit's total firing xp for this mission.
+ */
+int BattleUnit::getFiringXP() const
+{
+	return _expFiring;
+}
+
+/**
+ * Artificially alter a unit's firing xp. (used for shotguns)
+ */
+void BattleUnit::nerfFiringXP(int newXP)
+{
+	_expFiring = newXP;
+}
+
+/**
+ * Was this unit just hit?
+ */
+bool BattleUnit::getHitState()
+{
+	return _hitByAnything;
+}
+
+/**
+ * reset the unit hit state.
+ */
+void BattleUnit::resetHitState()
+{
+	_hitByAnything = false;
 }
 
 }
