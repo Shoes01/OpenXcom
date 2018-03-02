@@ -2191,11 +2191,20 @@ Soldier *Mod::genSoldier(SavedGame *save, std::string type) const
 	// Check for duplicates
 	// Original X-COM gives up after 10 tries so might as well do the same here
 	bool duplicate = true;
-	for (int i = 0; i < 10 && duplicate; ++i)
+	bool alive = true;
+  int lineageCounter = 1; // Everyone is the first...
+	for (int i = 0; i < 100 && duplicate; i++)
 	{
-		delete soldier;
-		soldier = new Soldier(getSoldier(type, true), getArmor(getSoldier(type, true)->getArmor(), true), newId);
+		if (alive) // || !alive && !OPTIONS::useTheNewWay
+		{
+		    delete soldier;
+		    soldier = new Soldier(getSoldier(type), getArmor(getSoldier(type)->getArmor()), newId);
+        lineageCounter = 1; // Reset
+		}
+		
+		alive = false;
 		duplicate = false;
+    // Look to see if the soldier is alive and duped
 		for (std::vector<Base*>::iterator i = save->getBases()->begin(); i != save->getBases()->end() && !duplicate; ++i)
 		{
 			for (std::vector<Soldier*>::iterator j = (*i)->getSoldiers()->begin(); j != (*i)->getSoldiers()->end() && !duplicate; ++j)
@@ -2203,6 +2212,7 @@ Soldier *Mod::genSoldier(SavedGame *save, std::string type) const
 				if ((*j)->getName() == soldier->getName())
 				{
 					duplicate = true;
+					alive = true;
 				}
 			}
 			for (std::vector<Transfer*>::iterator k = (*i)->getTransfers()->begin(); k != (*i)->getTransfers()->end() && !duplicate; ++k)
@@ -2210,11 +2220,71 @@ Soldier *Mod::genSoldier(SavedGame *save, std::string type) const
 				if ((*k)->getType() == TRANSFER_SOLDIER && (*k)->getSoldier()->getName() == soldier->getName())
 				{
 					duplicate = true;
+					alive = true;
 				}
 			}
 		}
+		// Look to see if the soldier is !alive and duped
+		for (std::vector<Soldier*>::iterator i = save->getDeadSoldiers()->begin(); i != save->getDeadSoldiers()->end() && !duplicate; ++i)
+		{
+			if ((*i)->getName() == soldier->getName())
+			{
+				duplicate = true;
+				alive = false;
+			}
+		}
+		if (duplicate && !alive)
+		{
+			lineageCounter++; // We have a dupe; up the lineage count!
+			std::wostringstream name;
+			name << soldier->getName();
+            // Add the first IIs at end of the name, or
+			// add a I to the end of the name
+			if (lineageCounter == 2)
+			{
+				name << " II";
+			}
+			else
+			{
+				name << "I";				
+			}
+			// Then make the IIIIIs become Vs
+			if (lineageCounter % 5 == 0)
+			{
+				std::wstring tmpName;
+				tmpName = name.str().substr(0, name.str().length()-5);
+				name.str(L"");
+				name << tmpName;
+				name << "V";
+			}
+			// Because now there are two Vs, remove both and put an X.
+			if (lineageCounter % 10 == 0)
+			{
+				std::wstring tmpName;
+				tmpName = name.str().substr(0, name.str().length()-5);
+				name.str(L"");
+				name << tmpName;
+				name << "X";
+			}
+			// And just to be sure the name will never be too long... remove XXXXXs and put a L.
+			if (lineageCounter % 50 == 0)
+			{
+				std::wstring tmpName;
+				tmpName = name.str().substr(0, name.str().length()-5);
+				name.str(L"");
+				name << tmpName;
+				name << "L";
+			}
+			soldier->setName(name.str());
+		}
+		// If you run out of names to try...
+		if (i == 99)
+		{
+			soldier->setName(L"Faceless Henchman");
+		}
 	}
 
+	
 	// calculate new statString
 	soldier->calcStatString(getStatStrings(), (Options::psiStrengthEval && save->isResearched(getPsiRequirements())));
 
