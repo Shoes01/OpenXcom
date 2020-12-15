@@ -29,6 +29,7 @@
 #include "../Engine/Screen.h"
 #include "../Engine/Surface.h"
 #include "../Engine/Options.h"
+#include "../Engine/Unicode.h"
 #include "Globe.h"
 #include "../Interface/Text.h"
 #include "../Interface/TextButton.h"
@@ -171,7 +172,7 @@ GeoscapeState::GeoscapeState() : _pause(false), _zoomInEffectDone(false), _zoomO
 	_dogfightStartTimer = new Timer(Options::dogfightSpeed);
 	_dogfightTimer = new Timer(Options::dogfightSpeed);
 
-	_txtDebug = new Text(200, 18, 0, 0);
+	_txtDebug = new Text(200, 32, 0, 0);
 
 	// Set palette
 	setInterface("geoscape");
@@ -343,12 +344,12 @@ GeoscapeState::GeoscapeState() : _pause(false), _zoomInEffectDone(false), _zoomO
 	_txtHour->setAlign(ALIGN_RIGHT);
 
 	_txtHourSep->setBig();
-	_txtHourSep->setText(L":");
+	_txtHourSep->setText(":");
 
 	_txtMin->setBig();
 
 	_txtMinSep->setBig();
-	_txtMinSep->setText(L":");
+	_txtMinSep->setText(":");
 
 	_txtWeekday->setAlign(ALIGN_CENTER);
 
@@ -438,11 +439,11 @@ void GeoscapeState::handle(Action *action)
 			_game->getSavedGame()->setDebugMode();
 			if (_game->getSavedGame()->getDebugMode())
 			{
-				_txtDebug->setText(L"DEBUG MODE");
+				_txtDebug->setText("DEBUG MODE");
 			}
 			else
 			{
-				_txtDebug->setText(L"");
+				_txtDebug->setText("");
 			}
 		}
 		// "ctrl-c" - delete all soldier commendations
@@ -450,7 +451,7 @@ void GeoscapeState::handle(Action *action)
 		{
 			if (_game->getSavedGame()->getDebugMode())
 			{
-				_txtDebug->setText(L"SOLDIER COMMENDATIONS DELETED");
+				_txtDebug->setText("SOLDIER COMMENDATIONS DELETED");
 				for (std::vector<Base*>::iterator i = _game->getSavedGame()->getBases()->begin(); i != _game->getSavedGame()->getBases()->end(); ++i)
 				{
 					for (std::vector<Soldier*>::iterator j = (*i)->getSoldiers()->begin(); j != (*i)->getSoldiers()->end(); ++j)
@@ -465,7 +466,7 @@ void GeoscapeState::handle(Action *action)
 			}
 			else
 			{
-				_txtDebug->setText(L"");
+				_txtDebug->setText("");
 			}
 		}
 		// quick save and quick load
@@ -528,14 +529,14 @@ void GeoscapeState::init()
 	{
 		_game->getMod()->playMusic("GMINTER");
 	}
-	_globe->unsetNewBaseHover();
+	_globe->setNewBaseHover(false);
 
 		// run once
 	if (_game->getSavedGame()->getMonthsPassed() == -1 &&
 		// as long as there's a base
 		!_game->getSavedGame()->getBases()->empty() &&
 		// and it has a name (THIS prevents it from running prior to the base being placed.)
-		_game->getSavedGame()->getBases()->front()->getName() != L"")
+		!_game->getSavedGame()->getBases()->front()->getName().empty())
 	{
 		_game->getSavedGame()->addMonth();
 		determineAlienMissions();
@@ -589,22 +590,22 @@ void GeoscapeState::timeDisplay()
 {
 	if (Options::showFundsOnGeoscape)
 	{
-		_txtFunds->setText(Text::formatFunding(_game->getSavedGame()->getFunds()));
+		_txtFunds->setText(Unicode::formatFunding(_game->getSavedGame()->getFunds()));
 	}
 
-	std::wostringstream ss;
-	ss << std::setfill(L'0') << std::setw(2) << _game->getSavedGame()->getTime()->getSecond();
+	std::ostringstream ss;
+	ss << std::setfill('0') << std::setw(2) << _game->getSavedGame()->getTime()->getSecond();
 	_txtSec->setText(ss.str());
 
-	std::wostringstream ss2;
-	ss2 << std::setfill(L'0') << std::setw(2) << _game->getSavedGame()->getTime()->getMinute();
+	std::ostringstream ss2;
+	ss2 << std::setfill('0') << std::setw(2) << _game->getSavedGame()->getTime()->getMinute();
 	_txtMin->setText(ss2.str());
 
-	std::wostringstream ss3;
+	std::ostringstream ss3;
 	ss3 << _game->getSavedGame()->getTime()->getHour();
 	_txtHour->setText(ss3.str());
 
-	std::wostringstream ss4;
+	std::ostringstream ss4;
 	ss4 << _game->getSavedGame()->getTime()->getDayString(_game->getLanguage());
 	_txtDay->setText(ss4.str());
 
@@ -612,7 +613,7 @@ void GeoscapeState::timeDisplay()
 
 	_txtMonth->setText(tr(_game->getSavedGame()->getTime()->getMonthString()));
 
-	std::wostringstream ss5;
+	std::ostringstream ss5;
 	ss5 << _game->getSavedGame()->getTime()->getYear();
 	_txtYear->setText(ss5.str());
 }
@@ -814,8 +815,9 @@ void GeoscapeState::time5Seconds()
 						}
 					}
 				}
-				delete *j;
-				j = (*i)->getCrafts()->erase(j);
+				Craft *craft = *j;
+				j = (*i)->removeCraft(craft, false);
+				delete craft;
 				continue;
 			}
 			if ((*j)->getDestination() != 0)
@@ -877,20 +879,21 @@ void GeoscapeState::time5Seconds()
 							continue;
 						}
 						// Can we actually fight it
-						if (!(*j)->isInDogfight() && !(*j)->getDistance(u))
+						if (!(*j)->isInDogfight() && u->getSpeed() <= (*j)->getRules()->getMaxSpeed())
 						{
-							_dogfightsToBeStarted.push_back(new DogfightState(this, (*j), u));
+							DogfightState *dogfight = new DogfightState(this, (*j), u);
+							_dogfightsToBeStarted.push_back(dogfight);
 							if ((*j)->getRules()->isWaterOnly() && u->getAltitudeInt() > (*j)->getRules()->getMaxAltitude())
 							{
 								popup(new DogfightErrorState((*j), tr("STR_UNABLE_TO_ENGAGE_DEPTH")));
-								_dogfightsToBeStarted.back()->setMinimized(true);
-								_dogfightsToBeStarted.back()->setWaitForAltitude(true);
+								dogfight->setMinimized(true);
+								dogfight->setWaitForAltitude(true);
 							}
 							else if ((*j)->getRules()->isWaterOnly() && !_globe->insideLand((*j)->getLongitude(), (*j)->getLatitude()))
 							{
 								popup(new DogfightErrorState((*j), tr("STR_UNABLE_TO_ENGAGE_AIRBORNE")));
-								_dogfightsToBeStarted.back()->setMinimized(true);
-								_dogfightsToBeStarted.back()->setWaitForPoly(true);
+								dogfight->setMinimized(true);
+								dogfight->setWaitForPoly(true);
 							}
 							if (!_dogfightStartTimer->isRunning())
 							{
@@ -936,7 +939,10 @@ void GeoscapeState::time5Seconds()
 						// look up polygons texture
 						int texture, shade;
 						_globe->getPolygonTextureAndShade(m->getLongitude(), m->getLatitude(), &texture, &shade);
-						texture = m->getTexture();
+						if (_game->getMod()->getGlobe()->getTexture(m->getTexture()) != 0)
+						{
+							texture = m->getTexture();
+						}
 						timerReset();
 						popup(new ConfirmLandingState(*j, _game->getMod()->getGlobe()->getTexture(texture), shade));
 					}
@@ -996,7 +1002,7 @@ void GeoscapeState::time5Seconds()
 			++i;
 		}
 	}
-	
+
 	// Check any dogfights waiting to open
 	for (std::list<DogfightState*>::iterator d = _dogfights.begin(); d != _dogfights.end(); ++d)
 	{
@@ -1048,10 +1054,10 @@ bool DetectXCOMBase::operator()(const Ufo *ufo) const
 {
 	if (ufo->getTrajectoryPoint() <= 1) return false;
 	if (ufo->getTrajectory().getZone(ufo->getTrajectoryPoint()) == 5) return false;
-	if ((ufo->getMission()->getRules().getObjective() != OBJECTIVE_RETALIATION && !Options::aggressiveRetaliation) || // only UFOs on retaliation missions actively scan for bases
-		ufo->getTrajectory().getID() == UfoTrajectory::RETALIATION_ASSAULT_RUN || 									// UFOs attacking a base don't detect!
-		ufo->isCrashed() ||																				// Crashed UFOs don't detect!
-		_base.getDistance(ufo) >= ufo->getRules()->getSightRange() * (1 / 60.0) * (M_PI / 180.0))		// UFOs have a detection range of 80 XCOM units. - we use a great circle fomrula and nautical miles.
+	if ((ufo->getMission()->getRules().getObjective() != OBJECTIVE_RETALIATION && !Options::aggressiveRetaliation) ||	// only UFOs on retaliation missions actively scan for bases
+		ufo->getTrajectory().getID() == UfoTrajectory::RETALIATION_ASSAULT_RUN || 										// UFOs attacking a base don't detect!
+		ufo->isCrashed() ||																								// Crashed UFOs don't detect!
+		_base.getDistance(ufo) >= Nautical(ufo->getRules()->getSightRange()))											// UFOs have a detection range of 80 XCOM units. - we use a great circle fomrula and nautical miles.
 	{
 		return false;
 	}
@@ -1091,8 +1097,8 @@ void GeoscapeState::time10Minutes()
 
 				if ((*j)->getDestination() == 0)
 				{
-					double range = ((*j)->getRules()->getSightRange() * (1 / 60.0) * (M_PI / 180));
-					for (std::vector<AlienBase*>::iterator b = _game->getSavedGame()->getAlienBases()->begin(); b != _game->getSavedGame()->getAlienBases()->end(); b++)
+					double range = Nautical((*j)->getRules()->getSightRange());
+					for (std::vector<AlienBase*>::iterator b = _game->getSavedGame()->getAlienBases()->begin(); b != _game->getSavedGame()->getAlienBases()->end(); ++b)
 					{
 						if ((*j)->getDistance(*b) <= range)
 						{
@@ -1271,7 +1277,7 @@ void GeoscapeState::time30Minutes()
 					}
 					else if (!(*j)->getLowFuel())
 					{
-						std::wstring msg = tr("STR_NOT_ENOUGH_ITEM_TO_REFUEL_CRAFT_AT_BASE")
+						std::string msg = tr("STR_NOT_ENOUGH_ITEM_TO_REFUEL_CRAFT_AT_BASE")
 										   .arg(tr(item))
 										   .arg((*j)->getName(_game->getLanguage()))
 										   .arg((*i)->getName());
@@ -1422,7 +1428,7 @@ void GeoscapeState::time1Hour()
 				std::string s = (*j)->rearm(_game->getMod());
 				if (!s.empty())
 				{
-					std::wstring msg = tr("STR_NOT_ENOUGH_ITEM_TO_REARM_CRAFT_AT_BASE")
+					std::string msg = tr("STR_NOT_ENOUGH_ITEM_TO_REARM_CRAFT_AT_BASE")
 									   .arg(tr(s))
 									   .arg((*j)->getName(_game->getLanguage()))
 									   .arg((*i)->getName());
@@ -1461,8 +1467,8 @@ void GeoscapeState::time1Hour()
 		{
 			if (j->second > PROGRESS_NOT_COMPLETE)
 			{
-				(*i)->removeProduction (j->first);
 				popup(new ProductionCompleteState((*i),  tr(j->first->getRules()->getName()), this, j->second));
+				(*i)->removeProduction(j->first);
 			}
 		}
 
@@ -1506,12 +1512,13 @@ private:
  */
 void GenerateSupplyMission::operator()(const AlienBase *base) const
 {
-	if (_mod.getAlienMission(base->getDeployment()->getGenMissionType()))
+	std::string missionName = base->getDeployment()->chooseGenMissionType();
+	if (_mod.getAlienMission(missionName))
 	{
 		if (RNG::percent(base->getDeployment()->getGenMissionFrequency()))
 		{
 			//Spawn supply mission for this base.
-			const RuleAlienMission &rule = *_mod.getAlienMission(base->getDeployment()->getGenMissionType());
+			const RuleAlienMission &rule = *_mod.getAlienMission(missionName);
 			AlienMission *mission = new AlienMission(rule);
 			mission->setRegion(_save.locateRegion(*base)->getRules()->getType(), _mod);
 			mission->setId(_save.getId("ALIEN_MISSIONS"));
@@ -1521,9 +1528,9 @@ void GenerateSupplyMission::operator()(const AlienBase *base) const
 			_save.getAlienMissions().push_back(mission);
 		}
 	}
-	else if (base->getDeployment()->getGenMissionType() != "")
+	else if (!missionName.empty())
 	{
-		throw Exception("Alien Base tried to generate undefined mission: " + base->getDeployment()->getGenMissionType());
+		throw Exception("Alien Base tried to generate undefined mission: " + missionName);
 	}
 }
 
@@ -1565,19 +1572,22 @@ void GeoscapeState::time1Day()
 			_game->getSavedGame()->getAvailableResearchProjects(before, _game->getMod(), *i);
 		}
 		// 3. add finished research, including lookups and getonefrees (up to 4x)
-		for (std::vector<ResearchProject*>::const_iterator iter = finished.begin(); iter != finished.end(); ++iter)
+		for (std::vector<ResearchProject*>::iterator iter = finished.begin(); iter != finished.end(); ++iter)
 		{
+			const RuleResearch *bonus = 0;
+			const RuleResearch *research = (*iter)->getRules();
+
 			// 3a. remove finished research from the base where it was researched
 			(*i)->removeResearch(*iter);
-			// 3b. handle interrogations
-			RuleResearch * bonus = 0;
-			const RuleResearch * research = (*iter)->getRules();
+			(*iter) = 0;
+
+			// 3b. handle interrogation
 			if (Options::retainCorpses && research->destroyItem() && _game->getMod()->getUnit(research->getName()))
 			{
 				(*i)->getStorageItems()->addItem(_game->getMod()->getArmor(_game->getMod()->getUnit(research->getName())->getArmor(), true)->getCorpseGeoscape());
 			}
 			// 3c. handle getonefrees (topic+lookup)
-			if (!(*iter)->getRules()->getGetOneFree().empty())
+			if (!research->getGetOneFree().empty())
 			{
 				std::vector<std::string> possibilities;
 				for (std::vector<std::string>::const_iterator f = research->getGetOneFree().begin(); f != research->getGetOneFree().end(); ++f)
@@ -1681,8 +1691,6 @@ void GeoscapeState::time1Day()
 					}
 				}
 			}
-			// 3k. remove processed item from the list (and continue with the next item)
-			delete(*iter);
 		}
 
 		// Handle soldier wounds
@@ -1856,7 +1864,7 @@ void GeoscapeState::globeClick(Action *action)
 		_globe->cartToPolar(mouseX, mouseY, &lon, &lat);
 		double lonDeg = lon / M_PI * 180, latDeg = lat / M_PI * 180;
 		_globe->getPolygonTextureAndShade(lon, lat, &texture, &shade);
-		std::wostringstream ss;
+		std::ostringstream ss;
 		ss << "rad: " << lon << ", " << lat << std::endl;
 		ss << "deg: " << lonDeg << ", " << latDeg << std::endl;
 		ss << "texture: " << texture << ", shade: " << shade << std::endl;
@@ -2352,9 +2360,10 @@ bool GeoscapeState::processCommand(RuleMissionScript *command)
 		// we know for a fact that this command has mission weights defined, otherwise this flag could not be set.
 		missionType = command->generate(month, GEN_MISSION);
 		std::vector<std::string> missions = command->getMissionTypes(month);
-		int max = missions.size();
+		int maxMissions = missions.size();
+		bool targetBase = RNG::percent(command->getTargetBaseOdds());
 		int currPos = 0;
-		for (; currPos != max; ++currPos)
+		for (; currPos != maxMissions; ++currPos)
 		{
 			if (missions[currPos] == missionType)
 			{
@@ -2366,12 +2375,33 @@ bool GeoscapeState::processCommand(RuleMissionScript *command)
 		std::vector<std::pair<std::string, int> > validAreas;
 
 		// this is actually a bit of a cheat, we ARE using the mission weights as defined, but we'll try them all if the one we pick first isn't valid.
-		for (int h = 0; h != max; ++h)
+		for (int h = 0; h != maxMissions; ++h)
 		{
 			// we'll use the regions listed in the command, if any, otherwise check all the regions in the ruleset looking for matches
 			std::vector<std::string> regions = (command->hasRegionWeights()) ? command->getRegions(month) : mod->getRegionsList();
 			missionRules = mod->getAlienMission(missionType, true);
 			targetZone = missionRules->getSpawnZone();
+
+			if (targetBase)
+			{
+				std::vector<std::string> regionsToKeep;
+				//if we're targetting a base, we ignore regions that don't contain bases, simple.
+				for (std::vector<Base*>::iterator i = save->getBases()->begin(); i != save->getBases()->end(); ++i)
+				{
+					regionsToKeep.push_back(save->locateRegion((*i)->getLongitude(), (*i)->getLatitude())->getRules()->getType());
+				}
+				for (std::vector<std::string>::iterator i = regions.begin(); i != regions.end();)
+				{
+					if (std::find(regionsToKeep.begin(), regionsToKeep.end(), *i) == regionsToKeep.end())
+					{
+						i = regions.erase(i);
+					}
+					else
+					{
+						++i;
+					}
+				}
+			}
 
 			for (std::vector<std::string>::iterator i = regions.begin(); i != regions.end();)
 			{
@@ -2414,7 +2444,7 @@ bool GeoscapeState::processCommand(RuleMissionScript *command)
 			// oh bother, we couldn't find anything valid, this mission won't run this month.
 			if (validAreas.empty())
 			{
-				if (max > 1 && ++currPos == max)
+				if (maxMissions > 1 && ++currPos == maxMissions)
 				{
 					currPos = 0;
 				}
@@ -2567,7 +2597,7 @@ bool GeoscapeState::processCommand(RuleMissionScript *command)
 		targetRegion = command->generate(month, GEN_REGION);
 	}
 
-	if (targetRegion == "")
+	if (targetRegion.empty())
 	{
 		// something went horribly wrong, we should have had at LEAST a region by now.
 		return false;
@@ -2580,7 +2610,7 @@ bool GeoscapeState::processCommand(RuleMissionScript *command)
 		throw Exception("Error proccessing mission script named: " + command->getType() + ", region named: " + targetRegion + " is not defined");
 	}
 
-	if (missionType == "") // ie: not a terror mission, not targetting a base, or otherwise not already chosen
+	if (missionType.empty()) // ie: not a terror mission, not targetting a base, or otherwise not already chosen
 	{
 		if (!command->hasMissionWeights())
 		{
@@ -2594,7 +2624,7 @@ bool GeoscapeState::processCommand(RuleMissionScript *command)
 		}
 	}
 
-	if (missionType == "")
+	if (missionType.empty())
 	{
 		// something went horribly wrong, we didn't manage to choose a mission type
 		return false;
@@ -2617,6 +2647,11 @@ bool GeoscapeState::processCommand(RuleMissionScript *command)
 	else
 	{
 		missionRace = command->generate(month, GEN_RACE);
+	}
+
+	if (missionRace.empty())
+	{
+		throw Exception("Error proccessing mission script named: " + command->getType() + ", mission type: " + missionType + " has no available races");
 	}
 
 	// we're bound to end up with typos, so let's throw an exception instead of simply returning false

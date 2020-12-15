@@ -62,8 +62,6 @@ private:
 
 	/// Determines space taken up by ammo clips about to rearm craft.
 	double getIgnoredStores();
-	/// Gets the base's default name (unused).
-	std::wstring getDefaultName(Language *) const { return L""; }
 
 	using Target::load;
 public:
@@ -73,13 +71,15 @@ public:
 	~Base();
 	/// Loads the base from YAML.
 	void load(const YAML::Node& node, SavedGame *save, bool newGame, bool newBattleGame = false);
+	/// Tests whether the base facilities are within the base boundaries and not overlapping.
+	bool isOverlappingOrOverflowing();
 	/// Saves the base to YAML.
 	YAML::Node save() const;
-	/// Saves the base's ID to YAML.
-	YAML::Node saveId() const;
+	/// Gets the base's type.
+	std::string getType() const;
 	/// Gets the base's name.
-	std::wstring getName(Language *lang = 0) const;
-	/// Gets the base's marker.
+	std::string getName(Language *lang = 0) const;
+	/// Gets the base's marker sprite.
 	int getMarker() const;
 	/// Gets the base's facilities.
 	std::vector<BaseFacility*> *getFacilities();
@@ -175,8 +175,6 @@ public:
 	void removeProduction (Production * p);
 	/// Get the list of Base Production's
 	const std::vector<Production *> & getProductions() const;
-	/// Checks if this base is hyper-wave equipped.
-	bool getHyperDetection() const;
 	/// Gets the base's used psi lab space.
 	int getUsedPsiLabs() const;
 	/// Gets the base's total available psi lab space.
@@ -215,6 +213,8 @@ public:
 	void destroyFacility(std::vector<BaseFacility*>::iterator facility);
 	/// Cleans up the defenses vector and optionally reclaims the tanks and their ammo.
 	void cleanupDefenses(bool reclaimItems);
+	/// Removes a craft from the base.
+	std::vector<Craft*>::iterator removeCraft(Craft *craft, bool unload);
 };
 
 }

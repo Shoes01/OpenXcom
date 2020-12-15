@@ -47,7 +47,7 @@ const char *Ufo::ALTITUDE_STRING[] = {
  * @param rules Pointer to ruleset.
  */
 Ufo::Ufo(const RuleUfo *rules)
-  : MovingTarget(), _rules(rules), _id(0), _crashId(0), _landId(0), _damage(0), _direction("STR_NORTH")
+  : MovingTarget(), _rules(rules), _crashId(0), _landId(0), _damage(0), _direction("STR_NORTH")
   , _altitude("STR_HIGH_UC"), _status(FLYING), _secondsRemaining(0)
   , _inBattlescape(false), _mission(0), _trajectory(0)
   , _trajectoryPoint(0), _detected(false), _hyperDetected(false), _processedIntercept(false), _shootingAt(0), _hitFrame(0)
@@ -61,19 +61,6 @@ Ufo::Ufo(const RuleUfo *rules)
  */
 Ufo::~Ufo()
 {
-	for (std::vector<Target*>::iterator i = _followers.begin(); i != _followers.end();)
-	{
-		Craft *c = dynamic_cast<Craft*>(*i);
-		if (c)
-		{
-			c->returnToBase();
-			i = _followers.begin();
-		}
-		else
-		{
-			++i;
-		}
-	}
 	if (_mission)
 	{
 		_mission->decreaseLiveUfos();
@@ -112,7 +99,6 @@ private:
 void Ufo::load(const YAML::Node &node, const Mod &mod, SavedGame &game)
 {
 	MovingTarget::load(node);
-	_id = node["id"].as<int>(_id);
 	_crashId = node["crashId"].as<int>(_crashId);
 	_landId = node["landId"].as<int>(_landId);
 	_damage = node["damage"].as<int>(_damage);
@@ -138,11 +124,11 @@ void Ufo::load(const YAML::Node &node, const Mod &mod, SavedGame &game)
 	}
 	else
 	{
-		if (_damage >= _rules->getMaxDamage())
+		if (isDestroyed())
 		{
 			_status = DESTROYED;
 		}
-		else if (_damage >= _rules->getMaxDamage() / 2)
+		else if (isCrashed())
 		{
 			_status = CRASHED;
 		}
@@ -189,7 +175,6 @@ YAML::Node Ufo::save(bool newBattle) const
 {
 	YAML::Node node = MovingTarget::save();
 	node["type"] = _rules->getType();
-	node["id"] = _id;
 	if (_crashId)
 	{
 		node["crashId"] = _crashId;
@@ -216,22 +201,20 @@ YAML::Node Ufo::save(bool newBattle) const
 		node["trajectory"] = _trajectory->getID();
 		node["trajectoryPoint"] = _trajectoryPoint;
 	}
-	
+
 	node["fireCountdown"] = _fireCountdown;
 	node["escapeCountdown"] = _escapeCountdown;
 	return node;
 }
 
 /**
- * Saves the UFO's unique identifiers to a YAML file.
- * @return YAML node.
+ * Returns the UFO's unique type used for
+ * savegame purposes.
+ * @return ID.
  */
-YAML::Node Ufo::saveId() const
+std::string Ufo::getType() const
 {
-	YAML::Node node = MovingTarget::saveId();
-	node["type"] = "STR_UFO";
-	node["id"] = _id;
-	return node;
+	return "STR_UFO";
 }
 
 /**
@@ -254,42 +237,54 @@ void Ufo::changeRules(const RuleUfo *rules)
 }
 
 /**
- * Returns the UFO's unique ID. If it's 0,
- * this UFO has never been detected.
- * @return Unique ID.
- */
-int Ufo::getId() const
-{
-	return _id;
-}
-
-/**
- * Changes the UFO's unique ID.
- * @param id Unique ID.
- */
-void Ufo::setId(int id)
-{
-	_id = id;
-}
-
-/**
  * Returns the UFO's unique default name.
  * @param lang Language to get strings from.
  * @return Full name.
  */
-std::wstring Ufo::getDefaultName(Language *lang) const
+std::string Ufo::getDefaultName(Language *lang) const
 {
 	switch (_status)
 	{
-	case FLYING:
-	case DESTROYED: // Destroyed also means leaving Earth.
-		return lang->getString("STR_UFO_").arg(_id);
 	case LANDED:
-		return lang->getString("STR_LANDING_SITE_").arg(_landId);
+		return lang->getString(getMarkerName()).arg(_landId);
 	case CRASHED:
-		return lang->getString("STR_CRASH_SITE_").arg(_crashId);
+		return lang->getString(getMarkerName()).arg(_crashId);
 	default:
-		return L"";
+		return lang->getString(getMarkerName()).arg(_id);
+	}
+}
+
+/**
+ * Returns the name on the globe for the UFO.
+ * @return String ID.
+ */
+std::string Ufo::getMarkerName() const
+{
+	switch (_status)
+	{
+	case LANDED:
+		return "STR_LANDING_SITE_";
+	case CRASHED:
+		return "STR_CRASH_SITE_";
+	default:
+		return "STR_UFO_";
+	}
+}
+
+/**
+ * Returns the marker ID on the globe for the UFO.
+ * @return Marker ID.
+ */
+int Ufo::getMarkerId() const
+{
+	switch (_status)
+	{
+	case LANDED:
+		return _landId;
+	case CRASHED:
+		return _crashId;
+	default:
+		return _id;
 	}
 }
 
@@ -303,14 +298,12 @@ int Ufo::getMarker() const
 		return -1;
 	switch (_status)
 	{
-	case Ufo::FLYING:
-		return 2;
-	case Ufo::LANDED:
-		return 3;
-	case Ufo::CRASHED:
-		return 4;
+	case LANDED:
+		return _rules->getLandMarker() == -1 ? 3 : _rules->getLandMarker();
+	case CRASHED:
+		return _rules->getCrashMarker() == -1 ? 4 : _rules->getCrashMarker();
 	default:
-		return _rules->getMarker();
+		return _rules->getMarker() == -1 ? 2 : _rules->getMarker();
 	}
 }
 
@@ -334,11 +327,11 @@ void Ufo::setDamage(int damage)
 	{
 		_damage = 0;
 	}
-	if (_damage >= _rules->getMaxDamage())
+	if (isDestroyed())
 	{
 		_status = DESTROYED;
 	}
-	else if (_damage >= _rules->getMaxDamage() / 2)
+	else if (isCrashed())
 	{
 		_status = CRASHED;
 	}

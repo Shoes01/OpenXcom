@@ -24,7 +24,6 @@
 #include "../Engine/State.h"
 #include "../Engine/Language.h"
 #include "../Engine/Font.h"
-#include "../Engine/Game.h"
 #include "../Engine/Action.h"
 #include "../Engine/Options.h"
 #include "../Engine/Screen.h"
@@ -272,7 +271,7 @@ size_t ComboBox::getHoveredListIdx() const
  * sets the button text independent of the currently selected option.
  * @param text the text to display
  */
-void ComboBox::setText(const std::wstring &text)
+void ComboBox::setText(const std::string &text)
 {
 	_button->setText(text);
 }
@@ -315,31 +314,19 @@ void ComboBox::setDropdown(int options)
 
 /**
  * Changes the list of available options to choose from.
- * @param options List of string IDs.
+ * @param options List of strings.
+ * @param translate True for a list of string IDs, false for a list of raw strings.
  */
-void ComboBox::setOptions(const std::vector<std::string> &options)
+void ComboBox::setOptions(const std::vector<std::string> &options, bool translate)
 {
 	setDropdown(options.size());
 	_list->clearList();
 	for (std::vector<std::string>::const_iterator i = options.begin(); i != options.end(); ++i)
 	{
-		_list->addRow(1, _lang->getString(*i).c_str());
-	}
-	setSelected(_sel);
-	_list->draw();
-}
-
-/**
- * Changes the list of available options to choose from.
- * @param options List of localized strings.
- */
-void ComboBox::setOptions(const std::vector<std::wstring> &options)
-{
-	setDropdown(options.size());
-	_list->clearList();
-	for (std::vector<std::wstring>::const_iterator i = options.begin(); i != options.end(); ++i)
-	{
-		_list->addRow(1, i->c_str());
+		if (translate)
+			_list->addRow(1, _lang->getString(*i).c_str());
+		else
+			_list->addRow(1, i->c_str());
 	}
 	setSelected(_sel);
 }

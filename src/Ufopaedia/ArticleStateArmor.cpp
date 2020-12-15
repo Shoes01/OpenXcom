@@ -29,6 +29,7 @@
 #include "../Engine/LocalizedText.h"
 #include "../Engine/CrossPlatform.h"
 #include "../Engine/FileMap.h"
+#include "../Engine/Unicode.h"
 #include "../Interface/Text.h"
 #include "../Interface/TextButton.h"
 #include "../Interface/TextList.h"
@@ -79,7 +80,7 @@ namespace OpenXcom
 		_lstInfo->setColumns(2, 125, 25);
 		_lstInfo->setDot(true);
 
-		_txtInfo = new Text(300, 56, 8, 150);
+		_txtInfo = new Text(300, 48, 8, 150);
 		add(_txtInfo);
 
 		_txtInfo->setColor(Palette::blockOffset(14)+15);
@@ -104,7 +105,7 @@ namespace OpenXcom
 			std::string damage = getDamageTypeText(dt);
 			if (percentage != 100 && damage != "STR_UNKNOWN")
 			{
-				addStat(damage, Text::formatPercentage(percentage));
+				addStat(damage, Unicode::formatPercentage(percentage));
 			}
 		}
 
@@ -134,9 +135,9 @@ namespace OpenXcom
 	{
 		if (stat != 0)
 		{
-			std::wostringstream ss;
+			std::ostringstream ss;
 			if (plus && stat > 0)
-				ss << L"+";
+				ss << "+";
 			ss << stat;
 			_lstInfo->addRow(2, tr(label).c_str(), ss.str().c_str());
 			_lstInfo->setCellColor(_row, 1, Palette::blockOffset(15)+4);
@@ -144,7 +145,7 @@ namespace OpenXcom
 		}
 	}
 
-	void ArticleStateArmor::addStat(const std::string &label, const std::wstring &stat)
+	void ArticleStateArmor::addStat(const std::string &label, const std::string &stat)
 	{
 		_lstInfo->addRow(2, tr(label).c_str(), stat.c_str());
 		_lstInfo->setCellColor(_row, 1, Palette::blockOffset(15)+4);

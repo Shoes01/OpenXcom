@@ -89,9 +89,15 @@ private:
 	void blinkHealthBar();
 	/// Shows the unit kneel state.
 	void toggleKneelButton(BattleUnit* unit);
+	/// Gets the item currently accessible through the left hand slot in the battlescape UI.
+	BattleItem *getLeftHandItem(BattleUnit *unit);
+	/// Gets the item currently accessible through the right hand slot in the battlescape UI.
+	BattleItem *getRightHandItem(BattleUnit *unit);
+	/// Gets the built-in melee weapon of a unit, if any.
+	BattleItem *getSpecialMeleeWeapon(BattleUnit *unit);
 public:
 	/// Selects the next soldier.
-	void selectNextPlayerUnit(bool checkReselect = false, bool setReselect = false, bool checkInventory = false);
+	void selectNextPlayerUnit(bool checkReselect = false, bool setReselect = false, bool checkInventory = false, bool checkFOV = true);
 	/// Selects the previous soldier.
 	void selectPreviousPlayerUnit(bool checkReselect = false, bool setReselect = false, bool checkInventory = false);
 	static const int DEFAULT_ANIM_SPEED = 100;
@@ -162,7 +168,7 @@ public:
 	/// Determines whether a playable unit is selected.
 	bool playableUnitSelected();
 	/// Updates soldier name/rank/tu/energy/health/morale.
-	void updateSoldierInfo();
+	void updateSoldierInfo(bool checkFOV = true);
 	/// Animates map objects on the map, also smoke,fire, ...
 	void animate();
 	/// Handles the battle game state.
@@ -174,7 +180,7 @@ public:
 	/// Gets map.
 	Map *getMap() const;
 	/// Show debug message.
-	void debug(const std::wstring &message);
+	void debug(const std::string &message);
 	/// Show warning message.
 	void warning(const std::string &message);
 	/// Handles keypresses.

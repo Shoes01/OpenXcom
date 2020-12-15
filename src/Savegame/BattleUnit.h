@@ -93,7 +93,6 @@ private:
 	int _faceDirection; // used only during strafeing moves
 	bool _hitByFire, _hitByAnything;
 	int _moraleRestored;
-	int _coverReserve;
 	BattleUnit *_charging;
 	int _turnsSinceSpotted;
 	std::string _spawnUnit;
@@ -109,7 +108,7 @@ private:
 	std::string _type;
 	std::string _rank;
 	std::string _race;
-	std::wstring _name;
+	std::string _name;
 	UnitStats _stats;
 	int _standHeight, _kneelHeight, _floatHeight;
 	std::vector<int> _deathSound;
@@ -128,6 +127,7 @@ private:
 	bool _hidingForTurn, _floorAbove, _respawn;
 	MovementType _movementType;
 	std::vector<std::pair<Uint8, Uint8> > _recolor;
+	bool _capturable;
 
 	/// Helper function initing recolor vector.
 	void setRecolor(int basicLook, int utileLook, int rankLook);
@@ -191,8 +191,10 @@ public:
 	UnitFaction getFaction() const;
 	/// Set the cached flag.
 	void setCache(Surface *cache, int part = 0);
+	/// Get the cached data.
+	Surface *getCache(int part = 0) const;
 	/// If this unit is cached on the battlescape.
-	Surface *getCache(bool *invalid, int part = 0) const;
+	bool isCacheInvalid() const;
 	/// Gets unit sprite recolors values.
 	const std::vector<std::pair<Uint8, Uint8> > &getRecolor() const;
 	/// Kneel down.
@@ -308,6 +310,7 @@ public:
 	bool checkAmmo();
 	/// Check if this unit is in the exit area
 	bool isInExitArea(SpecialTileType stt = START_POINT) const;
+	bool liesInExitArea(Tile *tile, SpecialTileType stt = START_POINT) const;
 	/// Gets the unit height taking into account kneeling/standing.
 	int getHeight() const;
 	/// Gets the unit floating elevation.
@@ -347,7 +350,7 @@ public:
 	/// Gets the unit's armor.
 	Armor *getArmor() const;
 	/// Gets the unit's name.
-	std::wstring getName(Language *lang, bool debugAppendId = false) const;
+	std::string getName(Language *lang, bool debugAppendId = false) const;
 	/// Gets the unit's stats.
 	UnitStats *getBaseStats();
 	/// Get the unit's stand height.
@@ -400,8 +403,6 @@ public:
 	void setSpawnUnit(const std::string &spawnUnit);
 	/// Gets the unit's aggro sound.
 	int getAggroSound() const;
-	/// Sets the unit's energy level.
-	void setEnergy(int energy);
 	/// Get the faction that killed this unit.
 	UnitFaction killedBy() const;
 	/// Set the faction that killed this unit.
@@ -440,8 +441,6 @@ public:
 	bool tookFireDamage() const;
 	/// switch the state of the fire damage tracker.
 	void toggleFireDamage();
-	void setCoverReserve(int reserve);
-	int getCoverReserve() const;
 	/// Is this unit selectable?
 	bool isSelectable(UnitFaction faction, bool checkReselect, bool checkInventory) const;
 	/// Does this unit have an inventory?
@@ -502,7 +501,8 @@ public:
 	bool getHitState();
 	/// reset the unit hit state.
 	void resetHitState();
-
+	/// Gets whether this unit can be captured alive (applies to aliens).
+	bool getCapturable() const;
 };
 
 }

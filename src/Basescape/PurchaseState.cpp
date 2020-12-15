@@ -20,7 +20,6 @@
 #include <algorithm>
 #include <sstream>
 #include <climits>
-#include <cfloat>
 #include <iomanip>
 #include "../fmath.h"
 #include "../Engine/Game.h"
@@ -28,6 +27,7 @@
 #include "../Engine/LocalizedText.h"
 #include "../Engine/Timer.h"
 #include "../Engine/Options.h"
+#include "../Engine/Unicode.h"
 #include "../Interface/TextButton.h"
 #include "../Interface/Window.h"
 #include "../Interface/Text.h"
@@ -103,12 +103,12 @@ PurchaseState::PurchaseState(Base *base) : _base(base), _sel(0), _total(0), _pQt
 	_txtTitle->setAlign(ALIGN_CENTER);
 	_txtTitle->setText(tr("STR_PURCHASE_HIRE_PERSONNEL"));
 
-	_txtFunds->setText(tr("STR_CURRENT_FUNDS").arg(Text::formatFunding(_game->getSavedGame()->getFunds())));
+	_txtFunds->setText(tr("STR_CURRENT_FUNDS").arg(Unicode::formatFunding(_game->getSavedGame()->getFunds())));
 
-	_txtPurchases->setText(tr("STR_COST_OF_PURCHASES").arg(Text::formatFunding(_total)));
+	_txtPurchases->setText(tr("STR_COST_OF_PURCHASES").arg(Unicode::formatFunding(_total)));
 
 	_txtSpaceUsed->setVisible(Options::storageLimitsEnforced);
-	std::wostringstream ss;
+	std::ostringstream ss;
 	ss << _base->getUsedStores() << ":" << _base->getAvailableStores();
 	_txtSpaceUsed->setText(tr("STR_SPACE_USED").arg(ss.str()));
 
@@ -209,7 +209,7 @@ PurchaseState::PurchaseState(Base *base) : _base(base), _sel(0), _total(0), _pQt
 		}
 	}
 
-	_cbxCategory->setOptions(_cats);
+	_cbxCategory->setOptions(_cats, true);
 	_cbxCategory->onChange((ActionHandler)&PurchaseState::cbxCategoryChange);
 
 	updateList();
@@ -293,7 +293,7 @@ void PurchaseState::updateList()
 		{
 			continue;
 		}
-		std::wstring name = _items[i].name;
+		std::string name = _items[i].name;
 		bool ammo = false;
 		if (_items[i].type == TRANSFER_ITEM)
 		{
@@ -301,13 +301,13 @@ void PurchaseState::updateList()
 			ammo = (rule->getBattleType() == BT_AMMO || (rule->getBattleType() == BT_NONE && rule->getClipSize() > 0));
 			if (ammo)
 			{
-				name.insert(0, L"  ");
+				name.insert(0, "  ");
 			}
 		}
-		std::wostringstream ssQty, ssAmount;
+		std::ostringstream ssQty, ssAmount;
 		ssQty << _items[i].qtySrc;
 		ssAmount << _items[i].amount;
-		_lstItems->addRow(4, name.c_str(), Text::formatFunding(_items[i].cost).c_str(), ssQty.str().c_str(), ssAmount.str().c_str());
+		_lstItems->addRow(4, name.c_str(), Unicode::formatFunding(_items[i].cost).c_str(), ssQty.str().c_str(), ssAmount.str().c_str());
 		_rows.push_back(i);
 		if (_items[i].amount > 0)
 		{
@@ -338,7 +338,10 @@ void PurchaseState::btnOkClick(Action *)
 				for (int s = 0; s < i->amount; s++)
 				{
 					RuleSoldier *rule = (RuleSoldier*)i->rule;
-					t = new Transfer(_game->getMod()->getPersonnelTime());
+					int time = rule->getTransferTime();
+					if (time == 0)
+						time = _game->getMod()->getPersonnelTime();
+					t = new Transfer(time);
 					t->setSoldier(_game->getMod()->genSoldier(_game->getSavedGame(), rule->getType()));
 					_base->getTransfers()->push_back(t);
 				}
@@ -509,7 +512,7 @@ void PurchaseState::increase()
 void PurchaseState::increaseByValue(int change)
 {
 	if (0 >= change) return;
-	std::wstring errorMessage;
+	std::string errorMessage;
 
 	if (_total + getRow().cost > _game->getSavedGame()->getFunds())
 	{
@@ -517,7 +520,7 @@ void PurchaseState::increaseByValue(int change)
 	}
 	else
 	{
-		RuleItem *rule = (RuleItem*)getRow().rule;
+		RuleItem *rule = 0;
 		switch (getRow().type)
 		{
 		case TRANSFER_SOLDIER:
@@ -535,7 +538,8 @@ void PurchaseState::increaseByValue(int change)
 			}
 			break;
 		case TRANSFER_ITEM:
-			if (_iQty + rule->getSize() > _base->getAvailableStores() - _base->getUsedStores())
+			rule = (RuleItem*)getRow().rule;
+			if (_base->storesOverfull(_iQty + rule->getSize()))
 			{
 				errorMessage = tr("STR_NOT_ENOUGH_STORE_SPACE");
 			}
@@ -612,7 +616,7 @@ void PurchaseState::decreaseByValue(int change)
 	if (0 >= change || 0 >= getRow().amount) return;
 	change = std::min(getRow().amount, change);
 
-	RuleItem *rule = (RuleItem*)getRow().rule;
+	RuleItem *rule = 0;
 	switch (getRow().type)
 	{
 	case TRANSFER_SOLDIER:
@@ -624,6 +628,7 @@ void PurchaseState::decreaseByValue(int change)
 		_cQty -= change;
 		break;
 	case TRANSFER_ITEM:
+		rule = (RuleItem*)getRow().rule;
 		_iQty -= rule->getSize() * change;
 		break;
 	}
@@ -637,8 +642,8 @@ void PurchaseState::decreaseByValue(int change)
  */
 void PurchaseState::updateItemStrings()
 {
-	_txtPurchases->setText(tr("STR_COST_OF_PURCHASES").arg(Text::formatFunding(_total)));
-	std::wostringstream ss, ss5;
+	_txtPurchases->setText(tr("STR_COST_OF_PURCHASES").arg(Unicode::formatFunding(_total)));
+	std::ostringstream ss, ss5;
 	ss << getRow().amount;
 	_lstItems->setCellText(_sel, 3, ss.str());
 	if (getRow().amount > 0)

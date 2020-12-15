@@ -20,7 +20,8 @@
 #include <sstream>
 #include "../Engine/Game.h"
 #include "../Mod/Mod.h"
-#include "../Engine/Language.h"
+#include "../Engine/LocalizedText.h"
+#include "../Engine/Unicode.h"
 #include "../Interface/TextButton.h"
 #include "../Interface/Window.h"
 #include "../Interface/Text.h"
@@ -92,7 +93,7 @@ ManufactureState::ManufactureState(Base *base) : _base(base)
 	_txtTitle->setAlign(ALIGN_CENTER);
 	_txtTitle->setText(tr("STR_CURRENT_PRODUCTION"));
 
-	_txtFunds->setText(tr("STR_CURRENT_FUNDS").arg(Text::formatFunding(_game->getSavedGame()->getFunds())));
+	_txtFunds->setText(tr("STR_CURRENT_FUNDS").arg(Unicode::formatFunding(_game->getSavedGame()->getFunds())));
 
 	_txtItem->setText(tr("STR_ITEM"));
 
@@ -164,19 +165,19 @@ void ManufactureState::fillProductionList()
 	_lstManufacture->clearList();
 	for (std::vector<Production *>::const_iterator iter = productions.begin(); iter != productions.end(); ++iter)
 	{
-		std::wostringstream s1;
+		std::ostringstream s1;
 		s1 << (*iter)->getAssignedEngineers();
-		std::wostringstream s2;
+		std::ostringstream s2;
 		s2 << (*iter)->getAmountProduced() << "/";
-		if ((*iter)->getInfiniteAmount()) s2 << Language::utf8ToWstr("∞");
+		if ((*iter)->getInfiniteAmount()) s2 << "∞";
 		else s2 << (*iter)->getAmountTotal();
 		if ((*iter)->getSellItems()) s2 << " $";
-		std::wostringstream s3;
-		s3 << Text::formatFunding((*iter)->getRules()->getManufactureCost());
-		std::wostringstream s4;
+		std::ostringstream s3;
+		s3 << Unicode::formatFunding((*iter)->getRules()->getManufactureCost());
+		std::ostringstream s4;
 		if ((*iter)->getInfiniteAmount())
 		{
-			s4 << Language::utf8ToWstr("∞");
+			s4 << "∞";
 		}
 		else if ((*iter)->getAssignedEngineers() > 0)
 		{
@@ -191,7 +192,7 @@ void ManufactureState::fillProductionList()
 		else
 		{
 
-			s4 << L"-";
+			s4 << "-";
 		}
 		_lstManufacture->addRow(5, tr((*iter)->getRules()->getName()).c_str(), s1.str().c_str(), s2.str().c_str(), s3.str().c_str(), s4.str().c_str());
 	}

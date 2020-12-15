@@ -248,52 +248,47 @@ void SavedBattleGame::load(const YAML::Node &node, Mod *mod, SavedGame* savedGam
 		for (YAML::const_iterator i = node[fromContainer[pass]].begin(); i != node[fromContainer[pass]].end(); ++i)
 		{
 			std::string type = (*i)["type"].as<std::string>();
-			_itemId = (*i)["id"].as<int>(_itemId);
 			if (mod->getItem(type))
 			{
-				BattleItem *item = new BattleItem(mod->getItem(type), &_itemId);
-				item->load(*i);
-				type = (*i)["inventoryslot"].as<std::string>();
-				if (type != "NULL")
-				{
-					if (mod->getInventory(type))
-					{
-						item->setSlot(mod->getInventory(type));
-						
-					}
-					else
-					{
-						item->setSlot(mod->getInventory("STR_GROUND"));
-					}
-				}				
-				int owner = (*i)["owner"].as<int>();
+				int id = (*i)["id"].as<int>();
+				_itemId = std::max(_itemId, id);
+				BattleItem *item = new BattleItem(mod->getItem(type), &id);
+				item->load(*i, mod);
+
+				int owner = (*i)["owner"].as<int>(-1);
 				int prevOwner = (*i)["previousOwner"].as<int>(-1);
-				int unit = (*i)["unit"].as<int>();
+				int unit = (*i)["unit"].as<int>(-1);
 
 				// match up items and units
-				for (std::vector<BattleUnit*>::iterator bu = _units.begin(); bu != _units.end(); ++bu)
+				for (std::vector<BattleUnit*>::iterator bu = _units.begin(); bu != _units.end() && owner != -1; ++bu)
 				{
 					if ((*bu)->getId() == owner)
 					{
 						item->moveToOwner(*bu);
-					}
-					if ((*bu)->getId() == unit)
-					{
-						item->setUnit(*bu);
+						break;
 					}
 				}
-				for (std::vector<BattleUnit*>::iterator bu = _units.begin(); bu != _units.end(); ++bu)
+				for (std::vector<BattleUnit*>::iterator bu = _units.begin(); bu != _units.end() && prevOwner != -1; ++bu)
 				{
 					if ((*bu)->getId() == prevOwner)
 					{
 						item->setPreviousOwner(*bu);
+						break;
+					}
+				}
+				for (std::vector<BattleUnit*>::iterator bu = _units.begin(); bu != _units.end() && unit != -1; ++bu)
+				{
+					if ((*bu)->getId() == unit)
+					{
+						item->setUnit(*bu);
+						break;
 					}
 				}
 
 				// match up items and tiles
 				if (item->getSlot() && item->getSlot()->getType() == INV_GROUND)
 				{
-					Position pos = (*i)["position"].as<Position>();
+					Position pos = (*i)["position"].as<Position>(Position(-1, -1, -1));
 					if (pos.x != -1)
 						getTile(pos)->addItem(item, mod->getInventory("STR_GROUND", true));
 				}
@@ -305,6 +300,7 @@ void SavedBattleGame::load(const YAML::Node &node, Mod *mod, SavedGame* savedGam
 			}
 		}
 	}
+	_itemId++;
 
 	// tie ammo items to their weapons, running through the items again
 	std::vector<BattleItem*>::iterator weaponi = _items.begin();
@@ -312,7 +308,7 @@ void SavedBattleGame::load(const YAML::Node &node, Mod *mod, SavedGame* savedGam
 	{
 		if (mod->getItem((*i)["type"].as<std::string>()))
 		{
-			int ammo = (*i)["ammoItem"].as<int>();
+			int ammo = (*i)["ammoItem"].as<int>(-1);
 			if (ammo != -1)
 			{
 				for (std::vector<BattleItem*>::iterator ammoi = _items.begin(); ammoi != _items.end(); ++ammoi)
@@ -348,23 +344,20 @@ void SavedBattleGame::loadMapResources(Mod *mod)
 {
 	for (std::vector<MapDataSet*>::const_iterator i = _mapDataSets.begin(); i != _mapDataSets.end(); ++i)
 	{
-		(*i)->loadData();
-		if (mod->getMCDPatch((*i)->getName()))
-		{
-			mod->getMCDPatch((*i)->getName())->modifyData(*i);
-		}
+		(*i)->loadData(mod->getMCDPatch((*i)->getName()));
 	}
 
 	int mdsID, mdID;
 
 	for (int i = 0; i < _mapsize_z * _mapsize_y * _mapsize_x; ++i)
 	{
-		for (int part = 0; part < 4; ++part)
+		for (int part = O_FLOOR; part <= O_OBJECT; part++)
 		{
-			_tiles[i]->getMapData(&mdID, &mdsID, part);
+			TilePart tp = (TilePart) part;
+			_tiles[i]->getMapData(&mdID, &mdsID, tp);
 			if (mdID != -1 && mdsID != -1)
 			{
-				_tiles[i]->setMapData(_mapDataSets[mdsID]->getObjects()->at(mdID), mdID, mdsID, part);
+				_tiles[i]->setMapData(_mapDataSets[mdsID]->getObject(mdID), mdID, mdsID, tp);
 			}
 		}
 	}
@@ -891,6 +884,10 @@ void SavedBattleGame::endTurn()
 			{
 				(*i)->setTurnsSinceSpotted(0);
 			}
+			if ((*i)->getAIModule())
+			{
+				(*i)->getAIModule()->reset(); // clean up AI state
+			}
 		}
 	}
 	// hide all aliens (VOF calculations below will turn them visible again)
@@ -1038,6 +1035,15 @@ void SavedBattleGame::randomizeItemLocations(Tile *t)
  */
 void SavedBattleGame::removeItem(BattleItem *item)
 {
+	// only delete once
+	for (std::vector<BattleItem*>::iterator it = _deleted.begin(); it != _deleted.end(); ++it)
+	{
+		if ((*it) == item)
+		{
+			return;
+		}
+	}
+
 	// due to strange design, the item has to be removed from the tile it is on too (if it is on a tile)
 	Tile *t = item->getTile();
 	BattleUnit *b = item->getOwner();
@@ -1716,7 +1722,7 @@ bool SavedBattleGame::placeUnitNearPosition(BattleUnit *unit, const Position& en
 	{
 		return true;
 	}
-	
+
 	int me = 0 - unit->getArmor()->getSize();
 	int you = largeFriend ? 2 : 1;
 	int xArray[8] = {0, you, you, you, 0, me, me, me};
@@ -1923,7 +1929,7 @@ int SavedBattleGame::getAmbientSound() const
 
 /**
  * get the list of items we're guaranteed to take with us (ie: items that were in the skyranger)
- * @return the list of items we're garaunteed.
+ * @return the list of items we're guaranteed.
  */
 std::vector<BattleItem*> *SavedBattleGame::getGuaranteedRecoveredItems()
 {
@@ -2047,16 +2053,32 @@ bool SavedBattleGame::isBeforeGame() const
 
 /**
  * Checks if an item can be used in the current battlescape conditions.
+ * @return Error string if it can't be used, "" otherwise.
+ */
+std::string SavedBattleGame::getItemUsable(BattleItem *item) const
+{
+	if (_depth == 0 &&
+		(item->getRules()->isWaterOnly() ||
+		(item->getAmmoItem() != 0 && item->getAmmoItem()->getRules()->isWaterOnly())))
+	{
+		return "STR_UNDERWATER_EQUIPMENT";
+	}
+	if (_depth != 0 &&
+		(item->getRules()->isLandOnly() ||
+		(item->getAmmoItem() != 0 && item->getAmmoItem()->getRules()->isLandOnly())))
+	{
+		return "STR_LAND_EQUIPMENT";
+	}
+	return "";
+}
+
+/**
+ * Checks if an item can be used in the current battlescape conditions.
  * @return True if it's usable, False otherwise.
  */
-bool SavedBattleGame::isItemUsable(RuleItem *item) const
+bool SavedBattleGame::isItemUsable(BattleItem *item) const
 {
-	if ((_depth == 0 && item->isWaterOnly()) ||
-		(_depth != 0 && item->isLandOnly()))
-	{
-		return false;
-	}
-	return true;
+	return getItemUsable(item).empty();
 }
 
 /**

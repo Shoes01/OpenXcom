@@ -24,7 +24,8 @@
 #include "../Engine/Options.h"
 #include "../Engine/Screen.h"
 #include "../Engine/CrossPlatform.h"
-#include "../Engine/Language.h"
+#include "../Engine/LocalizedText.h"
+#include "../Engine/Unicode.h"
 #include "../Interface/Text.h"
 #include "ErrorMessageState.h"
 #include "MainMenuState.h"
@@ -69,7 +70,7 @@ SaveGameState::SaveGameState(OptionsOrigin origin, SaveType type, SDL_Color *pal
 		break;
 	case SAVE_IRONMAN:
 	case SAVE_IRONMAN_END:
-		_filename = CrossPlatform::sanitizeFilename(Language::wstrToFs(_game->getSavedGame()->getName())) + ".sav";
+		_filename = CrossPlatform::sanitizeFilename(Unicode::convUtf8ToPath(_game->getSavedGame()->getName())) + ".sav";
 		break;
 	default:
 		break;
@@ -149,7 +150,7 @@ void SaveGameState::think()
 		case SAVE_AUTO_GEOSCAPE:
 		case SAVE_AUTO_BATTLESCAPE:
 			// automatic save, give it a default name
-			_game->getSavedGame()->setName(Language::fsToWstr(_filename));
+			_game->getSavedGame()->setName(_filename);
 		default:
 			break;
 		}
@@ -157,18 +158,10 @@ void SaveGameState::think()
 		// Save the game
 		try
 		{
-			std::string backup = _filename + ".bak";
-			_game->getSavedGame()->save(backup);
-			std::string fullPath = Options::getMasterUserFolder() + _filename;
-			std::string bakPath = Options::getMasterUserFolder() + backup;
-			if (!CrossPlatform::moveFile(bakPath, fullPath))
-			{
-				throw Exception("Save backed up in " + backup);
-			}
-
+			_game->getSavedGame()->save(_filename);
 			if (_type == SAVE_IRONMAN_END)
 			{
-				Screen::updateScale(Options::geoscapeScale, Options::geoscapeScale, Options::baseXGeoscape, Options::baseYGeoscape, true);
+				Screen::updateScale(Options::geoscapeScale, Options::baseXGeoscape, Options::baseYGeoscape, true);
 				_game->getScreen()->resetDisplay(false);
 
 				_game->setState(new MainMenuState);
@@ -177,25 +170,28 @@ void SaveGameState::think()
 		}
 		catch (Exception &e)
 		{
-			Log(LOG_ERROR) << e.what();
-			std::wostringstream error;
-			error << tr("STR_SAVE_UNSUCCESSFUL") << L'\x02' << Language::fsToWstr(e.what());
-			if (_origin != OPT_BATTLESCAPE)
-				_game->pushState(new ErrorMessageState(error.str(), _palette, _game->getMod()->getInterface("errorMessages")->getElement("geoscapeColor")->color, "BACK01.SCR", _game->getMod()->getInterface("errorMessages")->getElement("geoscapePalette")->color));
-			else
-				_game->pushState(new ErrorMessageState(error.str(), _palette, _game->getMod()->getInterface("errorMessages")->getElement("battlescapeColor")->color, "TAC00.SCR", _game->getMod()->getInterface("errorMessages")->getElement("battlescapePalette")->color));
+			error(e.what());
 		}
 		catch (YAML::Exception &e)
 		{
-			Log(LOG_ERROR) << e.what();
-			std::wostringstream error;
-			error << tr("STR_SAVE_UNSUCCESSFUL") << L'\x02' << Language::fsToWstr(e.what());
-			if (_origin != OPT_BATTLESCAPE)
-				_game->pushState(new ErrorMessageState(error.str(), _palette, _game->getMod()->getInterface("errorMessages")->getElement("geoscapeColor")->color, "BACK01.SCR", _game->getMod()->getInterface("errorMessages")->getElement("geoscapePalette")->color));
-			else
-				_game->pushState(new ErrorMessageState(error.str(), _palette, _game->getMod()->getInterface("errorMessages")->getElement("battlescapeColor")->color, "TAC00.SCR", _game->getMod()->getInterface("errorMessages")->getElement("battlescapePalette")->color));
+			error(e.what());
 		}
 	}
+}
+
+/**
+ * Pops up a window with an error message.
+ * @param msg Error message.
+ */
+void SaveGameState::error(const std::string &msg)
+{
+	Log(LOG_ERROR) << msg;
+	std::ostringstream error;
+	error << tr("STR_SAVE_UNSUCCESSFUL") << Unicode::TOK_NL_SMALL << Unicode::convPathToUtf8(msg);
+	if (_origin != OPT_BATTLESCAPE)
+		_game->pushState(new ErrorMessageState(error.str(), _palette, _game->getMod()->getInterface("errorMessages")->getElement("geoscapeColor")->color, "BACK01.SCR", _game->getMod()->getInterface("errorMessages")->getElement("geoscapePalette")->color));
+	else
+		_game->pushState(new ErrorMessageState(error.str(), _palette, _game->getMod()->getInterface("errorMessages")->getElement("battlescapeColor")->color, "TAC00.SCR", _game->getMod()->getInterface("errorMessages")->getElement("battlescapePalette")->color));
 }
 
 }

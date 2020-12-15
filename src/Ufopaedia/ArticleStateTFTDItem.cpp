@@ -27,6 +27,7 @@
 #include "../Engine/Game.h"
 #include "../Engine/Palette.h"
 #include "../Engine/LocalizedText.h"
+#include "../Engine/Unicode.h"
 #include "../Interface/TextList.h"
 
 namespace OpenXcom
@@ -68,14 +69,14 @@ namespace OpenXcom
 			int current_row = 0;
 			if (item->getTUAuto()>0)
 			{
-				std::wstring tu = Text::formatPercentage(item->getTUAuto());
+				std::string tu = Unicode::formatPercentage(item->getTUAuto());
 				if (item->getFlatRate())
 				{
 					tu.erase(tu.end() - 1);
 				}
 				_lstInfo->addRow(3,
 								 tr("STR_SHOT_TYPE_AUTO").c_str(),
-								 Text::formatPercentage(item->getAccuracyAuto()).c_str(),
+								 Unicode::formatPercentage(item->getAccuracyAuto()).c_str(),
 								 tu.c_str());
 				_lstInfo->setCellColor(current_row, 0, Palette::blockOffset(0)+2);
 				current_row++;
@@ -83,14 +84,14 @@ namespace OpenXcom
 
 			if (item->getTUSnap()>0)
 			{
-				std::wstring tu = Text::formatPercentage(item->getTUSnap());
+				std::string tu = Unicode::formatPercentage(item->getTUSnap());
 				if (item->getFlatRate())
 				{
 					tu.erase(tu.end() - 1);
 				}
 				_lstInfo->addRow(3,
 								 tr("STR_SHOT_TYPE_SNAP").c_str(),
-								 Text::formatPercentage(item->getAccuracySnap()).c_str(),
+								 Unicode::formatPercentage(item->getAccuracySnap()).c_str(),
 								 tu.c_str());
 				_lstInfo->setCellColor(current_row, 0, Palette::blockOffset(0)+2);
 				current_row++;
@@ -98,14 +99,14 @@ namespace OpenXcom
 
 			if (item->getTUAimed()>0)
 			{
-				std::wstring tu = Text::formatPercentage(item->getTUAimed());
+				std::string tu = Unicode::formatPercentage(item->getTUAimed());
 				if (item->getFlatRate())
 				{
 					tu.erase(tu.end() - 1);
 				}
 				_lstInfo->addRow(3,
 								 tr("STR_SHOT_TYPE_AIMED").c_str(),
-								 Text::formatPercentage(item->getAccuracyAimed()).c_str(),
+								 Unicode::formatPercentage(item->getAccuracyAimed()).c_str(),
 								 tu.c_str());
 				_lstInfo->setCellColor(current_row, 0, Palette::blockOffset(0)+2);
 				current_row++;
@@ -113,7 +114,7 @@ namespace OpenXcom
 		}
 
 		// AMMO column
-		std::wostringstream ss;
+		std::ostringstream ss;
 
 		for (int i = 0; i<3; ++i)
 		{
@@ -121,7 +122,7 @@ namespace OpenXcom
 			add(_txtAmmoType[i]);
 			_txtAmmoType[i]->setColor(Palette::blockOffset(0)+2);
 			_txtAmmoType[i]->setWordWrap(true);
-			
+
 			_txtAmmoDamage[i] = new Text(20, 9, 300, 144 + i*10);
 			add(_txtAmmoDamage[i]);
 			_txtAmmoDamage[i]->setColor(Palette::blockOffset(3)+6);
@@ -134,11 +135,11 @@ namespace OpenXcom
 				{
 					_txtAmmoType[0]->setText(tr(getDamageTypeText(item->getDamageType())));
 
-					ss.str(L"");ss.clear();
+					ss.str("");ss.clear();
 					ss << item->getPower();
 					if (item->getShotgunPellets())
 					{
-						ss << L"x" << item->getShotgunPellets();
+						ss << "x" << item->getShotgunPellets();
 					}
 					_txtAmmoDamage[0]->setText(ss.str());
 				}
@@ -152,11 +153,11 @@ namespace OpenXcom
 							RuleItem *ammo_rule = _game->getMod()->getItem((*ammo_data)[i], true);
 							_txtAmmoType[i]->setText(tr(getDamageTypeText(ammo_rule->getDamageType())));
 
-							ss.str(L"");ss.clear();
+							ss.str("");ss.clear();
 							ss << ammo_rule->getPower();
 							if (ammo_rule->getShotgunPellets())
 							{
-								ss << L"x" << ammo_rule->getShotgunPellets();
+								ss << "x" << ammo_rule->getShotgunPellets();
 							}
 							_txtAmmoDamage[i]->setText(ss.str());
 						}
@@ -169,7 +170,7 @@ namespace OpenXcom
 			case BT_MELEE:
 				_txtAmmoType[0]->setText(tr(getDamageTypeText(item->getDamageType())));
 
-				ss.str(L"");ss.clear();
+				ss.str("");ss.clear();
 				ss << item->getPower();
 				_txtAmmoDamage[0]->setText(ss.str());
 				break;

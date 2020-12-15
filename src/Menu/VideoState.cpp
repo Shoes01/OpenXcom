@@ -177,7 +177,7 @@ typedef struct
 	int sound;
 } introSoundEffect;
 
-static introSoundEffect introSoundTrack[] = 
+static introSoundEffect introSoundTrack[] =
 {
 {0, 0x200}, // inserting this to keep the code simple
 {149, 0x11},
@@ -323,7 +323,7 @@ static struct AudioSequence
 	int trackPosition;
 	FlcPlayer *_flcPlayer;
 
-	AudioSequence(Mod *mod, FlcPlayer *flcPlayer) : mod(mod), m(0), s(0), trackPosition(0), _flcPlayer(flcPlayer)
+	AudioSequence(Mod *_mod, FlcPlayer *flcPlayer) : mod(_mod), m(0), s(0), trackPosition(0), _flcPlayer(flcPlayer)
 	{ }
 
 	void operator()()
@@ -425,6 +425,11 @@ void VideoState::init()
 	int dx = (Options::baseXResolution - Screen::ORIGINAL_WIDTH) / 2;
 	int dy = (Options::baseYResolution - Screen::ORIGINAL_HEIGHT) / 2;
 
+	// We can only do a fade out in 8bpp, otherwise instantly end it
+	bool fade = (_game->getScreen()->getSurface()->getSurface()->format->BitsPerPixel == 8);
+	const int FADE_DELAY = 45;
+	const int FADE_STEPS = 20;
+
 	FlcPlayer *flcPlayer = NULL;
 	size_t audioCounter = 0;
 	for (std::vector<std::string>::const_iterator it = _videos->begin(); it != _videos->end(); ++it)
@@ -467,6 +472,7 @@ void VideoState::init()
 
 		if (flcPlayer->wasSkipped())
 		{
+			fade = false;
 			break;
 		}
 	}
@@ -475,11 +481,6 @@ void VideoState::init()
 	{
 		delete flcPlayer;
 	}
-
-	// We can only do a fade out in 8bpp, otherwise instantly end it
-	bool fade = (_game->getScreen()->getSurface()->getSurface()->format->BitsPerPixel == 8);
-	const int FADE_DELAY = 45;
-	const int FADE_STEPS = 20;
 
 #ifndef __NO_MUSIC
 	// fade out!

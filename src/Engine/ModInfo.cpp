@@ -43,6 +43,7 @@ void ModInfo::load(const std::string &filename)
 	_id       = doc["id"].as<std::string>(_id);
 	_isMaster = doc["isMaster"].as<bool>(_isMaster);
 	_reservedSpace = doc["reservedSpace"].as<int>(_reservedSpace);
+	_requiredExtendedVersion = doc["requiredExtendedVersion"].as<std::string>(_requiredExtendedVersion);
 
 	if (_reservedSpace < 1)
 	{
@@ -60,6 +61,8 @@ void ModInfo::load(const std::string &filename)
 		_master = "";
 		// only masters can load external resource dirs
 		_externalResourceDirs = doc["loadResources"].as< std::vector<std::string> >(_externalResourceDirs);
+		// or basic resource definition
+		_resourceConfigFile = doc["resourceConfig"].as<std::string>(_resourceConfigFile);
 	}
 
 	_master = doc["master"].as<std::string>(_master);
@@ -69,19 +72,17 @@ void ModInfo::load(const std::string &filename)
 	}
 }
 
-const std::string &ModInfo::getPath()        const { return _path;     }
-const std::string &ModInfo::getName()        const { return _name;     }
-const std::string &ModInfo::getDescription() const { return _desc;     }
-const std::string &ModInfo::getVersion()     const { return _version;  }
-const std::string &ModInfo::getAuthor()      const { return _author;   }
-const std::string &ModInfo::getId()          const { return _id;       }
-const std::string &ModInfo::getMaster()      const { return _master;   }
-bool               ModInfo::isMaster()       const { return _isMaster; }
-int                ModInfo::getReservedSpace()        const { return _reservedSpace;     }
-void ModInfo::setReservedSpace(int reservedSpace)
-{
-	_reservedSpace = reservedSpace;
-}
+const std::string &ModInfo::getPath()                    const { return _path;                    }
+const std::string &ModInfo::getName()                    const { return _name;                    }
+const std::string &ModInfo::getDescription()             const { return _desc;                    }
+const std::string &ModInfo::getVersion()                 const { return _version;                 }
+const std::string &ModInfo::getAuthor()                  const { return _author;                  }
+const std::string &ModInfo::getId()                      const { return _id;                      }
+const std::string &ModInfo::getMaster()                  const { return _master;                  }
+bool               ModInfo::isMaster()                   const { return _isMaster;                }
+const std::string &ModInfo::getRequiredExtendedVersion() const { return _requiredExtendedVersion; }
+const std::string &ModInfo::getResourceConfigFile()      const { return _resourceConfigFile;      }
+int                ModInfo::getReservedSpace()           const { return _reservedSpace;           }
 
 /**
  * Checks if a given mod can be activated.

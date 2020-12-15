@@ -19,7 +19,7 @@
 #include "SoldierDiaryMissionState.h"
 #include "../Mod/Mod.h"
 #include "../Engine/Game.h"
-#include "../Engine/Language.h"
+#include "../Engine/LocalizedText.h"
 #include "../Engine/Options.h"
 #include "../Interface/TextButton.h"
 #include "../Interface/Window.h"
@@ -86,11 +86,11 @@ SoldierDiaryMissionState::SoldierDiaryMissionState(Soldier *soldier, int rowEntr
 	_btnOk->onMouseClick((ActionHandler)&SoldierDiaryMissionState::btnOkClick);
 	_btnOk->onKeyboardPress((ActionHandler)&SoldierDiaryMissionState::btnOkClick, Options::keyCancel);
 
-	_btnPrev->setText(L"<<");
+	_btnPrev->setText("<<");
 	_btnPrev->onMouseClick((ActionHandler)&SoldierDiaryMissionState::btnPrevClick);
 	_btnPrev->onKeyboardPress((ActionHandler)&SoldierDiaryMissionState::btnPrevClick, Options::keyBattleNextUnit);
 
-	_btnNext->setText(L">>");
+	_btnNext->setText(">>");
 	_btnNext->onMouseClick((ActionHandler)&SoldierDiaryMissionState::btnNextClick);
 	_btnNext->onKeyboardPress((ActionHandler)&SoldierDiaryMissionState::btnNextClick, Options::keyBattlePrevUnit);
 
@@ -130,7 +130,7 @@ void SoldierDiaryMissionState::init()
 		missionId = 0;
 	}
 	int daysWounded = missionStatistics->at(missionId)->injuryList[_soldier->getId()];
-	
+
 	_lstKills->clearList();
 	_txtTitle->setText(tr(missionStatistics->at(missionId)->type));
 	if (missionStatistics->at(missionId)->isUfoMission())
@@ -145,7 +145,7 @@ void SoldierDiaryMissionState::init()
 	_txtDaylight->setText(tr("STR_DAYLIGHT_TYPE").arg(tr(missionStatistics->at(missionId)->getDaylightString())));
 	_txtDaysWounded->setText(tr("STR_DAYS_WOUNDED").arg(daysWounded));
 	_txtDaysWounded->setVisible(daysWounded != 0);
-	
+
 	int kills = 0;
 	bool stunOrKill = false;
 
@@ -157,6 +157,7 @@ void SoldierDiaryMissionState::init()
 		{
 		case STATUS_DEAD:
 			kills++;
+		//Fall-through
 		case STATUS_UNCONSCIOUS:
 		case STATUS_PANICKING:
 		case STATUS_TURNING:

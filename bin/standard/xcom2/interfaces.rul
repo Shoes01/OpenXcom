@@ -5,14 +5,10 @@ interfaces: #done
       - id: palette
         color: 4
       - id: window
-        color: 1 
+        color: 1
       - id: text
         color: 1
       - id: button
-        color: 1
-      - id: confirmDefaults
-        color: 1
-      - id: confirmVideo
         color: 1
       - id: battlescapeTheme
         color: 48
@@ -70,6 +66,10 @@ interfaces: #done
       - id: tooltip
         color: 239
       - id: button
+        color: 1
+      - id: confirmDefaults
+        color: 1
+      - id: confirmVideo
         color: 1
   - type: videoMenu
     elements:
@@ -297,7 +297,7 @@ interfaces: #done
         color2: 244  # minty green
       - id: button
         color: 1     # white
-        color2: 1    # white  
+        color2: 1    # white
   - type: UFOLost
     elements:
       - id: palette
@@ -310,7 +310,7 @@ interfaces: #done
         color2: 244  # minty green
       - id: button
         color: 1     # white
-        color2: 1    # white  
+        color2: 1    # white
   - type: multipleTargets
     elements:
       - id: palette
@@ -323,7 +323,7 @@ interfaces: #done
         color2: 244  # minty green
       - id: button
         color: 1     # white
-        color2: 1    # white  
+        color2: 1    # white
   - type: baseDestroyed
     elements:
       - id: palette
@@ -336,7 +336,7 @@ interfaces: #done
         color2: 244  # minty green
       - id: button
         color: 1     # white
-        color2: 1    # white  
+        color2: 1    # white
   - type: dogfightInfo
     elements:
       - id: palette
@@ -1262,6 +1262,8 @@ interfaces: #done
         color: 1
         color2: 244
       - id: text2
+        color: 1
+      - id: text3
         color: 1
         color2: 244
       - id: button

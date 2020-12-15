@@ -18,6 +18,7 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include <algorithm>
+#include <vector>
 #define __STDC_LIMIT_MACROS
 #include <stdint.h>
 
@@ -41,21 +42,20 @@ namespace RNG
 	double generate(double min, double max);
 	/// Generates a random integer number, inclusive (non-seed version).
 	int seedless(int min, int max);
-	/// Get normally distributed value.
-	double boxMuller(double m = 0, double s = 1);
 	/// Generates a percentage chance.
 	bool percent(int value);
-	/// Generates a random integer number, exclusive.
-	int generateEx(int max);
 	/// Shuffles a list randomly.
 	/**
 	 * Randomly changes the orders of the elements in a list.
 	 * @param list The container to randomize.
 	 */
 	template <typename T>
-	void shuffle(T &list)
+	void shuffle(std::vector<T> &list)
 	{
-		std::random_shuffle(list.begin(), list.end(), generateEx);
+		if (list.empty())
+			return;
+		for (size_t i = list.size() - 1; i > 0; --i)
+			std::swap(list[i], list[generate(0, i)]);
 	}
 }
 

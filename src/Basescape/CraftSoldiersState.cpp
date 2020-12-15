@@ -148,14 +148,14 @@ CraftSoldiersState::CraftSoldiersState(Base *base, size_t craft)
 	_txtCraft->setText(tr("STR_CRAFT"));
 
 	// populate sort options
-	std::vector<std::wstring> sortOptions;
+	std::vector<std::string> sortOptions;
 	sortOptions.push_back(tr("STR_ORIGINAL_ORDER"));
 	_sortFunctors.push_back(NULL);
 
 #define PUSH_IN(strId, functor) \
 	sortOptions.push_back(tr(strId)); \
 	_sortFunctors.push_back(new SortFunctor(_game, functor));
-	
+
 	PUSH_IN("STR_RANK", rankStat);
 	PUSH_IN("STR_MISSIONS2", missionsStat);
 	PUSH_IN("STR_KILLS2", killsStat);
@@ -175,10 +175,11 @@ CraftSoldiersState::CraftSoldiersState(Base *base, size_t craft)
 	bool showPsiSkill = false;
 	for (std::vector<Soldier*>::iterator i = _base->getSoldiers()->begin(); i != _base->getSoldiers()->end(); ++i)
 	{
-		if (showPsiSkill) { break; }
 		if ((*i)->getCurrentStats()->psiSkill > 0)
 		{
+			showPsiStrength = true;
 			showPsiSkill = true;
+			break;
 		}
 	}
 	if (showPsiStrength)

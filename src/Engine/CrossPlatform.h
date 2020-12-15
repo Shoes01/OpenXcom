@@ -71,8 +71,12 @@ namespace CrossPlatform
 	std::string baseFilename(const std::string &path);
 	/// Sanitizes the characters in a filename.
 	std::string sanitizeFilename(const std::string &filename);
-	/// Removes the extension from a file.
+	/// Removes the extension from a filename.
 	std::string noExt(const std::string &file);
+	/// Gets the extension from a filename.
+	std::string getExt(const std::string &file);
+	/// Compares the extension of a filename.
+	bool compareExt(const std::string &file, const std::string &extension);
 	/// Gets the system locale.
 	std::string getLocale();
 	/// Checks if an event is a quit shortcut.
@@ -80,9 +84,7 @@ namespace CrossPlatform
 	/// Gets the modified date of a file.
 	time_t getDateModified(const std::string &path);
 	/// Converts a timestamp to a string.
-	std::pair<std::wstring, std::wstring> timeToString(time_t time);
-	/// Compares two strings by natural order.
-	bool naturalCompare(const std::wstring &a, const std::wstring &b);
+	std::pair<std::string, std::string> timeToString(time_t time);
 	/// Move/rename a file between paths.
 	bool moveFile(const std::string &src, const std::string &dest);
 	/// Flashes the game window.

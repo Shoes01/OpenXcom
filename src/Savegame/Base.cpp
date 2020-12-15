@@ -230,6 +230,58 @@ void Base::load(const YAML::Node &node, SavedGame *save, bool newGame, bool newB
 	}
 
 	_retaliationTarget = node["retaliationTarget"].as<bool>(_retaliationTarget);
+
+	isOverlappingOrOverflowing(); // don't crash, just report in the log file...
+}
+
+/**
+ * Tests whether the base facilities are within the base boundaries and not overlapping.
+ * @return True if the base has a problem.
+ */
+bool Base::isOverlappingOrOverflowing()
+{
+	bool result = false;
+	BaseFacility* grid[BASE_SIZE][BASE_SIZE];
+
+	// i don't think i NEED to do this for a pointer array, but who knows what might happen on weird archaic linux distros if i don't?
+	for (int x = 0; x < BASE_SIZE; ++x)
+	{
+		for (int y = 0; y < BASE_SIZE; ++y)
+		{
+			grid[x][y] = 0;
+		}
+	}
+
+	for (std::vector<BaseFacility*>::iterator f = _facilities.begin(); f != _facilities.end(); ++f)
+	{
+		RuleBaseFacility *rules = (*f)->getRules();
+		int facilityX = (*f)->getX();
+		int facilityY = (*f)->getY();
+		int facilitySize = rules->getSize();
+
+		if (facilityX < 0 || facilityY < 0 || facilityX + (facilitySize - 1) >= BASE_SIZE || facilityY + (facilitySize - 1) >= BASE_SIZE)
+		{
+			Log(LOG_ERROR) << "Facility " << rules->getType() << " at [" << facilityX << ", " << facilityY << "] (size " << facilitySize << ") is outside of base boundaries.";
+			result = true;
+			continue;
+		}
+
+		for (int x = facilityX; x < facilityX + facilitySize; ++x)
+		{
+			for (int y = facilityY; y < facilityY + facilitySize; ++y)
+			{
+				if (grid[x][y] != 0)
+				{
+					Log(LOG_ERROR) << "Facility " << rules->getType() << " at [" << facilityX << ", " << facilityY << "] (size " << facilitySize
+						<< ") overlaps with " << grid[x][y]->getRules()->getType() << " at [" << x << ", " << y << "] (size " << grid[x][y]->getRules()->getSize() << ")";
+					result = true;
+				}
+				grid[x][y] = *f;
+			}
+		}
+	}
+
+	return result;
 }
 
 /**
@@ -274,23 +326,21 @@ YAML::Node Base::save() const
 }
 
 /**
- * Saves the base's unique identifiers to a YAML file.
- * @return YAML node.
+ * Returns the base's unique type used for
+ * savegame purposes.
+ * @return ID.
  */
-YAML::Node Base::saveId() const
+std::string Base::getType() const
 {
-	YAML::Node node = Target::saveId();
-	node["type"] = "STR_BASE";
-	node["id"] = 0;
-	return node;
+	return "STR_BASE";
 }
 
 /**
  * Returns the custom name for the base.
- * @param lang Language to get strings from.
+ * @param lang Language to get strings from (unused).
  * @return Name.
  */
-std::wstring Base::getName(Language *) const
+std::string Base::getName(Language *) const
 {
 	return _name;
 }
@@ -982,7 +1032,7 @@ int Base::getCraftMaintenance() const
  * Returns the total amount of soldiers of
  * a certain type stored in the base.
  * @param soldier Soldier type.
- * @return Number of soldiert.
+ * @return Number of soldiers.
  */
 int Base::getSoldierCount(const std::string &soldier) const
 {
@@ -1095,13 +1145,23 @@ void Base::removeResearch(ResearchProject * project)
 	{
 		_research.erase(iter);
 	}
+
+	const RuleResearch *ruleResearch = project->getRules();
+	if (!project->isFinished())
+	{
+		if (ruleResearch->needItem() && ruleResearch->destroyItem())
+		{
+			getStorageItems()->addItem(ruleResearch->getName(), 1);
+		}
+	}
+	delete project;
 }
 
 /**
  * Remove a Production from the Base
  * @param p A pointer to a Production
  */
-void Base::removeProduction (Production * p)
+void Base::removeProduction(Production * p)
 {
 	_engineers += p->getAssignedEngineers();
 	std::vector<Production *>::iterator iter = std::find (_productions.begin(), _productions.end(), p);
@@ -1109,6 +1169,7 @@ void Base::removeProduction (Production * p)
 	{
 		_productions.erase(iter);
 	}
+	delete p;
 }
 
 /**
@@ -1118,25 +1179,6 @@ void Base::removeProduction (Production * p)
 const std::vector<Production *> & Base::getProductions() const
 {
 	return _productions;
-}
-
-
-/**
- * Returns whether or not this base
- * is equipped with hyper-wave
- * detection facilities.
- * @return True if the base has hyper-wave detection.
- */
-bool Base::getHyperDetection() const
-{
-	for (std::vector<BaseFacility*>::const_iterator i = _facilities.begin(); i != _facilities.end(); ++i)
-	{
-		if ((*i)->getRules()->isHyperwave() && (*i)->getBuildTime() == 0)
-		{
-			return true;
-		}
-	}
-	return false;
 }
 
 /**
@@ -1618,7 +1660,7 @@ void Base::destroyFacility(std::vector<BaseFacility*>::iterator facility)
 			}
 		}
 	}
-	else if ((*facility)->getRules()->getPsiLaboratories() > 0)
+	if ((*facility)->getRules()->getPsiLaboratories() > 0)
 	{
 		// psi lab destruction: remove any soldiers over the maximum allowable from psi training.
 		int toRemove = (*facility)->getRules()->getPsiLaboratories() - getFreePsiLabs();
@@ -1626,12 +1668,12 @@ void Base::destroyFacility(std::vector<BaseFacility*>::iterator facility)
 		{
 			if ((*i)->isInPsiTraining())
 			{
-				(*i)->setPsiTraining();
+				(*i)->setPsiTraining(false);
 				--toRemove;
 			}
 		}
 	}
-	else if ((*facility)->getRules()->getLaboratories())
+	if ((*facility)->getRules()->getLaboratories())
 	{
 		// lab destruction: enforce lab space limits. take scientists off projects until
 		// it all evens out. research is not cancelled.
@@ -1653,7 +1695,7 @@ void Base::destroyFacility(std::vector<BaseFacility*>::iterator facility)
 			}
 		}
 	}
-	else if ((*facility)->getRules()->getWorkshops())
+	if ((*facility)->getRules()->getWorkshops())
 	{
 		// workshop destruction: similar to lab destruction, but we'll lay off engineers instead
 		// in this case, however, production IS cancelled, as it takes up space in the workshop.
@@ -1675,7 +1717,7 @@ void Base::destroyFacility(std::vector<BaseFacility*>::iterator facility)
 			}
 		}
 	}
-	else if ((*facility)->getRules()->getStorage())
+	if ((*facility)->getRules()->getStorage())
 	{
 		// we won't destroy the items physically AT the base,
 		// but any items in transit will end up at the dead letter office.
@@ -1695,7 +1737,7 @@ void Base::destroyFacility(std::vector<BaseFacility*>::iterator facility)
 			}
 		}
 	}
-	else if ((*facility)->getRules()->getPersonnel())
+	if ((*facility)->getRules()->getPersonnel())
 	{
 		// as above, we won't actually fire people, but we'll block any new ones coming in.
 		if ((getAvailableQuarters() - getUsedQuarters()) - (*facility)->getRules()->getPersonnel() < 0 && !_transfers.empty())
@@ -1757,6 +1799,41 @@ void Base::cleanupDefenses(bool reclaimItems)
 		delete *i;
 		i = _vehicles.erase(i);
 	}
+}
+
+/**
+ * Removes the craft and all associations from the base (does not destroy it!).
+ * @param craft Pointer to craft.
+ * @param unload Unload craft contents before removing.
+ */
+std::vector<Craft*>::iterator Base::removeCraft(Craft *craft, bool unload)
+{
+	// Unload craft
+	if (unload)
+	{
+		craft->unload(_mod);
+	}
+
+	// Clear hangar
+	for (std::vector<BaseFacility*>::iterator f = _facilities.begin(); f != _facilities.end(); ++f)
+	{
+		if ((*f)->getCraft() == craft)
+		{
+			(*f)->setCraft(0);
+			break;
+		}
+	}
+
+	// Remove craft
+	std::vector<Craft*>::iterator c;
+	for (c = _crafts.begin(); c != _crafts.end(); ++c)
+	{
+		if (*c == craft)
+		{
+			return _crafts.erase(c);
+		}
+	}
+	return c;
 }
 
 }

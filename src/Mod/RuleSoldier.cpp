@@ -29,7 +29,7 @@ namespace OpenXcom
  * type of soldier.
  * @param type String defining the type.
  */
-RuleSoldier::RuleSoldier(const std::string &type) : _type(type), _costBuy(0), _costSalary(0), _standHeight(0), _kneelHeight(0), _floatHeight(0), _femaleFrequency(50)
+RuleSoldier::RuleSoldier(const std::string &type) : _type(type), _costBuy(0), _costSalary(0), _standHeight(0), _kneelHeight(0), _floatHeight(0), _femaleFrequency(50), _value(20), _transferTime(0)
 {
 }
 
@@ -66,37 +66,11 @@ void RuleSoldier::load(const YAML::Node &node, Mod *mod)
 	_kneelHeight = node["kneelHeight"].as<int>(_kneelHeight);
 	_floatHeight = node["floatHeight"].as<int>(_floatHeight);
 	_femaleFrequency = node["femaleFrequency"].as<int>(_femaleFrequency);
+	_value = node["value"].as<int>(_value);
+	_transferTime = node["transferTime"].as<int>(_transferTime);
 
-	if (node["deathMale"])
-	{
-		_deathSoundMale.clear();
-		if (node["deathMale"].IsSequence())
-		{
-			for (YAML::const_iterator i = node["deathMale"].begin(); i != node["deathMale"].end(); ++i)
-			{
-				_deathSoundMale.push_back(mod->getSoundOffset(i->as<int>(), "BATTLE.CAT"));
-			}
-		}
-		else
-		{
-			_deathSoundMale.push_back(mod->getSoundOffset(node["deathMale"].as<int>(), "BATTLE.CAT"));
-		}
-	}
-	if (node["deathFemale"])
-	{
-		_deathSoundFemale.clear();
-		if (node["deathFemale"].IsSequence())
-		{
-			for (YAML::const_iterator i = node["deathFemale"].begin(); i != node["deathFemale"].end(); ++i)
-			{
-				_deathSoundFemale.push_back(mod->getSoundOffset(i->as<int>(), "BATTLE.CAT"));
-			}
-		}
-		else
-		{
-			_deathSoundFemale.push_back(mod->getSoundOffset(node["deathFemale"].as<int>(), "BATTLE.CAT"));
-		}
-	}
+	mod->loadSoundOffset(_type, _deathSoundMale, node["deathMale"], "BATTLE.CAT");
+	mod->loadSoundOffset(_type, _deathSoundFemale, node["deathFemale"], "BATTLE.CAT");
 
 	for (YAML::const_iterator i = node["soldierNames"].begin(); i != node["soldierNames"].end(); ++i)
 	{
@@ -111,7 +85,7 @@ void RuleSoldier::load(const YAML::Node &node, Mod *mod)
 		}
 		else
 		{
-			if (fileName.substr(fileName.length() - 1, 1) == "/")
+			if (fileName[fileName.length() - 1] == '/')
 			{
 				// load all *.nam files in given directory
 				std::set<std::string> names = FileMap::filterFiles(FileMap::getVFolderContents(fileName), "nam");
@@ -265,12 +239,31 @@ const std::vector<int> &RuleSoldier::getFemaleDeathSounds() const
 }
 
 /**
-* Returns the list of soldier name pools.
-* @return Pointer to soldier name pool list.
-*/
+ * Returns the list of soldier name pools.
+ * @return Pointer to soldier name pool list.
+ */
 const std::vector<SoldierNamePool*> &RuleSoldier::getNames() const
 {
 	return _names;
+}
+
+/**
+ * Gets the soldier's base value, without experience modifiers.
+ * @return The soldier's value.
+ */
+int RuleSoldier::getValue() const
+{
+	return _value;
+}
+
+/**
+ * Gets the amount of time this item
+ * takes to arrive at a base.
+ * @return The time in hours.
+ */
+int RuleSoldier::getTransferTime() const
+{
+	return _transferTime;
 }
 
 }

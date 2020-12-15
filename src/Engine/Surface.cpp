@@ -20,6 +20,7 @@
 #include "ShaderDraw.h"
 #include <vector>
 #include <fstream>
+#include <algorithm>
 #include <SDL_gfxPrimitives.h>
 #include <SDL_image.h>
 #include <SDL_endian.h>
@@ -28,6 +29,7 @@
 #include "Exception.h"
 #include "Logger.h"
 #include "ShaderMove.h"
+#include "Unicode.h"
 #include <stdlib.h>
 #ifdef _WIN32
 #include <malloc.h>
@@ -36,7 +38,6 @@
 #define _aligned_malloc __mingw_aligned_malloc
 #define _aligned_free   __mingw_aligned_free
 #endif //MINGW
-#include "Language.h"
 #ifdef __MORPHOS__
 #include <ppcinline/exec.h>
 #endif
@@ -200,6 +201,7 @@ Surface::Surface(const Surface& other)
 	_visible = other._visible;
 	_hidden = other._hidden;
 	_redraw = other._redraw;
+	_tftdMode = other._tftdMode;
 }
 
 /**
@@ -209,6 +211,57 @@ Surface::~Surface()
 {
 	DeleteAligned(_alignedBuffer);
 	SDL_FreeSurface(_surface);
+}
+
+/**
+ * Performs a fast copy of a pixel array, accounting for pitch.
+ * @param src Source array.
+ */
+template <typename T>
+void Surface::rawCopy(const std::vector<T> &src)
+{
+	// Copy whole thing
+	if (_surface->pitch == _surface->w)
+	{
+		size_t end = std::min(size_t(_surface->w * _surface->h * _surface->format->BytesPerPixel), src.size());
+		std::copy(src.begin(), src.begin() + end, (T*)_surface->pixels);
+	}
+	// Copy row by row
+	else
+	{
+		for (int y = 0; y < _surface->h; ++y)
+		{
+			size_t begin = y * _surface->w;
+			size_t end = std::min(begin + _surface->w, src.size());
+			if (begin >= src.size())
+				break;
+			std::copy(src.begin() + begin, src.begin() + end, (T*)getRaw(0, y));
+		}
+	}
+}
+
+/**
+ * Loads a raw array of pixels into the surface. The pixels must be
+ * in the same BPP as the surface.
+ * @param bytes Pixel array.
+ */
+void Surface::loadRaw(const std::vector<unsigned char> &bytes)
+{
+	lock();
+	rawCopy(bytes);
+	unlock();
+}
+
+/**
+ * Loads a raw array of pixels into the surface. The pixels must be
+ * in the same BPP as the surface.
+ * @param bytes Pixel array.
+ */
+void Surface::loadRaw(const std::vector<char> &bytes)
+{
+	lock();
+	rawCopy(bytes);
+	unlock();
 }
 
 /**
@@ -228,19 +281,7 @@ void Surface::loadScr(const std::string &filename)
 	}
 
 	std::vector<char> buffer((std::istreambuf_iterator<char>(imgFile)), (std::istreambuf_iterator<char>()));
-
-	// Lock the surface
-	lock();
-
-	int x = 0, y = 0;
-
-	for (std::vector<char>::iterator i = buffer.begin(); i != buffer.end(); ++i)
-	{
-		setPixelIterative(&x, &y, *i);
-	}
-
-	// Unlock the surface
-	unlock();
+	loadRaw(buffer);
 }
 
 /**
@@ -259,42 +300,41 @@ void Surface::loadImage(const std::string &filename)
 	Log(LOG_VERBOSE) << "Loading image: " << filename;
 
 	// Try loading with LodePNG first
-	std::vector<unsigned char> png;
-	unsigned error = lodepng::load_file(png, filename);
-	if (!error)
+	if (CrossPlatform::compareExt(filename, "png"))
 	{
-		std::vector<unsigned char> image;
-		unsigned width, height;
-		lodepng::State state;
-		state.decoder.color_convert = 0;
-		error = lodepng::decode(image, width, height, state, png);
+		std::vector<unsigned char> png;
+		unsigned error = lodepng::load_file(png, filename);
 		if (!error)
 		{
-			LodePNGColorMode *color = &state.info_png.color;
-			unsigned bpp = lodepng_get_bpp(color);
-			if (bpp == 8)
+			std::vector<unsigned char> image;
+			unsigned width, height;
+			lodepng::State state;
+			state.decoder.color_convert = 0;
+			error = lodepng::decode(image, width, height, state, png);
+			if (!error)
 			{
-				_alignedBuffer = NewAligned(bpp, width, height);
-				_surface = SDL_CreateRGBSurfaceFrom(_alignedBuffer, width, height, bpp, GetPitch(bpp, width), 0, 0, 0, 0);
-				if (_surface)
+				LodePNGColorMode *color = &state.info_png.color;
+				unsigned bpp = lodepng_get_bpp(color);
+				if (bpp == 8)
 				{
-					int x = 0, y = 0;
-					for (std::vector<unsigned char>::const_iterator i = image.begin(); i != image.end(); ++i)
+					_alignedBuffer = NewAligned(bpp, width, height);
+					_surface = SDL_CreateRGBSurfaceFrom(_alignedBuffer, width, height, bpp, GetPitch(bpp, width), 0, 0, 0, 0);
+					if (_surface)
 					{
-						setPixelIterative(&x, &y, *i);
-					}
-					setPalette((SDL_Color*)color->palette, 0, color->palettesize);
-					int transparent = 0;
-					for (int c = 0; c < _surface->format->palette->ncolors; ++c)
-					{
-						SDL_Color *palColor = _surface->format->palette->colors + c;
-						if (palColor->unused == 0)
+						loadRaw(image);
+						setPalette((SDL_Color*)color->palette, 0, color->palettesize);
+						int transparent = 0;
+						for (int c = 0; c < _surface->format->palette->ncolors; ++c)
 						{
-							transparent = c;
-							break;
+							SDL_Color *palColor = _surface->format->palette->colors + c;
+							if (palColor->unused == 0)
+							{
+								transparent = c;
+								break;
+							}
 						}
+						SDL_SetColorKey(_surface, SDL_SRCCOLORKEY, transparent);
 					}
-					SDL_SetColorKey(_surface, SDL_SRCCOLORKEY, transparent);
 				}
 			}
 		}
@@ -303,9 +343,7 @@ void Surface::loadImage(const std::string &filename)
 	// Otherwise default to SDL_Image
 	if (!_surface)
 	{
-		// SDL only takes UTF-8 filenames
-		// so here's an ugly hack to match this ugly reasoning
-		std::string utf8 = Language::wstrToUtf8(Language::fsToWstr(filename));
+		std::string utf8 = Unicode::convPathToUtf8(filename);
 		_surface = IMG_Load(utf8.c_str());
 	}
 
@@ -314,6 +352,9 @@ void Surface::loadImage(const std::string &filename)
 		std::string err = filename + ":" + IMG_GetError();
 		throw Exception(err);
 	}
+
+	_clear.w = getWidth();
+	_clear.h = getHeight();
 }
 
 /**
@@ -405,8 +446,9 @@ void Surface::loadBdy(const std::string &filename)
 			currentRow = y;
 			for (int i = 0; i < pixelCnt; ++i)
 			{
-				if (currentRow == y) // avoid overscan into next row
-					setPixelIterative(&x, &y, dataByte);
+				setPixelIterative(&x, &y, dataByte);
+				if (currentRow != y) // avoid overscan into next row
+					break;
 			}
 		}
 		else
@@ -427,7 +469,6 @@ void Surface::loadBdy(const std::string &filename)
 
 	imgFile.close();
 }
-
 
 /**
  * Clears the entire contents of the surface, resulting
@@ -943,6 +984,24 @@ void Surface::blitNShade(Surface *surface, int x, int y, int off, bool half, int
 }
 
 /**
+ * Specific blit function to blit battlescape terrain data in different shades in a fast way.
+ * @param surface destination blit to
+ * @param x
+ * @param y
+ * @param shade shade offset
+ * @param range area that limit draw surface
+ */
+void Surface::blitNShade(Surface *surface, int x, int y, int shade, GraphSubset range)
+{
+	ShaderMove<Uint8> src(this, x, y);
+	ShaderMove<Uint8> dest(surface);
+
+	dest.setDomain(range);
+
+	ShaderDraw<StandardShade>(dest, src, ShaderScalar(shade));
+}
+
+/**
  * Set the surface to be redrawn.
  * @param valid true means redraw.
  */
@@ -985,7 +1044,7 @@ void Surface::resize(int width, int height)
 	int pitch = GetPitch(bpp, width);
 	void *alignedBuffer = NewAligned(bpp, width, height);
 	SDL_Surface *surface = SDL_CreateRGBSurfaceFrom(alignedBuffer, width, height, bpp, pitch, 0, 0, 0, 0);
-	
+
 	if (surface == 0)
 	{
 		throw Exception(SDL_GetError());

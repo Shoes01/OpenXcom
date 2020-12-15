@@ -455,6 +455,7 @@ void BaseView::draw()
 		}
 
 		// Draw crafts
+		(*i)->setCraft(0);
 		if ((*i)->getBuildTime() == 0 && (*i)->getRules()->getCrafts() > 0)
 		{
 			if (craft != _base->getCrafts()->end())
@@ -467,15 +468,7 @@ void BaseView::draw()
 					frame->blit(this);
 					(*i)->setCraft(*craft);
 				}
-				else
-				{
-					(*i)->setCraft(0);
-				}
 				++craft;
-			}
-			else
-			{
-				(*i)->setCraft(0);
 			}
 		}
 
@@ -488,7 +481,7 @@ void BaseView::draw()
 			text->setX((*i)->getX() * GRID_SIZE);
 			text->setY((*i)->getY() * GRID_SIZE + (GRID_SIZE * (*i)->getRules()->getSize() - 16) / 2);
 			text->setBig();
-			std::wostringstream ss;
+			std::ostringstream ss;
 			ss << (*i)->getBuildTime();
 			text->setAlign(ALIGN_CENTER);
 			text->setColor(_cellColor);

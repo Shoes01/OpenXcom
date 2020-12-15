@@ -180,7 +180,7 @@ en-US:
   STR_INTRO_15: "The Aliens are ruthless in their efficiency...."
   STR_INTRO_16: "...unerring in their accuracy"
   STR_INTRO_17: "'Barracuda Zero One to base' - 'approaching what's left of the Hyperion'."
-  STR_INTRO_18: "'Decelerating'.{NEWLINE}'Two meters’{NEWLINE}'One meter'{NEWLINE}'All aquanauts prepare for immediate deployment'."
+  STR_INTRO_18: "'Decelerating'.{NEWLINE}'Two meters'{NEWLINE}'One meter'{NEWLINE}'All aquanauts prepare for immediate deployment'."
   STR_INTRO_19: "...........'Airlock cleared'...'approaching wreckage'.{NEWLINE}'Holy!'{NEWLINE}'Are you picking up those creatures on my suit cam?'"
 
   STR_GAMEOVER_1: "We have failed, the Aliens have annihilated our last hopes of salvation.{NEWLINE}X-Com is destroyed and the Earth is laid at the feet of the ancient enemy."
@@ -987,7 +987,7 @@ en-US:
   STR_GAUSS_RIFLE_CLIP: "Gauss Rifle Clip"
   STR_HEAVY_GAUSS: "Heavy Gauss"
   STR_HEAVY_GAUSS_CLIP: "Heavy Gauss Clip"
-  
+
   STR_SONIC_CANNON: "Sonic Cannon"
   STR_CANNON_POWER_CLIP: "Cannon Power Clip"
   STR_SONIC_BLASTA_RIFLE: "Sonic-Blasta Rifle"
@@ -1090,8 +1090,8 @@ en-US:
   STR_TIME_UNITS_SHORT: "TU>{ALT}{0}"
   STR_WEIGHT: "Weight>{ALT}{0}/{1}"
   STR_REACTIONS_SHORT: "React>{ALT}{0}"
-  STR_PSIONIC_SKILL_SHORT: "P.Skill>{ALT}{0}"
-  STR_PSIONIC_STRENGTH_SHORT: "P.Str>{ALT}{0}"
+  STR_PSIONIC_SKILL_SHORT: "M.Skill>{ALT}{0}"
+  STR_PSIONIC_STRENGTH_SHORT: "M.Str>{ALT}{0}"
   STR_ALIEN_ARTIFACT: "Alien Artefact"
   STR_AMMO_ROUNDS_LEFT: "AMMO:{NEWLINE}ROUNDS{NEWLINE}LEFT={ALT}{0}"
   STR_MEDI_KIT_QUANTITIES_LEFT: "Pain>{ALT}{0}{ALT}{NEWLINE}Stim>{ALT}{1}{ALT}{NEWLINE}Heal>{ALT}{2}"

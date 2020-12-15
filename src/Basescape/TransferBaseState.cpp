@@ -22,6 +22,7 @@
 #include "../Mod/Mod.h"
 #include "../Engine/LocalizedText.h"
 #include "../Engine/Options.h"
+#include "../Engine/Unicode.h"
 #include "../Interface/TextButton.h"
 #include "../Interface/Window.h"
 #include "../Interface/Text.h"
@@ -75,7 +76,7 @@ TransferBaseState::TransferBaseState(Base *base) : _base(base)
 	_txtTitle->setAlign(ALIGN_CENTER);
 	_txtTitle->setText(tr("STR_SELECT_DESTINATION_BASE"));
 
-	_txtFunds->setText(tr("STR_CURRENT_FUNDS").arg(Text::formatFunding(_game->getSavedGame()->getFunds())));
+	_txtFunds->setText(tr("STR_CURRENT_FUNDS").arg(Unicode::formatFunding(_game->getSavedGame()->getFunds())));
 
 	_txtName->setText(tr("STR_NAME"));
 	_txtName->setBig();
@@ -95,7 +96,7 @@ TransferBaseState::TransferBaseState(Base *base) : _base(base)
 		if ((*i) != _base)
 		{
 			// Get area
-			std::wstring area;
+			std::string area;
 			for (std::vector<Region*>::iterator j = _game->getSavedGame()->getRegions()->begin(); j != _game->getSavedGame()->getRegions()->end(); ++j)
 			{
 				if ((*j)->getRules()->insideRegion((*i)->getLongitude(), (*i)->getLatitude()))
@@ -104,8 +105,8 @@ TransferBaseState::TransferBaseState(Base *base) : _base(base)
 					break;
 				}
 			}
-			std::wostringstream ss;
-			ss << L'\x01' << area;
+			std::ostringstream ss;
+			ss << Unicode::TOK_COLOR_FLIP << area;
 			_lstBases->addRow(2, (*i)->getName().c_str(), ss.str().c_str());
 			_bases.push_back(*i);
 			row++;

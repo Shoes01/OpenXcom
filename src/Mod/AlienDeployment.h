@@ -75,7 +75,7 @@ private:
 	BriefingData _briefingData;
 	std::string _markerName, _objectivePopup, _objectiveCompleteText, _objectiveFailedText;
 	WeightedOptions _genMission;
-	int _markerIcon, _durationMin, _durationMax, _minDepth, _maxDepth, _minSiteDepth, _maxSiteDepth, _genMissionFrequency;
+	int _markerIcon, _durationMin, _durationMax, _minDepth, _maxDepth, _genMissionFrequency;
 	int _objectiveType, _objectivesRequired, _objectiveCompleteScore, _objectiveFailedScore, _despawnPenalty, _points, _turnLimit, _cheatTurn;
 	ChronoTrigger _chronoTrigger;
 	EscapeType _escapeType;
@@ -132,10 +132,6 @@ public:
 	int getMinDepth() const;
 	/// Gets the maximum depth.
 	int getMaxDepth() const;
-	/// Gets the minimum site depth.
-	int getMinSiteDepth() const;
-	/// Gets the maximum site depth.
-	int getMaxSiteDepth() const;
 	/// Gets the target type for this mission.
 	int getObjectiveType() const;
 	/// Gets a fixed number of objectives requires (if any).
@@ -159,7 +155,7 @@ public:
 	/// Gets whether or not this is an alien base (purely for new battle mode)
 	bool isAlienBase() const;
 
-	std::string getGenMissionType() const;
+	std::string chooseGenMissionType() const;
 
 	int getGenMissionFrequency() const;
 

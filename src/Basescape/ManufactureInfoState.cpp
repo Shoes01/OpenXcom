@@ -25,8 +25,9 @@
 #include "../Interface/ArrowButton.h"
 #include "../Engine/Action.h"
 #include "../Engine/Game.h"
-#include "../Engine/Language.h"
+#include "../Engine/LocalizedText.h"
 #include "../Engine/Options.h"
+#include "../Engine/Unicode.h"
 #include "../Mod/Mod.h"
 #include "../Mod/RuleCraft.h"
 #include "../Mod/RuleItem.h"
@@ -308,15 +309,15 @@ void ManufactureInfoState::setAssignedEngineer()
 {
 	_txtAvailableEngineer->setText(tr("STR_ENGINEERS_AVAILABLE_UC").arg(_base->getAvailableEngineers()));
 	_txtAvailableSpace->setText(tr("STR_WORKSHOP_SPACE_AVAILABLE_UC").arg(_base->getFreeWorkshops()));
-	std::wostringstream s3;
-	s3 << L">\x01" << _production->getAssignedEngineers();
+	std::ostringstream s3;
+	s3 << ">" << Unicode::TOK_COLOR_FLIP << _production->getAssignedEngineers();
 	_txtAllocated->setText(s3.str());
-	std::wostringstream s4;
-	s4 << L">\x01";
-	if (_production->getInfiniteAmount()) s4 << Language::utf8ToWstr("∞");
+	std::ostringstream s4;
+	s4 << ">" << Unicode::TOK_COLOR_FLIP;
+	if (_production->getInfiniteAmount()) s4 << "∞";
 	else s4 << _production->getAmountTotal();
 	_txtTodo->setText(s4.str());
-	_txtMonthlyProfit->setText(tr("STR_MONTHLY_PROFIT").arg(Text::formatFunding(getMonthlyNetFunds()).c_str()));
+	_txtMonthlyProfit->setText(tr("STR_MONTHLY_PROFIT").arg(Unicode::formatFunding(getMonthlyNetFunds()).c_str()));
 }
 
 /**

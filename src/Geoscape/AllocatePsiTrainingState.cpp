@@ -100,12 +100,12 @@ AllocatePsiTrainingState::AllocatePsiTrainingState(Base *base) : _sel(0)
 	int row = 0;
 	for (std::vector<Soldier*>::const_iterator s = base->getSoldiers()->begin(); s != base->getSoldiers()->end(); ++s)
 	{
-		std::wostringstream ssStr;
-		std::wostringstream ssSkl;
+		std::ostringstream ssStr;
+		std::ostringstream ssSkl;
 		_soldiers.push_back(*s);
 		if ((*s)->getCurrentStats()->psiSkill > 0 || (Options::psiStrengthEval && _game->getSavedGame()->isResearched(_game->getMod()->getPsiRequirements())))
 		{
-			ssStr << L"   " << (*s)->getCurrentStats()->psiStrength;
+			ssStr << "   " << (*s)->getCurrentStats()->psiStrength;
 			if (Options::allowPsiStrengthImprovement) ssStr << "/+" << (*s)->getPsiStrImprovement();
 		}
 		else
@@ -172,7 +172,7 @@ void AllocatePsiTrainingState::lstSoldiersClick(Action *action)
 				_lstSoldiers->setRowColor(_sel, _lstSoldiers->getSecondaryColor());
 				_labSpace--;
 				_txtRemaining->setText(tr("STR_REMAINING_PSI_LAB_CAPACITY").arg(_labSpace));
-				_base->getSoldiers()->at(_sel)->setPsiTraining();
+				_base->getSoldiers()->at(_sel)->setPsiTraining(true);
 			}
 		}
 		else
@@ -181,7 +181,7 @@ void AllocatePsiTrainingState::lstSoldiersClick(Action *action)
 			_lstSoldiers->setRowColor(_sel, _lstSoldiers->getColor());
 			_labSpace++;
 			_txtRemaining->setText(tr("STR_REMAINING_PSI_LAB_CAPACITY").arg(_labSpace));
-			_base->getSoldiers()->at(_sel)->setPsiTraining();
+			_base->getSoldiers()->at(_sel)->setPsiTraining(false);
 		}
 	}
 }

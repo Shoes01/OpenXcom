@@ -44,9 +44,9 @@ namespace OpenXcom
  * @return A string representation of the value.
  */
 template<typename type>
-std::wstring toString (type t)
+std::string toString (type t)
 {
-	std::wostringstream ss;
+	std::ostringstream ss;
 	ss << t;
 	return ss.str();
 }
@@ -58,7 +58,7 @@ class MedikitTitle : public Text
 {
 public:
 	/// Creates a medikit title.
-	MedikitTitle(int y, const std::wstring & title);
+	MedikitTitle(int y, const std::string & title);
 };
 
 /**
@@ -66,7 +66,7 @@ public:
  * @param y The title's y origin.
  * @param title The title.
  */
-MedikitTitle::MedikitTitle (int y, const std::wstring & title) : Text (73, 9, 186, y)
+MedikitTitle::MedikitTitle (int y, const std::string & title) : Text (73, 9, 186, y)
 {
 	this->setText(title);
 	this->setHighContrast(true);
@@ -203,7 +203,7 @@ void MedikitState::onEndClick(Action *)
 {
 	if (Options::maximizeInfoScreens)
 	{
-		Screen::updateScale(Options::battlescapeScale, Options::battlescapeScale, Options::baseXBattlescape, Options::baseYBattlescape, true);
+		Screen::updateScale(Options::battlescapeScale, Options::baseXBattlescape, Options::baseYBattlescape, true);
 		_game->getScreen()->resetDisplay(false);
 	}
 	_game->popState();
@@ -228,13 +228,24 @@ void MedikitState::onHealClick(Action *)
 		_medikitView->updateSelectedPart();
 		_medikitView->invalidate();
 		update();
-		
+
 		if (_targetUnit->getStatus() == STATUS_UNCONSCIOUS && _targetUnit->getStunlevel() < _targetUnit->getHealth() && _targetUnit->getHealth() > 0)
 		{
 			if (!_revivedTarget)
 			{
 				_targetUnit->setTimeUnits(0);
-				_action->actor->getStatistics()->revivedSoldier++;
+				if(_targetUnit->getOriginalFaction() == FACTION_PLAYER)
+				{
+					_action->actor->getStatistics()->revivedSoldier++;
+				}
+				else if(_targetUnit->getOriginalFaction() == FACTION_HOSTILE)
+				{
+					_action->actor->getStatistics()->revivedHostile++;
+				}
+				else
+				{
+					_action->actor->getStatistics()->revivedNeutral++;
+				}
 				_revivedTarget = true;
 			}
 			// if the unit has revived and has no more wounds, we quit this screen automatically
@@ -275,7 +286,18 @@ void MedikitState::onStimulantClick(Action *)
 		if (_targetUnit->getStatus() == STATUS_UNCONSCIOUS && _targetUnit->getStunlevel() < _targetUnit->getHealth() && _targetUnit->getHealth() > 0)
 		{
 			_targetUnit->setTimeUnits(0);
-			_action->actor->getStatistics()->revivedSoldier++;
+			if(_targetUnit->getOriginalFaction() == FACTION_PLAYER)
+			{
+				_action->actor->getStatistics()->revivedSoldier++;
+			}
+			else if(_targetUnit->getOriginalFaction() == FACTION_HOSTILE)
+			{
+				_action->actor->getStatistics()->revivedHostile++;
+			}
+			else
+			{
+				_action->actor->getStatistics()->revivedNeutral++;
+			}
 			onEndClick(0);
 		}
 	}

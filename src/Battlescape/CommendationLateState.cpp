@@ -20,7 +20,7 @@
 #include <sstream>
 #include "../Engine/Game.h"
 #include "../Mod/Mod.h"
-#include "../Engine/Language.h"
+#include "../Engine/LocalizedText.h"
 #include "../Interface/TextButton.h"
 #include "../Interface/Window.h"
 #include "../Interface/Text.h"
@@ -74,19 +74,19 @@ CommendationLateState::CommendationLateState(std::vector<Soldier*> soldiersMedal
 	_lstSoldiers->setFlooding(true);
 
     /***
-    
+
                                             LOST IN SERVICE
-                
-    SOLDIER NAME, RANK: ___, SCORE: ___, KILLS: ___, NUMBER OF MISSIONS: ___, DAYS WOUNDED: ___, TIMES HIT: ___    
+
+    SOLDIER NAME, RANK: ___, SCORE: ___, KILLS: ___, NUMBER OF MISSIONS: ___, DAYS WOUNDED: ___, TIMES HIT: ___
       COMMENDATION
       COMMENDATION
       COMMENDATION
       CAUSE OF DEATH: KILLED BY ALIEN_RACE ALIEN_RANK, USING WEAPON
-    
-    
+
+
     ***/
 
-	std::map<std::string, RuleCommendations *> commendationsList = _game->getMod()->getCommendation();
+	const std::map<std::string, RuleCommendations *> commendationsList = _game->getMod()->getCommendationsList();
 	bool modularCommendation;
 	std::string noun;
 
@@ -105,7 +105,7 @@ CommendationLateState::CommendationLateState(std::vector<Soldier*> soldiersMedal
 		// Loop over all commendations
 		for (std::map<std::string, RuleCommendations *>::const_iterator commList = commendationsList.begin(); commList != commendationsList.end();)
 		{
-			std::wostringstream wssCommendation;
+			std::ostringstream wssCommendation;
 			modularCommendation = false;
 			noun = "noNoun";
 
@@ -156,11 +156,11 @@ CommendationLateState::CommendationLateState(std::vector<Soldier*> soldiersMedal
 					{
 						wssCommendation << tr((*commList).first);
 					}
-					_lstSoldiers->addRow(5, wssCommendation.str().c_str(), L"", L"", L"", tr((*soldierComm)->getDecorationLevelName(skipCounter)).c_str());
+					_lstSoldiers->addRow(5, wssCommendation.str().c_str(), "", "", "", tr((*soldierComm)->getDecorationLevelName(skipCounter)).c_str());
 					break;
 				}
 			} // END SOLDIER COMMS LOOP
-	  
+
 			if (noun == "noNoun")
 			{
 				++commList;

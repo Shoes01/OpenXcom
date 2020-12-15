@@ -51,13 +51,13 @@ OptionsConfirmState::OptionsConfirmState(OptionsOrigin origin) : _origin(origin)
 	_timer = new Timer(1000);
 
 	// Set palette
-	setInterface("mainMenu", false, _game->getSavedGame() ? _game->getSavedGame()->getSavedBattle() : 0);
+	setInterface("optionsMenu", false, _game->getSavedGame() ? _game->getSavedGame()->getSavedBattle() : 0);
 
-	add(_window, "confirmVideo", "mainMenu");
-	add(_btnYes, "confirmVideo", "mainMenu");
-	add(_btnNo, "confirmVideo", "mainMenu");
-	add(_txtTitle, "confirmVideo", "mainMenu");
-	add(_txtTimer, "confirmVideo", "mainMenu");
+	add(_window, "confirmVideo", "optionsMenu");
+	add(_btnYes, "confirmVideo", "optionsMenu");
+	add(_btnNo, "confirmVideo", "optionsMenu");
+	add(_txtTitle, "confirmVideo", "optionsMenu");
+	add(_txtTimer, "confirmVideo", "optionsMenu");
 
 	centerAllSurfaces();
 
@@ -112,8 +112,8 @@ void OptionsConfirmState::think()
 void OptionsConfirmState::countdown()
 {
 	_countdown--;
-	std::wostringstream ss;
-	ss << std::setfill(L'0') << std::setw(2) << _countdown;
+	std::ostringstream ss;
+	ss << std::setfill('0') << std::setw(2) << _countdown;
 	_txtTimer->setText(tr("STR_DISPLAY_OPTIONS_REVERT").arg(ss.str()));
 	if (_countdown == 0)
 	{
@@ -138,6 +138,8 @@ void OptionsConfirmState::btnYesClick(Action *)
 void OptionsConfirmState::btnNoClick(Action *)
 {
 	Options::switchDisplay();
+	Screen::updateScale(Options::battlescapeScale, Options::baseXBattlescape, Options::baseYBattlescape, _origin == OPT_BATTLESCAPE);
+	Screen::updateScale(Options::geoscapeScale, Options::baseXGeoscape, Options::baseYGeoscape, _origin != OPT_BATTLESCAPE);
 	Options::save();
 	_game->getScreen()->resetDisplay();
 	_game->popState();

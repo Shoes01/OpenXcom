@@ -21,6 +21,7 @@
 #include "../Engine/Options.h"
 #include "../Engine/LocalizedText.h"
 #include "../Engine/Action.h"
+#include "../Engine/Unicode.h"
 #include "../Savegame/BattleUnit.h"
 #include "../Savegame/BattleItem.h"
 #include "../Mod/RuleItem.h"
@@ -150,14 +151,14 @@ ActionMenuState::~ActionMenuState()
  */
 void ActionMenuState::addItem(BattleActionType ba, const std::string &name, int *id)
 {
-	std::wstring s1, s2;
+	std::string s1, s2;
 	int acc = _action->actor->getFiringAccuracy(ba, _action->weapon);
 	if (ba == BA_THROW)
 		acc = (int)(_action->actor->getThrowingAccuracy());
 	int tu = _action->actor->getActionTUs(ba, _action->weapon);
 
 	if (ba == BA_THROW || ba == BA_AIMEDSHOT || ba == BA_SNAPSHOT || ba == BA_AUTOSHOT || ba == BA_LAUNCH || ba == BA_HIT)
-		s1 = tr("STR_ACCURACY_SHORT").arg(Text::formatPercentage(acc));
+		s1 = tr("STR_ACCURACY_SHORT").arg(Unicode::formatPercentage(acc));
 	s2 = tr("STR_TIME_UNITS_SHORT").arg(tu);
 	_actionMenu[*id]->setAction(ba, tr(name), s1, s2, tu);
 	_actionMenu[*id]->setVisible(true);
@@ -194,6 +195,7 @@ void ActionMenuState::btnActionMenuItemClick(Action *action)
 
 	int btnID = -1;
 	RuleItem *weapon = _action->weapon->getRules();
+	std::string weaponUsable = _game->getSavedGame()->getSavedBattle()->getItemUsable(_action->weapon);
 
 	// got to find out which button was pressed
 	for (size_t i = 0; i < sizeof(_actionMenu)/sizeof(_actionMenu[0]) && btnID == -1; ++i)
@@ -215,17 +217,9 @@ void ActionMenuState::btnActionMenuItemClick(Action *action)
 			_action->result = "STR_UNABLE_TO_USE_ALIEN_ARTIFACT_UNTIL_RESEARCHED";
 			_game->popState();
 		}
-		else if (_action->type != BA_THROW &&
-			!_game->getSavedGame()->getSavedBattle()->isItemUsable(weapon))
+		else if (_action->type != BA_THROW && !weaponUsable.empty())
 		{
-			if (weapon->isWaterOnly())
-			{
-				_action->result = "STR_UNDERWATER_EQUIPMENT";
-			}
-			else if (weapon->isLandOnly())
-			{
-				_action->result = "STR_LAND_EQUIPMENT";
-			}
+			_action->result = weaponUsable;
 			_game->popState();
 		}
 		else if (_action->type == BA_PRIME)
@@ -330,6 +324,11 @@ void ActionMenuState::btnActionMenuItemClick(Action *action)
 		{
 			_action->targeting = true;
 			_game->popState();
+		}
+		// meleeAttackBState won't be available to clear the action type, do it here instead.
+		if (_action->type == BA_HIT && !_action->result.empty())
+		{
+			_action->type = BA_NONE;
 		}
 	}
 }

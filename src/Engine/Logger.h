@@ -43,8 +43,7 @@ enum SeverityLevel
 };
 
 /**
- * A basic logging and debugging class, prints output to stdout/files
- * and can capture stack traces of fatal errors too.
+ * A basic logging and debugging class, prints output to stdout/files.
  * @note Wasn't really satisfied with any of the libraries around
  * so I rolled my own. Based on http://www.drdobbs.com/cpp/logging-in-c/201804215
  */
@@ -54,7 +53,7 @@ public:
 	Logger();
 	virtual ~Logger();
 	std::ostringstream& get(SeverityLevel level = LOG_INFO);
-	
+
 	static SeverityLevel& reportingLevel();
 	static std::string& logFile();
 	static std::string toString(SeverityLevel level);
@@ -62,7 +61,6 @@ protected:
 	std::ostringstream os;
 private:
 	Logger(const Logger&);
-	Logger& operator =(const Logger&);
 };
 
 inline Logger::Logger()

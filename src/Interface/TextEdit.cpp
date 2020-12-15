@@ -34,14 +34,14 @@ namespace OpenXcom
  * @param x X position in pixels.
  * @param y Y position in pixels.
  */
-TextEdit::TextEdit(State *state, int width, int height, int x, int y) : InteractiveSurface(width, height, x, y), _blink(true), _modal(true), _ascii(L'A'), _caretPos(0), _textEditConstraint(TEC_NONE), _change(0), _state(state)
+TextEdit::TextEdit(State *state, int width, int height, int x, int y) : InteractiveSurface(width, height, x, y), _blink(true), _modal(true), _char('A'), _caretPos(0), _textEditConstraint(TEC_NONE), _change(0), _state(state)
 {
 	_isFocused = false;
 	_text = new Text(width, height, 0, 0);
 	_timer = new Timer(100);
 	_timer->onTimer((SurfaceHandler)&TextEdit::blink);
 	_caret = new Text(16, 17, 0, 0);
-	_caret->setText(L"|");
+	_caret->setText("|");
 }
 
 /**
@@ -142,9 +142,9 @@ void TextEdit::initText(Font *big, Font *small, Language *lang)
  * Changes the string displayed on screen.
  * @param text Text string.
  */
-void TextEdit::setText(const std::wstring &text)
+void TextEdit::setText(const std::string &text)
 {
-	_value = text;
+	_value = Unicode::convUtf8ToUtf32(text);
 	_caretPos = _value.length();
 	_redraw = true;
 }
@@ -153,9 +153,9 @@ void TextEdit::setText(const std::wstring &text)
  * Returns the string displayed on screen.
  * @return Text string.
  */
-std::wstring TextEdit::getText() const
+std::string TextEdit::getText() const
 {
-	return _value;
+	return Unicode::convUtf32ToUtf8(_value);
 }
 
 /**
@@ -299,16 +299,15 @@ void TextEdit::blink()
 void TextEdit::draw()
 {
 	Surface::draw();
-	_text->setText(_value);
+	UString newValue = _value;
 	if (Options::keyboardMode == KEYBOARD_OFF)
 	{
-		std::wstring newValue = _value;
 		if (_isFocused && _blink)
 		{
-			newValue += _ascii;
-			_text->setText(newValue);
+			newValue += _char;
 		}
 	}
+	_text->setText(Unicode::convUtf32ToUtf8(_value));
 	clear();
 	_text->blit(this);
 	if (Options::keyboardMode == KEYBOARD_ON)
@@ -359,13 +358,13 @@ void TextEdit::draw()
  * @param c Character to add.
  * @return True if it exceeds, False if it doesn't.
  */
-bool TextEdit::exceedsMaxWidth(wchar_t c)
+bool TextEdit::exceedsMaxWidth(UCode c) const
 {
 	int w = 0;
-	std::wstring s = _value;
+	UString s = _value;
 
 	s += c;
-	for (std::wstring::iterator i = s.begin(); i < s.end(); ++i)
+	for (UString::const_iterator i = s.begin(); i < s.end(); ++i)
 	{
 		w += _text->getFont()->getCharSize(*i).w;
 	}
@@ -377,15 +376,15 @@ bool TextEdit::exceedsMaxWidth(wchar_t c)
  * Checks if input key character is valid to
  * be inserted at caret position in the text edit
  * without breaking the text edit constraint.
- * @param key Key code.
+ * @param c Character to validate.
  * @return True if character can be inserted, False if it cannot.
  */
-bool TextEdit::isValidChar(Uint16 key)
+bool TextEdit::isValidChar(UCode c) const
 {
 	switch (_textEditConstraint)
 	{
 	case TEC_NUMERIC_POSITIVE:
-		return key >= L'0' && key <= L'9';
+		return c >= '0' && c <= '9';
 
 	// If constraint is "(signed) numeric", need to check:
 	// - user does not input a character before '-' or '+'
@@ -393,16 +392,16 @@ bool TextEdit::isValidChar(Uint16 key)
 	case TEC_NUMERIC:
 		if (_caretPos > 0)
 		{
-			return key >= L'0' && key <= L'9';
+			return c >= '0' && c <= '9';
 		}
 		else
 		{
-			return ((key >= L'0' && key <= L'9') || key == L'+' || key == L'-') &&
-				(_value.size() == 0 || (_value[0] != L'+' && _value[0] != L'-'));
+			return ((c >= '0' && c <= '9') || c == '+' || c == '-') &&
+					(_value.empty() || (_value[0] != '+' && _value[0] != '-'));
 		}
 
 	case TEC_NONE:
-		return (key >= L' ' && key <= L'~') || key >= 160;
+		return (c >= ' ' && c <= '~') || c >= 160;
 
 	default:
 		return false;
@@ -428,7 +427,7 @@ void TextEdit::mousePress(Action *action, State *state)
 			double scaleX = action->getXScale();
 			double w = 0;
 			int c = 0;
-			for (std::wstring::iterator i = _value.begin(); i < _value.end(); ++i)
+			for (UString::iterator i = _value.begin(); i < _value.end(); ++i)
 			{
 				if (mouseX <= w)
 				{
@@ -461,32 +460,33 @@ void TextEdit::keyboardPress(Action *action, State *state)
 		switch (action->getDetails()->key.keysym.sym)
 		{
 		case SDLK_UP:
-			_ascii++;
-			if (_ascii > L'~')
+			_char++;
+			if (_char > '~')
 			{
-				_ascii = L' ';
+				_char = ' ';
 			}
 			break;
 		case SDLK_DOWN:
-			_ascii--;
-			if (_ascii < L' ')
+			_char--;
+			if (_char < ' ')
 			{
-				_ascii = L'~';
+				_char = '~';
 			}
 			break;
 		case SDLK_LEFT:
-			if (_value.length() > 0)
+			if (!_value.empty())
 			{
 				_value.resize(_value.length() - 1);
 			}
 			break;
 		case SDLK_RIGHT:
-			if (!exceedsMaxWidth(_ascii))
+			if (!exceedsMaxWidth(_char))
 			{
-				_value += _ascii;
+				_value += _char;
 			}
 			break;
-		default: break;
+		default:
+			break;
 		}
 	}
 	else if (Options::keyboardMode == KEYBOARD_ON)
@@ -532,12 +532,13 @@ void TextEdit::keyboardPress(Action *action, State *state)
 			}
 			break;
 		default:
-			Uint16 key = action->getDetails()->key.keysym.unicode;			
-			if (isValidChar(key) && !exceedsMaxWidth((wchar_t)key))
+			UCode c = action->getDetails()->key.keysym.unicode;
+			if (isValidChar(c) && !exceedsMaxWidth(c))
 			{
-				_value.insert(_caretPos, 1, (wchar_t)action->getDetails()->key.keysym.unicode);
+				_value.insert(_caretPos, 1, c);
 				_caretPos++;
 			}
+			break;
 		}
 	}
 	_redraw = true;

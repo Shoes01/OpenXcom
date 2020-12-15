@@ -20,7 +20,7 @@
 #include "../Engine/InteractiveSurface.h"
 #include <vector>
 #include <string>
-#include <stdint.h>
+#include "../Engine/Unicode.h"
 
 namespace OpenXcom
 {
@@ -42,7 +42,8 @@ class Text : public InteractiveSurface
 private:
 	Font *_big, *_small, *_font;
 	Language *_lang;
-	std::wstring _text, _wrappedText;
+	std::string _text;
+	UString _processedText;
 	std::vector<int> _lineWidth, _lineHeight;
 	bool _wrap, _invert, _contrast, _indent;
 	TextHAlign _align;
@@ -58,12 +59,6 @@ public:
 	Text(int width, int height, int x = 0, int y = 0);
 	/// Cleans up the text.
 	~Text();
-	/// Formats an integer value as number with separators.
-	static std::wstring formatNumber(int64_t value, const std::wstring &currency = L"");
-	/// Formats an integer value as currency.
-	static std::wstring formatFunding(int64_t funds);
-	/// Formats an integer value as percentage.
-	static std::wstring formatPercentage(int value);
 	/// Sets the text size to big.
 	void setBig();
 	/// Sets the text size to small.
@@ -73,9 +68,9 @@ public:
 	/// Initializes the resources for the text.
 	void initText(Font *big, Font *small, Language *lang);
 	/// Sets the text's string.
-	void setText(const std::wstring &text);
+	void setText(const std::string &text);
 	/// Gets the text's string.
-	std::wstring getText() const;
+	std::string getText() const;
 	/// Sets the text's wordwrap setting.
 	void setWordWrap(bool wrap, bool indent = false);
 	/// Sets the text's color invert setting.

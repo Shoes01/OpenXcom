@@ -1,10 +1,10 @@
-# Locate SDL_mixer library
+# Locate yaml-cpp library
 # This module defines
 # YAMLCPP_LIBRARY, the name of the library to link against
-# YAMLCPP_FOUND, if false, do not try to link to SDL
-# YAMLCPP_INCLUDE_DIR, where to find SDL/SDL.h
+# YAMLCPP_FOUND, if false, do not try to link to yaml-cpp
+# YAMLCPP_INCLUDE_DIR, where to find yaml-cpp/yaml.h
 #
-# Created by Guillaume Chevallereau. This was influenced by the FindSDL.cmake 
+# Created by Guillaume Chevallereau. This was influenced by the FindSDL.cmake
 # module.
 
 #=============================================================================
@@ -23,18 +23,12 @@
 FIND_PACKAGE(PkgConfig)
 PKG_CHECK_MODULES(PC_YAMLCPP QUIET yaml-cpp)
 
-# yaml-cpp 0.5.2 has issues that cause openxcom to fail to load any rules:
-# See: https://github.com/jbeder/yaml-cpp/pull/316
-if (PC_YAMLCPP_VERSION STREQUAL 0.5.2)
-		message(FATAL_ERROR "YAML-CPP 0.5.2 is known broken - please use either 0.5.1 or 0.5.3+")
-endif()
-
-FIND_PATH(YAMLCPP_INCLUDE_DIR yaml.h
+FIND_PATH(YAMLCPP_INCLUDE_DIR yaml-cpp/yaml.h
   HINTS
   ${PC_YAMLCPP_INCLUDEDIR}
   ${PC_YAMLCPP_INCLUDE_DIRS}
   $ENV{YAMLCPPDIR}
-  PATH_SUFFIXES include/yaml-cpp include yaml-cpp
+  PATH_SUFFIXES include/yaml-cpp include
   PATHS
   ~/Library/Frameworks
   /Library/Frameworks
@@ -46,7 +40,7 @@ FIND_PATH(YAMLCPP_INCLUDE_DIR yaml.h
   /opt/include
 )
 
-FIND_LIBRARY(YAMLCPP_LIBRARY 
+FIND_LIBRARY(YAMLCPP_LIBRARY
   NAMES yaml-cpp
   HINTS
   ${PC_YAMLCPP_LIBDIR}
@@ -66,8 +60,8 @@ FIND_LIBRARY(YAMLCPP_LIBRARY
 
 if ( APPLE )
   if ( NOT YAMLCPP_LIBRARY )
-    FIND_LIBRARY(YAMLCPP_LIBRARY 
-      NAMES YAML
+    FIND_LIBRARY(YAMLCPP_LIBRARY
+      NAMES yaml-cpp
       HINTS
       $ENV{YAMLCPPDIR}
       PATH_SUFFIXES lib64 lib

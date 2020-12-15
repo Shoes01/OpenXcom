@@ -33,6 +33,8 @@ private:
 	std::string _name, _desc, _version, _author, _url, _id, _master;
 	bool _isMaster;
 	int _reservedSpace;
+	std::string _requiredExtendedVersion;
+	std::string _resourceConfigFile;
 	std::vector<std::string> _externalResourceDirs;
 public:
 	/// Creates default metadata for a mod at the specified path.
@@ -58,10 +60,12 @@ public:
 	bool isMaster() const;
 	/// Gets whether this mod can be activated.
 	bool canActivate(const std::string &curMaster) const;
-	/// Gets size of mod, bigger mod reserve more values in common colections/surfacesets.
+	/// Gets size of mod, bigger mod reserve more values in common collections/surfacesets.
 	int getReservedSpace() const;
-	/// Sets mod size (DO NOT use this method outside Options::updateReservedSpace()).
-	void setReservedSpace(int reservedSpace);
+	/// Gets the OXCE version required by this mod.
+	const std::string &getRequiredExtendedVersion() const;
+	/// Gets ruleset file where are defined based resources like required original game data.
+	const std::string &getResourceConfigFile() const;
 	/// Gets the list of external resource dirs to load for this mod.
 	const std::vector<std::string> &getExternalResourceDirs() const;
 };

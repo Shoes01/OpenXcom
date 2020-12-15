@@ -47,12 +47,13 @@ class Craft : public MovingTarget
 private:
 	RuleCraft *_rules;
 	Base *_base;
-	int _id, _fuel, _damage, _interceptionOrder, _takeoff;
+	int _fuel, _damage, _interceptionOrder, _takeoff;
 	std::vector<CraftWeapon*> _weapons;
 	ItemContainer *_items;
 	std::vector<Vehicle*> _vehicles;
 	std::string _status;
 	bool _lowFuel, _mission, _inBattlescape, _inDogfight;
+	double _speedMaxRadian;
 
 	using MovingTarget::load;
 public:
@@ -64,19 +65,17 @@ public:
 	void load(const YAML::Node& node, const Mod *mod, SavedGame *save);
 	/// Saves the craft to YAML.
 	YAML::Node save() const;
-	/// Saves the craft's ID to YAML.
-	YAML::Node saveId() const;
 	/// Loads a craft ID from YAML.
 	static CraftId loadId(const YAML::Node &node);
+	/// Gets the craft's type.
+	std::string getType() const;
 	/// Gets the craft's ruleset.
 	RuleCraft *getRules() const;
 	/// Sets the craft's ruleset.
 	void changeRules(RuleCraft *rules);
-	/// Gets the craft's ID.
-	int getId() const;
 	/// Gets the craft's default name.
-	std::wstring getDefaultName(Language *lang) const;
-	/// Gets the craft's marker.
+	std::string getDefaultName(Language *lang) const;
+	/// Gets the craft's marker sprite.
 	int getMarker() const;
 	/// Gets the craft's base.
 	Base *getBase() const;
@@ -128,10 +127,14 @@ public:
 	double getDistanceFromBase() const;
 	/// Gets the craft's fuel consumption.
 	int getFuelConsumption() const;
+	/// Gets the craft's fuel consumption at a certain speed.
+	int getFuelConsumption(int speed) const;
 	/// Gets the craft's minimum fuel limit.
 	int getFuelLimit() const;
 	/// Gets the craft's minimum fuel limit to go to a base.
 	int getFuelLimit(Base *base) const;
+
+	double getBaseRange() const;
 	/// Returns the craft to its base.
 	void returnToBase();
 	/// Checks if a target is detected by the craft's radar.

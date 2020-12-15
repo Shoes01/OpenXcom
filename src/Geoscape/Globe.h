@@ -52,13 +52,14 @@ private:
 	static const double ROTATE_LATITUDE;
 
 	RuleGlobe *_rules;
-	double _cenLon, _cenLat, _rotLon, _rotLat, _hoverLon, _hoverLat;
 	Sint16 _cenX, _cenY;
+	double _cenLon, _cenLat, _rotLon, _rotLat, _hoverLon, _hoverLat;
+	double _craftLon, _craftLat, _craftRange;
 	size_t _zoom, _zoomOld, _zoomTexture;
 	SurfaceSet *_texture, *_markerSet;
 	Game *_game;
 	Surface *_markers, *_countries, *_radars;
-	bool _hover;
+	bool _hover, _craft;
 	int _blink;
 	Timer *_blinkTimer, *_rotTimer;
 	std::list<Polygon*> _cacheLand;
@@ -82,8 +83,6 @@ private:
 	void setZoom(size_t zoom);
 	/// Checks if a point is behind the globe.
 	bool pointBack(double lon, double lat) const;
-	/// Return latitude of last visible to player point on given longitude.
-	double lastVisibleLat(double lon) const;
 	/// Get polygon pointer
 	Polygon* getPolygonFromLonLat(double lon, double lat) const;
 	/// Checks if a target is near a point.
@@ -93,7 +92,7 @@ private:
 	/// Get position of sun relative to given position in polar cords and date.
 	Cord getSunDirection(double lon, double lat) const;
 	/// Draw globe range circle.
-	void drawGlobeCircle(double lat, double lon, double radius, int segments);
+	void drawGlobeCircle(double lat, double lon, double radius, int segments, int frac = 1);
 	/// Special "transparent" line.
 	void XuLine(Surface* surface, Surface* src, double x1, double y1, double x2, double y2, int shade);
 	/// Draw line on globe surface.
@@ -102,13 +101,16 @@ private:
 	void drawPath(Surface *surface, double lon1, double lat1, double lon2, double lat2);
 	/// Draw target marker.
 	void drawTarget(Target *target, Surface *surface);
+	/// Set up the radius of earth and stuff.
+	void setupRadii(int width, int height);
 public:
-
+	static Uint8 OCEAN_COLOR;
+	static bool OCEAN_SHADING;
 	static Uint8 COUNTRY_LABEL_COLOR;
 	static Uint8 LINE_COLOR;
 	static Uint8 CITY_LABEL_COLOR;
 	static Uint8 BASE_LABEL_COLOR;
-	static Uint8 OCEAN_COLOR;
+
 	/// Creates a new globe at the specified position and size.
 	Globe(Game* game, int cenX, int cenY, int width, int height, int x = 0, int y = 0);
 	/// Cleans up the globe.
@@ -200,17 +202,13 @@ public:
 	/// Sets hover base position.
 	void setNewBaseHoverPos(double lon, double lat);
 	/// Turns on new base hover mode.
-	void setNewBaseHover(void);
-	/// Turns off new base hover mode.
-	void unsetNewBaseHover(void);
-	/// Gets state of base hover mode
-	bool getNewBaseHover(void) const;
+	void setNewBaseHover(bool hover);
+	/// Sets craft range mode.
+	void setCraftRange(double lon, double lat, double range);
 	/// set the _radarLines variable
 	void toggleRadarLines();
 	/// Update the resolution settings, we just resized the window.
 	void resize();
-	/// Set up the radius of earth and stuff.
-	void setupRadii(int width, int height);
 	/// Move the mouse back to where it started after we finish drag scrolling.
 	void stopScrolling(Action *action);
 };

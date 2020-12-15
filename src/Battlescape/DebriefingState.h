@@ -39,9 +39,16 @@ class RuleItem;
 class BattleUnit;
 struct UnitStats;
 
-struct DebriefingStat { DebriefingStat(const std::string &_item, bool recovery) : item(_item), qty(0), score(0), recovery(recovery) {}; std::string item; int qty; int score; bool recovery; };
+struct DebriefingStat {
+	std::string item;
+	int qty;
+	int score;
+	bool recovery;
 
-struct ReequipStat { std::string item; int qty; std::wstring craft; };
+	DebriefingStat(const std::string &_item, bool _recovery) : item(_item), qty(0), score(0), recovery(_recovery) {};
+	};
+
+struct ReequipStat { std::string item; int qty; std::string craft; };
 
 struct RecoveryItem { std::string name; int value; };
 
@@ -52,7 +59,7 @@ struct RecoveryItem { std::string name; int value; };
 class DebriefingState : public State
 {
 private:
-	typedef std::pair<std::wstring, UnitStats> SoldierStatsEntry;
+	typedef std::pair<std::string, UnitStats> SoldierStatsEntry;
 
 	Region *_region;
 	Country *_country;
@@ -89,7 +96,7 @@ private:
 	/// Sets the visibility according to the _showSoldierStats flag
 	void applyVisibility();
 	/// Creates a string for the soldier stats table from a stat difference value
-	std::wstring makeSoldierString(int stat);
+	std::string makeSoldierString(int stat);
 public:
 	/// Creates the Debriefing state.
 	DebriefingState();

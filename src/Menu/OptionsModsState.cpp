@@ -17,17 +17,20 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "OptionsModsState.h"
+#include "OptionsInformExtendedState.h"
 #include <climits>
 #include <algorithm>
 #include "../Engine/Game.h"
 #include "../Mod/Mod.h"
-#include "../Engine/Language.h"
+#include "../Engine/LocalizedText.h"
 #include "../Interface/Window.h"
 #include "../Interface/TextList.h"
 #include "../Interface/Text.h"
+#include "../Interface/TextButton.h"
 #include "../Interface/ComboBox.h"
 #include "../Engine/Options.h"
 #include "../Engine/Action.h"
+#include "StartState.h"
 
 namespace OpenXcom
 {
@@ -35,19 +38,32 @@ namespace OpenXcom
 /**
  * Initializes all the elements in the Mod Options window.
  * @param game Pointer to the core game.
- * @param origin Game section that originated this state.
  */
-OptionsModsState::OptionsModsState(OptionsOrigin origin) : OptionsBaseState(origin)
+OptionsModsState::OptionsModsState() : _curMasterIdx(0)
 {
-	setCategory(_btnMods);
-
 	// Create objects
-	_txtMaster = new Text(114, 9, 94, 8);
-	_cbxMasters = new ComboBox(this, 218, 16, 94, 18);
-	_lstMods = new TextList(200, 104, 94, 40);
+	_window = new Window(this, 320, 200, 0, 0);
+
+	_txtMaster = new Text(305, 9, 8, 8);
+	_cbxMasters = new ComboBox(this, 305, 16, 8, 18);
+	_lstMods = new TextList(288, 104, 8, 40);
+
+	_btnOk = new TextButton(100, 16, 8, 176);
+	_btnCancel = new TextButton(100, 16, 212, 176);
+
+	_txtTooltip = new Text(305, 25, 8, 148);
+
+	// Set palette
+	setInterface("optionsMenu");
+
+	add(_window, "window", "optionsMenu");
 
 	add(_txtMaster, "text", "modsMenu");
 	add(_lstMods, "optionLists", "modsMenu");
+	add(_btnOk, "button", "optionsMenu");
+	add(_btnCancel, "button", "optionsMenu");
+	add(_txtTooltip, "tooltip", "optionsMenu");
+
 	add(_cbxMasters, "button", "modsMenu");
 
 	centerAllSurfaces();
@@ -65,12 +81,14 @@ OptionsModsState::OptionsModsState(OptionsOrigin origin) : OptionsBaseState(orig
 	int leftcol = _lstMods->getWidth() - (rightcol + arrowCol);
 
 	// Set up objects
-	_txtMaster->setText(tr("STR_GAME_TYPE"));
+	_window->setBackground(_game->getMod()->getSurface("BACK01.SCR"));
+
+	_txtMaster->setText(tr("STR_BASE_GAME"));
 
 	// scan for masters
+	Options::refreshMods();
 	const std::map<std::string, ModInfo> &modInfos(Options::getModInfos());
-	size_t curMasterIdx = 0;
-	std::vector<std::wstring> masterNames;
+	std::vector<std::string> masterNames;
 	for (std::vector< std::pair<std::string, bool> >::const_iterator i = Options::mods.begin(); i != Options::mods.end(); ++i)
 	{
 		std::string modId = i->first;
@@ -86,14 +104,14 @@ OptionsModsState::OptionsModsState(OptionsOrigin origin) : OptionsBaseState(orig
 		}
 		else if (_curMasterId.empty())
 		{
-			++curMasterIdx;
+			++_curMasterIdx;
 		}
 		_masters.push_back(modInfo);
-		masterNames.push_back(Language::utf8ToWstr(modInfo->getName()));
+		masterNames.push_back(modInfo->getName());
 	}
 
 	_cbxMasters->setOptions(masterNames);
-	_cbxMasters->setSelected(curMasterIdx);
+	_cbxMasters->setSelected(_curMasterIdx);
 	_cbxMasters->onChange((ActionHandler)&OptionsModsState::cbxMasterChange);
 	_cbxMasters->onMouseIn((ActionHandler)&OptionsModsState::txtTooltipIn);
 	_cbxMasters->onMouseOut((ActionHandler)&OptionsModsState::txtTooltipOut);
@@ -116,6 +134,16 @@ OptionsModsState::OptionsModsState(OptionsOrigin origin) : OptionsBaseState(orig
 	_lstMods->onMouseOut((ActionHandler)&OptionsModsState::txtTooltipOut);
 	_lstMods->onMouseOver((ActionHandler)&OptionsModsState::lstModsHover);
 	lstModsRefresh(0);
+
+	_btnOk->setText(tr("STR_OK"));
+	_btnOk->onMouseClick((ActionHandler)&OptionsModsState::btnOkClick);
+	_btnOk->onKeyboardPress((ActionHandler)&OptionsModsState::btnOkClick, Options::keyOk);
+
+	_btnCancel->setText(tr("STR_CANCEL"));
+	_btnCancel->onMouseClick((ActionHandler)&OptionsModsState::btnCancelClick);
+	_btnCancel->onKeyboardPress((ActionHandler)&OptionsModsState::btnCancelClick, Options::keyCancel);
+
+	_txtTooltip->setWordWrap(true);
 }
 
 OptionsModsState::~OptionsModsState()
@@ -123,7 +151,7 @@ OptionsModsState::~OptionsModsState()
 
 }
 
-std::wstring OptionsModsState::makeTooltip(const ModInfo &modInfo)
+std::string OptionsModsState::makeTooltip(const ModInfo &modInfo)
 {
 	return tr("STR_MODS_TOOLTIP").arg(modInfo.getVersion()).arg(modInfo.getAuthor()).arg(modInfo.getDescription());
 }
@@ -134,6 +162,22 @@ void OptionsModsState::cbxMasterHover(Action *)
 }
 
 void OptionsModsState::cbxMasterChange(Action *)
+{
+	const ModInfo *masterModInfo = _masters[_cbxMasters->getSelected()];
+
+	// when changing a master mod, check if it requires OXCE
+	{
+		if (!masterModInfo->getRequiredExtendedVersion().empty())
+		{
+			_game->pushState(new OptionsInformExtendedState(this, true));
+			return;
+		}
+	}
+
+	changeMasterMod();
+}
+
+void OptionsModsState::changeMasterMod()
 {
 	std::string masterId = _masters[_cbxMasters->getSelected()]->getId();
 	for (std::vector< std::pair<std::string, bool> >::iterator i = Options::mods.begin(); i != Options::mods.end(); ++i)
@@ -149,8 +193,14 @@ void OptionsModsState::cbxMasterChange(Action *)
 	}
 	Options::reload = true;
 
+	_curMasterIdx = _cbxMasters->getSelected();
 	_curMasterId = masterId;
 	lstModsRefresh(0);
+}
+
+void OptionsModsState::revertMasterMod()
+{
+	_cbxMasters->setSelected(_curMasterIdx);
 }
 
 void OptionsModsState::lstModsRefresh(size_t scrollLoc)
@@ -161,14 +211,14 @@ void OptionsModsState::lstModsRefresh(size_t scrollLoc)
 	// only show mods that work with the current master
 	for (std::vector< std::pair<std::string, bool> >::const_iterator i = Options::mods.begin(); i != Options::mods.end(); ++i)
 	{
-		ModInfo modInfo = Options::getModInfos().find(i->first)->second;
+		ModInfo modInfo = Options::getModInfo(i->first);
 		if (modInfo.isMaster() || !modInfo.canActivate(_curMasterId))
 		{
 			continue;
 		}
 
-		std::wstring modName = Language::fsToWstr(modInfo.getName());
-		_lstMods->addRow(3, modName.c_str(), L"", (i->second ? tr("STR_YES").c_str() : tr("STR_NO").c_str()));
+		std::string modName = modInfo.getName();
+		_lstMods->addRow(3, modName.c_str(), "", (i->second ? tr("STR_YES").c_str() : tr("STR_NO").c_str()));
 		_mods.push_back(*i);
 	}
 
@@ -195,6 +245,26 @@ void OptionsModsState::lstModsClick(Action *action)
 	}
 
 	std::pair<std::string, bool> &mod(_mods.at(_lstMods->getSelectedRow()));
+
+	// when activating a mod, check if it requires OXCE
+	if (!mod.second)
+	{
+		const ModInfo *modInfo = &Options::getModInfos().at(mod.first);
+		if (!modInfo->getRequiredExtendedVersion().empty())
+		{
+			_game->pushState(new OptionsInformExtendedState(this, false));
+			return;
+		}
+	}
+
+	// if deactivating, or if not OXCE mod
+	toggleMod();
+}
+
+void OptionsModsState::toggleMod()
+{
+	std::pair<std::string, bool> &mod(_mods.at(_lstMods->getSelectedRow()));
+
 	for (std::vector< std::pair<std::string, bool> >::iterator i = Options::mods.begin(); i != Options::mods.end(); ++i)
 	{
 		if (mod.first != i->first)
@@ -319,7 +389,7 @@ static void _moveBelow(const std::pair<std::string, bool> &srcMod, const std::pa
 			break;
 		}
 	}
-	
+
 	// remove old copy of srcMod in separate loop since the insert above invalidated the iterator
 	for (std::vector< std::pair<std::string, bool> >::iterator i = Options::mods.begin(); i != Options::mods.end(); ++i)
 	{
@@ -396,6 +466,56 @@ void OptionsModsState::lstModsMousePress(Action *action)
 		{
 			moveModDown(action, row);
 		}
+	}
+}
+
+/**
+ * Restarts game with new mods.
+ * @param action Pointer to an action.
+ */
+void OptionsModsState::btnOkClick(Action *)
+{
+	Options::save();
+	if (Options::reload)
+	{
+		_game->setState(new StartState);
+}
+	else
+	{
+		_game->popState();
+	}
+}
+
+/**
+ * Ignores mod changes and returns to the previous screen.
+ * @param action Pointer to an action.
+ */
+void OptionsModsState::btnCancelClick(Action *)
+{
+	Options::reload = false;
+	Options::load();
+	_game->popState();
+}
+
+/**
+ * Shows a tooltip for the appropriate button.
+ * @param action Pointer to an action.
+ */
+void OptionsModsState::txtTooltipIn(Action *action)
+{
+	_currentTooltip = action->getSender()->getTooltip();
+	_txtTooltip->setText(tr(_currentTooltip));
+}
+
+/**
+ * Clears the tooltip text.
+ * @param action Pointer to an action.
+ */
+void OptionsModsState::txtTooltipOut(Action *action)
+{
+	if (_currentTooltip == action->getSender()->getTooltip())
+	{
+		_txtTooltip->setText("");
 	}
 }
 

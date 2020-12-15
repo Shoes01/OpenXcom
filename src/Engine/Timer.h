@@ -37,7 +37,7 @@ class Timer
 public:
 	static int maxFrameSkip;
 	static Uint32 gameSlowSpeed;
-	
+
 private:
 	Uint32 _start;
 	Uint32 _frameSkipStart;
@@ -67,8 +67,6 @@ public:
 	void onTimer(StateHandler handler);
 	/// Hooks a surface action handler to the timer interval.
 	void onTimer(SurfaceHandler handler);
-	/// Turns frame skipping on or off
-	void setFrameSkipping(bool skip);
 };
 
 }

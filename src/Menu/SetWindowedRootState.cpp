@@ -52,16 +52,16 @@ SetWindowedRootState::SetWindowedRootState(OptionsOrigin origin, OptionsVideoSta
 	_edtWindowedModePositionY = new TextEdit(this, 40, 10, 190, 100);
 
 	// Set palette
-	setInterface("mainMenu", false, _game->getSavedGame() ? _game->getSavedGame()->getSavedBattle() : 0);
+	setInterface("optionsMenu", false, _game->getSavedGame() ? _game->getSavedGame()->getSavedBattle() : 0);
 
-	add(_window, "confirmVideo", "mainMenu");
-	add(_btnOk, "confirmVideo", "mainMenu");
-	add(_btnCancel, "confirmVideo", "mainMenu");
-	add(_txtTitle, "confirmVideo", "mainMenu");
-	add(_txtWindowedModePositionX, "confirmVideo", "mainMenu");
-	add(_txtWindowedModePositionY, "confirmVideo", "mainMenu");
-	add(_edtWindowedModePositionX, "confirmVideo", "mainMenu");
-	add(_edtWindowedModePositionY, "confirmVideo", "mainMenu");
+	add(_window, "confirmVideo", "optionsMenu");
+	add(_btnOk, "confirmVideo", "optionsMenu");
+	add(_btnCancel, "confirmVideo", "optionsMenu");
+	add(_txtTitle, "confirmVideo", "optionsMenu");
+	add(_txtWindowedModePositionX, "confirmVideo", "optionsMenu");
+	add(_txtWindowedModePositionY, "confirmVideo", "optionsMenu");
+	add(_edtWindowedModePositionX, "confirmVideo", "optionsMenu");
+	add(_edtWindowedModePositionY, "confirmVideo", "optionsMenu");
 
 	_txtTitle->setAlign(ALIGN_CENTER);
 	_txtTitle->setWordWrap(true);
@@ -75,7 +75,7 @@ SetWindowedRootState::SetWindowedRootState(OptionsOrigin origin, OptionsVideoSta
 	_txtWindowedModePositionY->setWordWrap(true);
 	_txtWindowedModePositionY->setText(tr("STR_DISPLAY_WINDOW_POSITION_NEW_Y"));
 
-	std::wostringstream wss, wss2;
+	std::ostringstream wss, wss2;
 
 	wss << Options::newWindowedModePositionX;
 	wss2 << Options::newWindowedModePositionY;
@@ -118,7 +118,7 @@ SetWindowedRootState::~SetWindowedRootState()
  */
 void SetWindowedRootState::btnOkClick(Action *)
 {
-	std::wstringstream convStreamX, convStreamY;
+	std::stringstream convStreamX, convStreamY;
 	int newWindowedModePositionX = 0, newWindowedModePositionY = 0;
 
 	convStreamX << _edtWindowedModePositionX->getText();

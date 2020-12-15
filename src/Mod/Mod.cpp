@@ -20,13 +20,13 @@
 #include <algorithm>
 #include <sstream>
 #include <climits>
+#include <cassert>
 #include "../Engine/CrossPlatform.h"
 #include "../Engine/FileMap.h"
 #include "../Engine/Palette.h"
 #include "../Engine/Font.h"
 #include "../Engine/Surface.h"
 #include "../Engine/SurfaceSet.h"
-#include "../Engine/Language.h"
 #include "../Engine/Music.h"
 #include "../Engine/GMCat.h"
 #include "../Engine/SoundSet.h"
@@ -75,6 +75,8 @@
 #include "../Savegame/Country.h"
 #include "../Savegame/Soldier.h"
 #include "../Savegame/Craft.h"
+#include "../Savegame/Vehicle.h"
+#include "../Savegame/ItemContainer.h"
 #include "../Savegame/Transfer.h"
 #include "../Ufopaedia/Ufopaedia.h"
 #include "../Savegame/AlienStrategy.h"
@@ -87,6 +89,8 @@
 #include "RuleGlobe.h"
 #include "RuleVideo.h"
 #include "RuleConverter.h"
+
+#define ARRAYLEN(x) (sizeof(x) / sizeof(x[0]))
 
 namespace OpenXcom
 {
@@ -123,6 +127,11 @@ int Mod::FIRE_DAMAGE_RANGE[2];
 std::string Mod::DEBRIEF_MUSIC_GOOD;
 std::string Mod::DEBRIEF_MUSIC_BAD;
 int Mod::DIFFICULTY_COEFFICIENT[5];
+
+/// Predefined name for first loaded mod that have all original data
+const std::string ModNameMaster = "master";
+/// Predefined name for current mod that is loading rulesets.
+const std::string ModNameCurrent = "current";
 
 void Mod::resetGlobalStatics()
 {
@@ -162,6 +171,7 @@ void Mod::resetGlobalStatics()
 	DEBRIEF_MUSIC_BAD = "GMMARS";
 
 	Globe::OCEAN_COLOR = Palette::blockOffset(12);
+	Globe::OCEAN_SHADING = true;
 	Globe::COUNTRY_LABEL_COLOR = 239;
 	Globe::LINE_COLOR = 162;
 	Globe::CITY_LABEL_COLOR = 138;
@@ -187,8 +197,8 @@ void Mod::resetGlobalStatics()
 /**
  * Creates an empty mod.
  */
-Mod::Mod() : _costEngineer(0), _costScientist(0), _timePersonnel(0), _initialFunding(0), _turnAIUseGrenade(3), _turnAIUseBlaster(3), _defeatScore(0), _defeatFunds(0), _startingTime(6, 1, 1, 1999, 12, 0, 0),
-			 _facilityListOrder(0), _craftListOrder(0), _itemListOrder(0), _researchListOrder(0),  _manufactureListOrder(0), _ufopaediaListOrder(0), _invListOrder(0), _modOffset(0)
+Mod::Mod() : _costEngineer(0), _costScientist(0), _timePersonnel(0), _initialFunding(0), _turnAIUseGrenade(3), _turnAIUseBlaster(3), _defeatScore(0), _defeatFunds(0), _difficultyDemigod(false), _startingTime(6, 1, 1, 1999, 12, 0, 0),
+			 _facilityListOrder(0), _craftListOrder(0), _itemListOrder(0), _researchListOrder(0),  _manufactureListOrder(0), _ufopaediaListOrder(0), _invListOrder(0), _modCurrent(0), _statePalette(0)
 {
 	_muteMusic = new Music();
 	_muteSound = new Sound();
@@ -320,9 +330,12 @@ Mod::~Mod()
 	{
 		delete i->second;
 	}
-	for (std::vector< std::pair<std::string, ExtraSprites *> >::const_iterator i = _extraSprites.begin(); i != _extraSprites.end(); ++i)
+	for (std::map<std::string, std::vector<ExtraSprites*> >::iterator i = _extraSprites.begin(); i != _extraSprites.end(); ++i)
 	{
-		delete i->second;
+		for (std::vector<ExtraSprites*>::iterator j = i->second.begin(); j != i->second.end(); ++j)
+		{
+			delete *j;
+		}
 	}
 	for (std::vector< std::pair<std::string, ExtraSounds *> >::const_iterator i = _extraSounds.begin(); i != _extraSounds.end(); ++i)
 	{
@@ -385,7 +398,7 @@ T *Mod::getRule(const std::string &id, const std::string &name, const std::map<s
 		return 0;
 	}
 	typename std::map<std::string, T*>::const_iterator i = map.find(id);
-	if (map.end() != i)
+	if (i != map.end() && i->second != 0)
 	{
 		return i->second;
 	}
@@ -410,12 +423,33 @@ Font *Mod::getFont(const std::string &name, bool error) const
 }
 
 /**
+ * Loads any extra sprites associated to a surface when
+ * it's first requested.
+ * @param name Surface name.
+ */
+void Mod::lazyLoadSurface(const std::string &name)
+{
+	if (Options::lazyLoadResources)
+	{
+		std::map<std::string, std::vector<ExtraSprites *> >::const_iterator i = _extraSprites.find(name);
+		if (i != _extraSprites.end())
+		{
+			for (std::vector<ExtraSprites*>::const_iterator j = i->second.begin(); j != i->second.end(); ++j)
+			{
+				loadExtraSprite(*j);
+			}
+		}
+	}
+}
+
+/**
  * Returns a specific surface from the mod.
  * @param name Name of the surface.
  * @return Pointer to the surface.
  */
-Surface *Mod::getSurface(const std::string &name, bool error) const
+Surface *Mod::getSurface(const std::string &name, bool error)
 {
+	lazyLoadSurface(name);
 	return getRule(name, "Sprite", _surfaces, error);
 }
 
@@ -424,8 +458,9 @@ Surface *Mod::getSurface(const std::string &name, bool error) const
  * @param name Name of the surface set.
  * @return Pointer to the surface set.
  */
-SurfaceSet *Mod::getSurfaceSet(const std::string &name, bool error) const
+SurfaceSet *Mod::getSurfaceSet(const std::string &name, bool error)
 {
+	lazyLoadSurface(name);
 	return getRule(name, "Sprite Set", _sets, error);
 }
 
@@ -574,13 +609,14 @@ Palette *Mod::getPalette(const std::string &name, bool error) const
  */
 void Mod::setPalette(SDL_Color *colors, int firstcolor, int ncolors)
 {
+	_statePalette = colors;
 	for (std::map<std::string, Font*>::iterator i = _fonts.begin(); i != _fonts.end(); ++i)
 	{
 		i->second->setPalette(colors, firstcolor, ncolors);
 	}
 	for (std::map<std::string, Surface*>::iterator i = _surfaces.begin(); i != _surfaces.end(); ++i)
 	{
-		if (i->first.substr(i->first.length() - 3, i->first.length()) != "LBM")
+		if (!CrossPlatform::compareExt(i->first, "LBM"))
 			i->second->setPalette(colors, firstcolor, ncolors);
 	}
 	for (std::map<std::string, SurfaceSet*>::iterator i = _sets.begin(); i != _sets.end(); ++i)
@@ -627,37 +663,202 @@ const std::vector<std::vector<Uint8> > *Mod::getLUTs() const
  */
 int Mod::getModOffset() const
 {
-	return _modOffset;
+	return _modCurrent->offset;
+}
+
+/**
+ * Get offset and index for sound set or sprite set.
+ * @param parent Name of parent node, used for better error message
+ * @param offset Member to load new value.
+ * @param node Node with data
+ * @param shared Max offset limit that is shared for every mod
+ * @param multiplier Value used by `projectile` surface set to convert projectile offset to index offset in surface.
+ */
+void Mod::loadOffsetNode(const std::string &parent, int& offset, const YAML::Node &node, int shared, const std::string &set, size_t multiplier) const
+{
+	assert(_modCurrent);
+	const ModData* curr = _modCurrent;
+	if (node.IsScalar())
+	{
+		offset = node.as<int>();
+	}
+	else if (node.IsMap())
+	{
+		offset = node["index"].as<int>();
+		std::string mod = node["mod"].as<std::string>();
+		if (mod == ModNameMaster)
+		{
+			curr = &_modData.at(0);
+		}
+		else if (mod == ModNameCurrent)
+		{
+			//nothing
+		}
+		else
+		{
+			const ModData* n = 0;
+			for (size_t i = 0; i < _modData.size(); ++i)
+			{
+				const ModData& d = _modData[i];
+				if (d.name == mod)
+				{
+					n = &d;
+					break;
+				}
+			}
+
+			if (n)
+			{
+				curr = n;
+			}
+			else
+			{
+				std::ostringstream err;
+				err << "Error for '" << parent << "': unknown mod '" << mod << "' used";
+				throw Exception(err.str());
+			}
+		}
+	}
+
+	if (offset < -1)
+	{
+		std::ostringstream err;
+		err << "Error for '" << parent << "': offset '" << offset << "' has incorrect value in set '" << set << "'";
+		throw Exception(err.str());
+	}
+	else if (offset == -1)
+	{
+		//ok
+	}
+	else
+	{
+		int f = offset;
+		f *= multiplier;
+		if ((size_t)f > curr->size)
+		{
+			std::ostringstream err;
+			err << "Error for '" << parent << "': offset '" << offset << "' exceeds mod size limit " << (curr->size / multiplier) << " in set '" << set << "'";
+			throw Exception(err.str());
+		}
+		if (f >= shared)
+			f += curr->offset;
+		offset = f;
+	}
 }
 
 /**
  * Returns the appropriate mod-based offset for a sprite.
  * If the ID is bigger than the surfaceset contents, the mod offset is applied.
- * @param id Numeric ID of the sprite.
- * @param resource Name of the surfaceset to lookup.
+ * @param parent Name of parent node, used for better error message
+ * @param sprite Member to load new sprite ID index.
+ * @param node Node with data
+ * @param set Name of the surfaceset to lookup.
+ * @param multiplier Value used by `projectile` surface set to convert projectile offset to index offset in surface.
  */
-int Mod::getSpriteOffset(int sprite, const std::string& set) const
+void Mod::loadSpriteOffset(const std::string &parent, int& sprite, const YAML::Node &node, const std::string &set, size_t multiplier) const
 {
-	std::map<std::string, SurfaceSet*>::const_iterator i = _sets.find(set);
-	if (i != _sets.end() && sprite >= (int)i->second->getTotalFrames())
-		return sprite + _modOffset;
-	else
-		return sprite;
+	if (node)
+	{
+		loadOffsetNode(parent, sprite, node, getRule(set, "Sprite Set", _sets, true)->getMaxSharedFrames(), set, multiplier);
+	}
 }
 
 /**
  * Returns the appropriate mod-based offset for a sound.
  * If the ID is bigger than the soundset contents, the mod offset is applied.
- * @param id Numeric ID of the sound.
- * @param resource Name of the soundset to lookup.
+ * @param parent Name of parent node, used for better error message
+ * @param sound Member to load new sound ID index.
+ * @param node Node with data
+ * @param set Name of the soundset to lookup.
  */
-int Mod::getSoundOffset(int sound, const std::string& set) const
+void Mod::loadSoundOffset(const std::string &parent, int& sound, const YAML::Node &node, const std::string &set) const
 {
-	std::map<std::string, SoundSet*>::const_iterator i = _sounds.find(set);
-	if (i != _sounds.end() && sound >= (int)i->second->getTotalSounds())
-		return sound + _modOffset;
+	if (node)
+	{
+		loadOffsetNode(parent, sound, node, getSoundSet(set)->getMaxSharedSounds(), set, 1);
+	}
+}
+
+/**
+ * Gets the mod offset array for a certain sound.
+ * @param parent Name of parent node, used for better error message
+ * @param sounds Member to load new list of sound ID indexes.
+ * @param node Node with data
+ * @param set Name of the soundset to lookup.
+ */
+void Mod::loadSoundOffset(const std::string &parent, std::vector<int>& sounds, const YAML::Node &node, const std::string &set) const
+{
+	if (node)
+	{
+		int maxShared = getSoundSet(set)->getMaxSharedSounds();
+		sounds.clear();
+		if (node.IsSequence())
+		{
+			for (YAML::const_iterator i = node.begin(); i != node.end(); ++i)
+			{
+				sounds.push_back(-1);
+				loadOffsetNode(parent, sounds.back(), *i, maxShared, set, 1);
+			}
+		}
+		else
+		{
+			sounds.push_back(-1);
+			loadOffsetNode(parent, sounds.back(), node, maxShared, set, 1);
+		}
+	}
+}
+
+/**
+ * Returns the appropriate mod-based offset for a generic ID.
+ * If the ID is bigger than the max, the mod offset is applied.
+ * @param id Numeric ID.
+ * @param max Maximum vanilla value.
+ */
+int Mod::getOffset(int id, int max) const
+{
+	assert(_modCurrent);
+	if (id > max)
+		return id + _modCurrent->offset;
 	else
-		return sound;
+		return id;
+}
+
+/**
+ * Helper function used to disable invalid mod and throw exception to quit game
+ * @param modId Mod id
+ * @param error Error message
+ */
+static void throwModOnErrorHelper(const std::string& modId, const std::string& error)
+{
+	std::ostringstream errorStream;
+
+	errorStream << "failed to load '"
+		<< Options::getModInfos().at(modId).getName()
+		<< "'";
+
+	if (!Options::debug)
+	{
+		Log(LOG_WARNING) << "disabling mod with invalid ruleset: " << modId;
+		std::vector<std::pair<std::string, bool> >::iterator it =
+			std::find(Options::mods.begin(), Options::mods.end(),
+				std::pair<std::string, bool>(modId, true));
+		if (it == Options::mods.end())
+		{
+			Log(LOG_ERROR) << "cannot find broken mod in mods list: " << modId;
+			Log(LOG_ERROR) << "clearing mods list";
+			Options::mods.clear();
+		}
+		else
+		{
+			it->second = false;
+		}
+		Options::save();
+
+		errorStream << "; mod disabled";
+	}
+	errorStream << std::endl << error;
+
+	throw Exception(errorStream.str());
 }
 
 /**
@@ -667,52 +868,68 @@ int Mod::getSoundOffset(int sound, const std::string& set) const
 void Mod::loadAll(const std::vector< std::pair< std::string, std::vector<std::string> > > &mods)
 {
 	Log(LOG_INFO) << "Loading rulesets...";
-	std::vector<size_t> modOffsets(mods.size());
+	_modData.clear();
+	_modData.resize(mods.size());
+
+	std::set<std::string> usedModNames;
+	usedModNames.insert(ModNameMaster);
+	usedModNames.insert(ModNameCurrent);
+
+
+	// calculated offsets and other things for all mods
 	size_t offset = 0;
 	for (size_t i = 0; mods.size() > i; ++i)
 	{
-		modOffsets[i] = offset;
-		std::map<std::string, ModInfo>::const_iterator it = Options::getModInfos().find(mods[i].first);
-		if (it != Options::getModInfos().end())
+		const std::string& modId = mods[i].first;
+		if (usedModNames.insert(modId).second == false)
 		{
-			offset += it->second.getReservedSpace();
+			throwModOnErrorHelper(modId, "this mod name is already used");
 		}
-		else
+		const ModInfo *modInfo = &Options::getModInfos().at(modId);
+		size_t size = modInfo->getReservedSpace();
+		_modData[i].name = modId;
+		_modData[i].offset = 1000 * offset;
+		_modData[i].info = modInfo;
+		_modData[i].size = 1000 * size;
+		offset += size;
+	}
+
+	// load rulesets that can affect loading vanilla resources
+	for (size_t i = 0; _modData.size() > i; ++i)
+	{
+		_modCurrent = &_modData.at(i);
+		const ModInfo *info = _modCurrent->info;
+		if (info->isMaster() && !info->getResourceConfigFile().empty())
 		{
-			offset += 1;
+			std::string path = info->getPath() + "/" + info->getResourceConfigFile();
+			if (CrossPlatform::fileExists(path))
+			{
+				loadResourceConfigFile(path);
+			}
 		}
 	}
+
+	// vanilla resources load
+	_modCurrent = &_modData.at(0);
+	loadVanillaResources();
+
+	// load rest rulesets
 	for (size_t i = 0; mods.size() > i; ++i)
 	{
 		try
 		{
-			loadMod(mods[i].second, modOffsets[i]);
+			_modCurrent = &_modData.at(i);
+			loadMod(mods[i].second);
 		}
 		catch (Exception &e)
 		{
 			const std::string &modId = mods[i].first;
-			Log(LOG_WARNING) << "disabling mod with invalid ruleset: " << modId;
-			std::vector<std::pair<std::string, bool> >::iterator it =
-				std::find(Options::mods.begin(), Options::mods.end(),
-					std::pair<std::string, bool>(modId, true));
-			if (it == Options::mods.end())
-			{
-				Log(LOG_ERROR) << "cannot find broken mod in mods list: " << modId;
-				Log(LOG_ERROR) << "clearing mods list";
-				Options::mods.clear();
-			}
-			else
-			{
-				it->second = false;
-			}
-			Options::save();
-
-			throw Exception("failed to load '" +
-				Options::getModInfos().at(modId).getName() +
-				"'; mod disabled for next startup\n" +
-				e.what());
+			throwModOnErrorHelper(modId, e.what());
 		}
 	}
+
+	//back master
+	_modCurrent = &_modData.at(0);
 	sortLists();
 	loadExtraResources();
 	modResources();
@@ -722,12 +939,9 @@ void Mod::loadAll(const std::vector< std::pair< std::string, std::vector<std::st
  * Loads a list of rulesets from YAML files for the mod at the specified index. The first
  * mod loaded should be the master at index 0, then 1, and so on.
  * @param rulesetFiles List of rulesets to load.
- * @param modIdx Mod index number.
  */
-void Mod::loadMod(const std::vector<std::string> &rulesetFiles, size_t modIdx)
+void Mod::loadMod(const std::vector<std::string> &rulesetFiles)
 {
-	_modOffset = 1000 * modIdx;
-
 	for (std::vector<std::string>::const_iterator i = rulesetFiles.begin(); i != rulesetFiles.end(); ++i)
 	{
 		Log(LOG_VERBOSE) << "- " << *i;
@@ -743,13 +957,13 @@ void Mod::loadMod(const std::vector<std::string> &rulesetFiles, size_t modIdx)
 
 	// these need to be validated, otherwise we're gonna get into some serious trouble down the line.
 	// it may seem like a somewhat arbitrary limitation, but there is a good reason behind it.
-	// i'd need to know what results are going to be before they are formulated, and there's a heirarchical structure to
+	// i'd need to know what results are going to be before they are formulated, and there's a hierarchical structure to
 	// the order in which variables are determined for a mission, and the order is DIFFERENT for regular missions vs
 	// missions that spawn a mission site. where normally we pick a region, then a mission based on the weights for that region.
 	// a terror-type mission picks a mission type FIRST, then a region based on the criteria defined by the mission.
 	// there is no way i can conceive of to reconcile this difference to allow mixing and matching,
 	// short of knowing the results of calls to the RNG before they're determined.
-	// the best solution i can come up with is to disallow it, as there are other ways to acheive what this would amount to anyway,
+	// the best solution i can come up with is to disallow it, as there are other ways to achieve what this would amount to anyway,
 	// and they don't require time travel. - Warboy
 	for (std::map<std::string, RuleMissionScript*>::iterator i = _missionScripts.begin(); i != _missionScripts.end(); ++i)
 	{
@@ -797,11 +1011,89 @@ void Mod::loadMod(const std::vector<std::string> &rulesetFiles, size_t modIdx)
 			}
 		}
 	}
+}
 
-	if (modIdx == 0)
+/**
+ * Loads a ruleset from a YAML file that have basic resources configuration.
+ * @param filename YAML filename.
+ */
+void Mod::loadResourceConfigFile(const std::string &filename)
+{
+	YAML::Node doc = YAML::LoadFile(filename);
+
+	for (YAML::const_iterator i = doc["soundDefs"].begin(); i != doc["soundDefs"].end(); ++i)
 	{
-		loadVanillaResources();
+		SoundDefinition *rule = loadRule(*i, &_soundDefs);
+		if (rule != 0)
+		{
+			rule->load(*i);
+		}
 	}
+	for (YAML::const_iterator i = doc["transparencyLUTs"].begin(); i != doc["transparencyLUTs"].end(); ++i)
+	{
+		for (YAML::const_iterator j = (*i)["colors"].begin(); j != (*i)["colors"].end(); ++j)
+		{
+			SDL_Color color;
+			color.r = (*j)[0].as<int>(0);
+			color.g = (*j)[1].as<int>(0);
+			color.b = (*j)[2].as<int>(0);
+			color.unused = (*j)[3].as<int>(2);;
+			_transparencies.push_back(color);
+		}
+	}
+}
+
+/**
+ * Loads "constants" node.
+ */
+void Mod::loadConstants(const YAML::Node &node)
+{
+	loadSoundOffset("constants", DOOR_OPEN, node["doorSound"], "BATTLE.CAT");
+	loadSoundOffset("constants", SLIDING_DOOR_OPEN, node["slidingDoorSound"], "BATTLE.CAT");
+	loadSoundOffset("constants", SLIDING_DOOR_CLOSE, node["slidingDoorClose"], "BATTLE.CAT");
+	loadSoundOffset("constants", SMALL_EXPLOSION, node["smallExplosion"], "BATTLE.CAT");
+	loadSoundOffset("constants", LARGE_EXPLOSION, node["largeExplosion"], "BATTLE.CAT");
+
+	loadSpriteOffset("constants", EXPLOSION_OFFSET, node["explosionOffset"], "X1.PCK");
+	loadSpriteOffset("constants", SMOKE_OFFSET, node["smokeOffset"], "SMOKE.PCK");
+	loadSpriteOffset("constants", UNDERWATER_SMOKE_OFFSET, node["underwaterSmokeOffset"], "SMOKE.PCK");
+
+	loadSoundOffset("constants", ITEM_DROP, node["itemDrop"], "BATTLE.CAT");
+	loadSoundOffset("constants", ITEM_THROW, node["itemThrow"], "BATTLE.CAT");
+	loadSoundOffset("constants", ITEM_RELOAD, node["itemReload"], "BATTLE.CAT");
+	loadSoundOffset("constants", WALK_OFFSET, node["walkOffset"], "BATTLE.CAT");
+	loadSoundOffset("constants", FLYING_SOUND, node["flyingSound"], "BATTLE.CAT");
+
+	loadSoundOffset("constants", BUTTON_PRESS, node["buttonPress"], "GEO.CAT");
+	if (node["windowPopup"])
+	{
+		int k = 0;
+		for (YAML::const_iterator j = node["windowPopup"].begin(); j != node["windowPopup"].end() && k < 3; ++j, ++k)
+		{
+			loadSoundOffset("constants", WINDOW_POPUP[k], (*j), "GEO.CAT");
+		}
+	}
+	loadSoundOffset("constants", UFO_FIRE, node["ufoFire"], "GEO.CAT");
+	loadSoundOffset("constants", UFO_HIT, node["ufoHit"], "GEO.CAT");
+	loadSoundOffset("constants", UFO_CRASH, node["ufoCrash"], "GEO.CAT");
+	loadSoundOffset("constants", UFO_EXPLODE, node["ufoExplode"], "GEO.CAT");
+	loadSoundOffset("constants", INTERCEPTOR_HIT, node["interceptorHit"], "GEO.CAT");
+	loadSoundOffset("constants", INTERCEPTOR_EXPLODE, node["interceptorExplode"], "GEO.CAT");
+	GEOSCAPE_CURSOR = node["geoscapeCursor"].as<int>(GEOSCAPE_CURSOR);
+	BASESCAPE_CURSOR = node["basescapeCursor"].as<int>(BASESCAPE_CURSOR);
+	BATTLESCAPE_CURSOR = node["battlescapeCursor"].as<int>(BATTLESCAPE_CURSOR);
+	UFOPAEDIA_CURSOR = node["ufopaediaCursor"].as<int>(UFOPAEDIA_CURSOR);
+	GRAPHS_CURSOR = node["graphsCursor"].as<int>(GRAPHS_CURSOR);
+	DAMAGE_RANGE = node["damageRange"].as<int>(DAMAGE_RANGE);
+	EXPLOSIVE_DAMAGE_RANGE = node["explosiveDamageRange"].as<int>(EXPLOSIVE_DAMAGE_RANGE);
+	size_t num = 0;
+	for (YAML::const_iterator j = node["fireDamageRange"].begin(); j != node["fireDamageRange"].end() && num < 2; ++j)
+	{
+		FIRE_DAMAGE_RANGE[num] = (*j).as<int>(FIRE_DAMAGE_RANGE[num]);
+		++num;
+	}
+	DEBRIEF_MUSIC_GOOD = node["goodDebriefingMusic"].as<std::string>(DEBRIEF_MUSIC_GOOD);
+	DEBRIEF_MUSIC_BAD = node["badDebriefingMusic"].as<std::string>(DEBRIEF_MUSIC_BAD);
 }
 
 /**
@@ -1008,10 +1300,10 @@ void Mod::loadFile(const std::string &filename)
 		else if ((*i)["delete"])
 		{
 			std::string type = (*i)["delete"].as<std::string>();
-			std::map<std::string, ArticleDefinition*>::iterator i = _ufopaediaArticles.find(type);
-			if (i != _ufopaediaArticles.end())
+			std::map<std::string, ArticleDefinition*>::iterator j = _ufopaediaArticles.find(type);
+			if (j != _ufopaediaArticles.end())
 			{
-				_ufopaediaArticles.erase(i);
+				_ufopaediaArticles.erase(j);
 			}
 			std::vector<std::string>::iterator idx = std::find(_ufopaediaIndex.begin(), _ufopaediaIndex.end(), type);
 			if (idx != _ufopaediaIndex.end())
@@ -1043,6 +1335,7 @@ void Mod::loadFile(const std::string &filename)
 	_turnAIUseBlaster = doc["turnAIUseBlaster"].as<int>(_turnAIUseBlaster);
 	_defeatScore = doc["defeatScore"].as<int>(_defeatScore);
 	_defeatFunds = doc["defeatFunds"].as<int>(_defeatFunds);
+	_difficultyDemigod = doc["difficultyDemigod"].as<bool>(_difficultyDemigod);
 	if (doc["difficultyCoefficient"])
 	{
 		size_t num = 0;
@@ -1082,28 +1375,37 @@ void Mod::loadFile(const std::string &filename)
 			MCDPatch *patch = new MCDPatch();
 			patch->load(*i);
 			_MCDPatches[type] = patch;
-			_MCDPatchesIndex.push_back(type);
 		}
 	}
 	for (YAML::const_iterator i = doc["extraSprites"].begin(); i != doc["extraSprites"].end(); ++i)
 	{
-		std::string type = (*i)["type"].as<std::string>();
-		ExtraSprites *extraSprites = new ExtraSprites();
-		// doesn't support modIndex
-		if (type != "TEXTURE.DAT")
-			extraSprites->load(*i, _modOffset);
-		else
-			extraSprites->load(*i, 0);
-		_extraSprites.push_back(std::make_pair(type, extraSprites));
-		_extraSpritesIndex.push_back(type);
+		if ((*i)["type"])
+		{
+			std::string type = (*i)["type"].as<std::string>();
+			ExtraSprites *extraSprites = new ExtraSprites();
+			const ModData* data = _modCurrent;
+			// doesn't support modIndex
+			if (type == "TEXTURE.DAT")
+				data = &_modData.at(0);
+			extraSprites->load(*i, data);
+			_extraSprites[type].push_back(extraSprites);
+		}
+		else if ((*i)["delete"])
+		{
+			std::string type = (*i)["delete"].as<std::string>();
+			std::map<std::string, std::vector<ExtraSprites*> >::iterator j = _extraSprites.find(type);
+			if (j != _extraSprites.end())
+			{
+				_extraSprites.erase(j);
+			}
+		}
 	}
 	for (YAML::const_iterator i = doc["extraSounds"].begin(); i != doc["extraSounds"].end(); ++i)
 	{
 		std::string type = (*i)["type"].as<std::string>();
 		ExtraSounds *extraSounds = new ExtraSounds();
-		extraSounds->load(*i, _modOffset);
+		extraSounds->load(*i, _modCurrent);
 		_extraSounds.push_back(std::make_pair(type, extraSounds));
-		_extraSoundsIndex.push_back(type);
 	}
 	for (YAML::const_iterator i = doc["extraStrings"].begin(); i != doc["extraStrings"].end(); ++i)
 	{
@@ -1117,7 +1419,6 @@ void Mod::loadFile(const std::string &filename)
 			ExtraStrings *extraStrings = new ExtraStrings();
 			extraStrings->load(*i);
 			_extraStrings[type] = extraStrings;
-			_extraStringsIndex.push_back(type);
 		}
 	}
 
@@ -1136,14 +1437,6 @@ void Mod::loadFile(const std::string &filename)
 			rule->load(*i);
 		}
 	}
-	for (YAML::const_iterator i = doc["soundDefs"].begin(); i != doc["soundDefs"].end(); ++i)
-	{
-		SoundDefinition *rule = loadRule(*i, &_soundDefs);
-		if (rule != 0)
-		{
-			rule->load(*i);
-		}
-	}
 	if (doc["globe"])
 	{
 		_globe->load(doc["globe"]);
@@ -1152,62 +1445,19 @@ void Mod::loadFile(const std::string &filename)
 	{
 		_converter->load(doc["converter"]);
 	}
-	for (YAML::const_iterator i = doc["constants"].begin(); i != doc["constants"].end(); ++i)
+	if (const YAML::Node& constants = doc["constants"])
 	{
-		DOOR_OPEN = (*i)["doorSound"].as<int>(DOOR_OPEN);
-		SLIDING_DOOR_OPEN = (*i)["slidingDoorSound"].as<int>(SLIDING_DOOR_OPEN);
-		SLIDING_DOOR_CLOSE = (*i)["slidingDoorClose"].as<int>(SLIDING_DOOR_CLOSE);
-		SMALL_EXPLOSION = (*i)["smallExplosion"].as<int>(SMALL_EXPLOSION);
-		LARGE_EXPLOSION = (*i)["largeExplosion"].as<int>(LARGE_EXPLOSION);
-		EXPLOSION_OFFSET = (*i)["explosionOffset"].as<int>(EXPLOSION_OFFSET);
-		SMOKE_OFFSET = (*i)["smokeOffset"].as<int>(SMOKE_OFFSET);
-		UNDERWATER_SMOKE_OFFSET = (*i)["underwaterSmokeOffset"].as<int>(UNDERWATER_SMOKE_OFFSET);
-		ITEM_DROP = (*i)["itemDrop"].as<int>(ITEM_DROP);
-		ITEM_THROW = (*i)["itemThrow"].as<int>(ITEM_THROW);
-		ITEM_RELOAD = (*i)["itemReload"].as<int>(ITEM_RELOAD);
-		WALK_OFFSET = (*i)["walkOffset"].as<int>(WALK_OFFSET);
-		FLYING_SOUND = (*i)["flyingSound"].as<int>(FLYING_SOUND);
-		BUTTON_PRESS = (*i)["buttonPress"].as<int>(BUTTON_PRESS);
-		if ((*i)["windowPopup"])
+		//backward compatibility version
+		if (constants.IsSequence())
 		{
-			int k = 0;
-			for (YAML::const_iterator j = (*i)["windowPopup"].begin(); j != (*i)["windowPopup"].end() && k < 3; ++j, ++k)
+			for (YAML::const_iterator i = constants.begin(); i != constants.end(); ++i)
 			{
-				WINDOW_POPUP[k] = (*j).as<int>(WINDOW_POPUP[k]);
+				loadConstants((*i));
 			}
 		}
-		UFO_FIRE = (*i)["ufoFire"].as<int>(UFO_FIRE);
-		UFO_HIT = (*i)["ufoHit"].as<int>(UFO_HIT);
-		UFO_CRASH = (*i)["ufoCrash"].as<int>(UFO_CRASH);
-		UFO_EXPLODE = (*i)["ufoExplode"].as<int>(UFO_EXPLODE);
-		INTERCEPTOR_HIT = (*i)["interceptorHit"].as<int>(INTERCEPTOR_HIT);
-		INTERCEPTOR_EXPLODE = (*i)["interceptorExplode"].as<int>(INTERCEPTOR_EXPLODE);
-		GEOSCAPE_CURSOR = (*i)["geoscapeCursor"].as<int>(GEOSCAPE_CURSOR);
-		BASESCAPE_CURSOR = (*i)["basescapeCursor"].as<int>(BASESCAPE_CURSOR);
-		BATTLESCAPE_CURSOR = (*i)["battlescapeCursor"].as<int>(BATTLESCAPE_CURSOR);
-		UFOPAEDIA_CURSOR = (*i)["ufopaediaCursor"].as<int>(UFOPAEDIA_CURSOR);
-		GRAPHS_CURSOR = (*i)["graphsCursor"].as<int>(GRAPHS_CURSOR);
-		DAMAGE_RANGE = (*i)["damageRange"].as<int>(DAMAGE_RANGE);
-		EXPLOSIVE_DAMAGE_RANGE = (*i)["explosiveDamageRange"].as<int>(EXPLOSIVE_DAMAGE_RANGE);
-		size_t num = 0;
-		for (YAML::const_iterator j = (*i)["fireDamageRange"].begin(); j != (*i)["fireDamageRange"].end() && num < 2; ++j)
+		else
 		{
-			FIRE_DAMAGE_RANGE[num] = (*j).as<int>(FIRE_DAMAGE_RANGE[num]);
-			++num;
-		}
-		DEBRIEF_MUSIC_GOOD = (*i)["goodDebriefingMusic"].as<std::string>(DEBRIEF_MUSIC_GOOD);
-		DEBRIEF_MUSIC_BAD = (*i)["badDebriefingMusic"].as<std::string>(DEBRIEF_MUSIC_BAD);
-	}
-	for (YAML::const_iterator i = doc["transparencyLUTs"].begin(); i != doc["transparencyLUTs"].end(); ++i)
-	{
-		for (YAML::const_iterator j = (*i)["colors"].begin(); j != (*i)["colors"].end(); ++j)
-		{
-			SDL_Color color;
-			color.r = (*j)[0].as<int>(0);
-			color.g = (*j)[1].as<int>(0);
-			color.b = (*j)[2].as<int>(0);
-			color.unused = (*j)[3].as<int>(2);;
-			_transparencies.push_back(color);
+			loadConstants(constants);
 		}
 	}
 	for (YAML::const_iterator i = doc["mapScripts"].begin(); i != doc["mapScripts"].end(); ++i)
@@ -1439,15 +1689,41 @@ SavedGame *Mod::newSave() const
 			}
 		}
 		// Generate soldiers
+		unsigned maxSoldiersInTransportCraft = 0;
+		if (transportCraft != 0)
+		{
+			maxSoldiersInTransportCraft = transportCraft->getRules()->getSoldiers();
+			for (std::vector<Vehicle*>::iterator v = transportCraft->getVehicles()->begin(); v != transportCraft->getVehicles()->end();)
+			{
+				if ((int)maxSoldiersInTransportCraft < (*v)->getSize())
+				{
+					base->getStorageItems()->addItem((*v)->getRules()->getType(), 1);
+					if ((*v)->getAmmo() > 0 && !(*v)->getRules()->getCompatibleAmmo()->empty())
+					{
+						base->getStorageItems()->addItem(
+							(*v)->getRules()->getCompatibleAmmo()->front(),
+							(*v)->getAmmo() / getItem((*v)->getRules()->getCompatibleAmmo()->front())->getClipSize());
+					}
+					delete (*v);
+					v = transportCraft->getVehicles()->erase(v);
+				}
+				else
+				{
+					maxSoldiersInTransportCraft -= (*v)->getSize();
+					++v;
+				}
+			}
+		}
+
 		for (size_t i = 0; i < randomTypes.size(); ++i)
 		{
 			Soldier *soldier = genSoldier(save, randomTypes[i]);
-			if (transportCraft != 0 && i < (unsigned)transportCraft->getRules()->getSoldiers())
+			if (transportCraft != 0 && i < maxSoldiersInTransportCraft)
 			{
 				soldier->setCraft(transportCraft);
 			}
 			base->getSoldiers()->push_back(soldier);
-			// Award soldier a special 'original eigth' commendation
+			// Award soldier a special 'original eight' commendation
 			if (_commendations.find("STR_MEDAL_ORIGINAL8_NAME") != _commendations.end())
 			{
 				SoldierDiary *diary = soldier->getDiary();
@@ -1672,10 +1948,20 @@ const std::vector<std::string> &Mod::getSoldiersList() const
 }
 
 /**
- * Gets the list of commendations
+ * Returns the rules for the specified commendation.
+ * @param id Commendation type.
+ * @return Rules for the commendation.
+ */
+RuleCommendations *Mod::getCommendation(const std::string &id, bool error) const
+{
+	return getRule(id, "Commendation", _commendations, error);
+}
+
+/**
+ * Gets the list of commendations provided by the mod.
  * @return The list of commendations.
  */
-std::map<std::string, RuleCommendations *> Mod::getCommendation() const
+const std::map<std::string, RuleCommendations *> &Mod::getCommendationsList() const
 {
 	return _commendations;
 }
@@ -2000,7 +2286,7 @@ MCDPatch *Mod::getMCDPatch(const std::string &id) const
  * Gets the list of external sprites.
  * @return The list of external sprites.
  */
-const std::vector<std::pair<std::string, ExtraSprites *> > &Mod::getExtraSprites() const
+const std::map<std::string, std::vector<ExtraSprites *> > &Mod::getExtraSprites() const
 {
 	return _extraSprites;
 }
@@ -2191,7 +2477,7 @@ Soldier *Mod::genSoldier(SavedGame *save, std::string type) const
 	// Check for duplicates
 	// Original X-COM gives up after 10 tries so might as well do the same here
 	bool duplicate = true;
-	for (int i = 0; i < 10 && duplicate; ++i)
+	for (int tries = 0; tries < 10 && duplicate; ++tries)
 	{
 		delete soldier;
 		soldier = new Soldier(getSoldier(type, true), getArmor(getSoldier(type, true)->getArmor(), true), newId);
@@ -2249,7 +2535,7 @@ std::string Mod::getFontName() const
 }
 
 /**
- * Returns the minimum facilitie's radar range.
+ * Returns the smallest facility's radar range.
  * @return The minimum range.
  */
  int Mod::getMinRadarRange() const
@@ -2459,9 +2745,16 @@ namespace
  */
 void Mod::loadVanillaResources()
 {
+	// Create Geoscape surface
+	_sets["GlobeMarkers"] = new SurfaceSet(3, 3);
+	// Create Sound sets
+	_sounds["GEO.CAT"] = new SoundSet();
+	_sounds["BATTLE.CAT"] = new SoundSet();
+	_sounds["BATTLE2.CAT"] = new SoundSet();
+
 	// Load palettes
 	const char *pal[] = { "PAL_GEOSCAPE", "PAL_BASESCAPE", "PAL_GRAPHS", "PAL_UFOPAEDIA", "PAL_BATTLEPEDIA" };
-	for (size_t i = 0; i < sizeof(pal) / sizeof(pal[0]); ++i)
+	for (size_t i = 0; i < ARRAYLEN(pal); ++i)
 	{
 		std::string s = "GEODATA/PALETTES.DAT";
 		_palettes[pal[i]] = new Palette();
@@ -2498,7 +2791,7 @@ void Mod::loadVanillaResources()
 		{ 8, 12, 16, 255 },
 		{ 3, 4, 8, 255 },
 		{ 3, 3, 6, 255 } };
-		for (size_t i = 0; i < sizeof(gradient) / sizeof(gradient[0]); ++i)
+		for (size_t i = 0; i < ARRAYLEN(gradient); ++i)
 		{
 			SDL_Color *color = _palettes[s2]->getColors(Palette::backPos + 16 + i);
 			*color = gradient[i];
@@ -2507,10 +2800,10 @@ void Mod::loadVanillaResources()
 
 	// Load surfaces
 	{
-		std::ostringstream s;
-		s << "GEODATA/" << "INTERWIN.DAT";
-		_surfaces["INTERWIN.DAT"] = new Surface(160, 600);
-		_surfaces["INTERWIN.DAT"]->loadScr(FileMap::getFilePath(s.str()));
+		std::string s1 = "GEODATA/INTERWIN.DAT";
+		std::string s2 = "INTERWIN.DAT";
+		_surfaces[s2] = new Surface(160, 600);
+		_surfaces[s2]->loadScr(FileMap::getFilePath(s1));
 	}
 
 	const std::set<std::string> &geographFiles(FileMap::getVFolderContents("GEOGRAPH"));
@@ -2545,7 +2838,7 @@ void Mod::loadVanillaResources()
 		"INTICON.PCK",
 		"TEXTURE.DAT" };
 
-	for (size_t i = 0; i < sizeof(sets) / sizeof(sets[0]); ++i)
+	for (size_t i = 0; i < ARRAYLEN(sets); ++i)
 	{
 		std::ostringstream s;
 		s << "GEOGRAPH/" << sets[i];
@@ -2565,10 +2858,12 @@ void Mod::loadVanillaResources()
 			_sets[sets[i]]->loadDat(FileMap::getFilePath(s.str()));
 		}
 	}
-	_sets["SCANG.DAT"] = new SurfaceSet(4, 4);
-	std::ostringstream scang;
-	scang << "GEODATA/" << "SCANG.DAT";
-	_sets["SCANG.DAT"]->loadDat(FileMap::getFilePath(scang.str()));
+	{
+		std::string s1 = "GEODATA/SCANG.DAT";
+		std::string s2 = "SCANG.DAT";
+		_sets[s2] = new SurfaceSet(4, 4);
+		_sets[s2]->loadDat(FileMap::getFilePath(s1));
+	}
 
 	if (!Options::mute)
 	{
@@ -2586,13 +2881,13 @@ void Mod::loadVanillaResources()
 			if (Options::preferredSound == SOUND_14)
 				cats[0] = catsWin;
 			else if (Options::preferredSound == SOUND_10)
-				cats[1] = catsDos;
+				cats[0] = catsDos;
 
 			Options::currentSound = SOUND_AUTO;
-			for (size_t i = 0; i < sizeof(catsId) / sizeof(catsId[0]); ++i)
+			for (size_t i = 0; i < ARRAYLEN(catsId); ++i)
 			{
 				SoundSet *sound = 0;
-				for (size_t j = 0; j < sizeof(cats) / sizeof(cats[0]) && sound == 0; ++j)
+				for (size_t j = 0; j < ARRAYLEN(cats) && sound == 0; ++j)
 				{
 					bool wav = true;
 					if (cats[j] == 0)
@@ -2604,18 +2899,16 @@ void Mod::loadVanillaResources()
 					std::set<std::string>::iterator file = soundFiles.find(fname);
 					if (file != soundFiles.end())
 					{
-						sound = new SoundSet();
+						sound = _sounds[catsId[i]];
 						sound->loadCat(FileMap::getFilePath("SOUND/" + cats[j][i]), wav);
 						Options::currentSound = (wav) ? SOUND_14 : SOUND_10;
 					}
 				}
 				if (sound == 0)
 				{
-					throw Exception(catsWin[i] + " not found");
-				}
-				else
-				{
-					_sounds[catsId[i]] = sound;
+					std::ostringstream ss;
+					ss << catsId[i] << " not found: " << catsWin[i] + " or " + catsDos[i] + " required";
+					throw Exception(ss.str());
 				}
 			}
 		}
@@ -2659,12 +2952,63 @@ void Mod::loadVanillaResources()
 		}
 	}
 
-	TextButton::soundPress = getSound("GEO.CAT", Mod::BUTTON_PRESS);
-	Window::soundPopup[0] = getSound("GEO.CAT", Mod::WINDOW_POPUP[0]);
-	Window::soundPopup[1] = getSound("GEO.CAT", Mod::WINDOW_POPUP[1]);
-	Window::soundPopup[2] = getSound("GEO.CAT", Mod::WINDOW_POPUP[2]);
-
 	loadBattlescapeResources(); // TODO load this at battlescape start, unload at battlescape end?
+
+	//update number of shared indexes in surface sets and sound sets
+	{
+		std::string surfaceNames[] =
+		{
+			"BIGOBS.PCK",
+			"FLOOROB.PCK",
+			"HANDOB.PCK",
+			"SMOKE.PCK",
+			"HIT.PCK",
+			"BASEBITS.PCK",
+			"INTICON.PCK",
+		};
+
+		for (size_t i = 0; i < ARRAYLEN(surfaceNames); ++i)
+		{
+			SurfaceSet* s = _sets[surfaceNames[i]];
+			s->setMaxSharedFrames((int)s->getTotalFrames());
+		}
+		//special case for surface set that is loaded later
+		{
+			SurfaceSet* s = _sets["Projectiles"];
+			s->setMaxSharedFrames(385);
+		}
+		{
+			SurfaceSet* s = _sets["UnderwaterProjectiles"];
+			s->setMaxSharedFrames(385);
+		}
+		{
+			SurfaceSet* s = _sets["GlobeMarkers"];
+			s->setMaxSharedFrames(9);
+		}
+		//HACK: because of value "hitAnimation" from item that is used as offet in "X1.PCK", this set need have same number of shared frames as "SMOKE.PCK".
+		{
+			SurfaceSet* s = _sets["X1.PCK"];
+			s->setMaxSharedFrames((int)_sets["SMOKE.PCK"]->getMaxSharedFrames());
+		}
+	}
+	{
+		std::string soundNames[] =
+		{
+			"BATTLE.CAT",
+			"GEO.CAT",
+		};
+
+		for (size_t i = 0; i < ARRAYLEN(soundNames); ++i)
+		{
+			SoundSet* s = _sounds[soundNames[i]];
+			s->setMaxSharedSounds((int)s->getTotalSounds());
+		}
+		//HACK: case for underwater surface, it should share same offsets as "BATTLE.CAT"
+		{
+			SoundSet* s = _sounds["BATTLE2.CAT"];
+			s->setMaxSharedSounds((int)_sounds["BATTLE.CAT"]->getTotalSounds());
+		}
+	}
 }
 
 /**
@@ -2687,6 +3031,8 @@ void Mod::loadBattlescapeResources()
 	_sets["MEDIBITS.DAT"]->loadDat(FileMap::getFilePath("UFOGRAPH/MEDIBITS.DAT"));
 	_sets["DETBLOB.DAT"] = new SurfaceSet(16, 16);
 	_sets["DETBLOB.DAT"]->loadDat(FileMap::getFilePath("UFOGRAPH/DETBLOB.DAT"));
+	_sets["Projectiles"] = new SurfaceSet(3, 3);
+	_sets["UnderwaterProjectiles"] = new SurfaceSet(3, 3);
 
 	// Load Battlescape Terrain (only blanks are loaded, others are loaded just in time)
 	_sets["BLANKS.PCK"] = new SurfaceSet(32, 40);
@@ -2726,7 +3072,7 @@ void Mod::loadBattlescapeResources()
 
 	std::string scrs[] = { "TAC00.SCR" };
 
-	for (size_t i = 0; i < sizeof(scrs) / sizeof(scrs[0]); ++i)
+	for (size_t i = 0; i < ARRAYLEN(scrs); ++i)
 	{
 		_surfaces[scrs[i]] = new Surface(320, 200);
 		_surfaces[scrs[i]]->loadScr(FileMap::getFilePath("UFOGRAPH/" + scrs[i]));
@@ -2748,7 +3094,7 @@ void Mod::loadBattlescapeResources()
 	{ 2, 0, 24, 255 } };
 
 	std::set<std::string> ufographContents = FileMap::getVFolderContents("UFOGRAPH");
-	for (size_t i = 0; i < sizeof(lbms) / sizeof(lbms[0]); ++i)
+	for (size_t i = 0; i < ARRAYLEN(lbms); ++i)
 	{
 		if (ufographContents.find(lbms[i]) == ufographContents.end())
 		{
@@ -2778,7 +3124,7 @@ void Mod::loadBattlescapeResources()
 		"SCANBORD.PCK",
 		"UNIBORD.PCK" };
 
-	for (size_t i = 0; i < sizeof(spks) / sizeof(spks[0]); ++i)
+	for (size_t i = 0; i < ARRAYLEN(spks); ++i)
 	{
 		std::string fname = spks[i];
 		std::transform(fname.begin(), fname.end(), fname.begin(), tolower);
@@ -3001,11 +3347,11 @@ void Mod::loadExtraResources()
 		}
 
 		// Try the preferred format first, otherwise use the default priority
-		MusicFormat priority[] = { Options::preferredMusic, MUSIC_FLAC, MUSIC_OGG, MUSIC_MP3, MUSIC_MOD, MUSIC_WAV, MUSIC_ADLIB, MUSIC_MIDI };
+		MusicFormat priority[] = { Options::preferredMusic, MUSIC_FLAC, MUSIC_OGG, MUSIC_MP3, MUSIC_MOD, MUSIC_WAV, MUSIC_ADLIB, MUSIC_GM, MUSIC_MIDI };
 		for (std::map<std::string, RuleMusic *>::const_iterator i = _musicDefs.begin(); i != _musicDefs.end(); ++i)
 		{
 			Music *music = 0;
-			for (size_t j = 0; j < sizeof(priority) / sizeof(priority[0]) && music == 0; ++j)
+			for (size_t j = 0; j < ARRAYLEN(priority) && music == 0; ++j)
 			{
 				music = loadMusic(priority[j], (*i).first, (*i).second->getCatPos(), (*i).second->getNormalization(), adlibcat, aintrocat, gmcat);
 			}
@@ -3022,208 +3368,74 @@ void Mod::loadExtraResources()
 	}
 #endif
 
-	Log(LOG_INFO) << "Loading extra resources from ruleset...";
-	for (std::vector< std::pair<std::string, ExtraSprites *> >::const_iterator i = _extraSprites.begin(); i != _extraSprites.end(); ++i)
+	if (!Options::lazyLoadResources)
 	{
-		std::string sheetName = i->first;
-		ExtraSprites *spritePack = i->second;
-		bool subdivision = (spritePack->getSubX() != 0 && spritePack->getSubY() != 0);
-		if (spritePack->getSingleImage())
+		Log(LOG_INFO) << "Loading extra resources from ruleset...";
+		for (std::map<std::string, std::vector<ExtraSprites *> >::const_iterator i = _extraSprites.begin(); i != _extraSprites.end(); ++i)
 		{
-			if (_surfaces.find(sheetName) == _surfaces.end())
+			for (std::vector<ExtraSprites*>::const_iterator j = i->second.begin(); j != i->second.end(); ++j)
 			{
-				Log(LOG_VERBOSE) << "Creating new single image: " << sheetName;
-				_surfaces[sheetName] = new Surface(spritePack->getWidth(), spritePack->getHeight());
-			}
-			else
-			{
-				Log(LOG_VERBOSE) << "Adding/Replacing single image: " << sheetName;
-				delete _surfaces[sheetName];
-				_surfaces[sheetName] = new Surface(spritePack->getWidth(), spritePack->getHeight());
-			}
-			_surfaces[sheetName]->loadImage(FileMap::getFilePath((*spritePack->getSprites())[0]));
-		}
-		else
-		{
-			bool adding = false;
-			if (_sets.find(sheetName) == _sets.end())
-			{
-				Log(LOG_VERBOSE) << "Creating new surface set: " << sheetName;
-				adding = true;
-				if (subdivision)
-				{
-					_sets[sheetName] = new SurfaceSet(spritePack->getSubX(), spritePack->getSubY());
-				}
-				else
-				{
-					_sets[sheetName] = new SurfaceSet(spritePack->getWidth(), spritePack->getHeight());
-				}
-			}
-			else
-			{
-				Log(LOG_VERBOSE) << "Adding/Replacing items in surface set: " << sheetName;
-			}
-
-			if (subdivision)
-			{
-				int frames = (spritePack->getWidth() / spritePack->getSubX())*(spritePack->getHeight() / spritePack->getSubY());
-				Log(LOG_VERBOSE) << "Subdividing into " << frames << " frames.";
-			}
-
-			for (std::map<int, std::string>::iterator j = spritePack->getSprites()->begin(); j != spritePack->getSprites()->end(); ++j)
-			{
-				int startFrame = j->first;
-				std::string fileName = j->second;
-				if (fileName.substr(fileName.length() - 1, 1) == "/")
-				{
-					Log(LOG_VERBOSE) << "Loading surface set from folder: " << fileName << " starting at frame: " << startFrame;
-					int offset = startFrame;
-					const std::set<std::string>& contents = FileMap::getVFolderContents(fileName);
-					for (std::set<std::string>::iterator k = contents.begin(); k != contents.end(); ++k)
-					{
-						if (!isImageFile((*k).substr((*k).length() - 4, (*k).length())))
-							continue;
-						try
-						{
-							std::string fullPath = FileMap::getFilePath(fileName + *k);
-							if (_sets[sheetName]->getFrame(offset))
-							{
-								Log(LOG_VERBOSE) << "Replacing frame: " << offset;
-								_sets[sheetName]->getFrame(offset)->loadImage(fullPath);
-							}
-							else
-							{
-								if (adding)
-								{
-									_sets[sheetName]->addFrame(offset)->loadImage(fullPath);
-								}
-								else
-								{
-									Log(LOG_VERBOSE) << "Adding frame: " << offset + spritePack->getModIndex();
-									_sets[sheetName]->addFrame(offset + spritePack->getModIndex())->loadImage(fullPath);
-								}
-							}
-							offset++;
-						}
-						catch (Exception &e)
-						{
-							Log(LOG_WARNING) << e.what();
-						}
-					}
-				}
-				else
-				{
-					if (spritePack->getSubX() == 0 && spritePack->getSubY() == 0)
-					{
-						const std::string& fullPath = FileMap::getFilePath(fileName);
-						if (_sets[sheetName]->getFrame(startFrame))
-						{
-							Log(LOG_VERBOSE) << "Replacing frame: " << startFrame;
-							_sets[sheetName]->getFrame(startFrame)->loadImage(fullPath);
-						}
-						else
-						{
-							Log(LOG_VERBOSE) << "Adding frame: " << startFrame << ", using index: " << startFrame + spritePack->getModIndex();
-							_sets[sheetName]->addFrame(startFrame + spritePack->getModIndex())->loadImage(fullPath);
-						}
-					}
-					else
-					{
-						Surface *temp = new Surface(spritePack->getWidth(), spritePack->getHeight());
-						temp->loadImage(FileMap::getFilePath((*spritePack->getSprites())[startFrame]));
-						int xDivision = spritePack->getWidth() / spritePack->getSubX();
-						int yDivision = spritePack->getHeight() / spritePack->getSubY();
-						int offset = startFrame;
-
-						for (int y = 0; y != yDivision; ++y)
-						{
-							for (int x = 0; x != xDivision; ++x)
-							{
-								if (_sets[sheetName]->getFrame(offset))
-								{
-									Log(LOG_VERBOSE) << "Replacing frame: " << offset;
-									_sets[sheetName]->getFrame(offset)->clear();
-									// for some reason regular blit() doesn't work here how i want it, so i use this function instead.
-									temp->blitNShade(_sets[sheetName]->getFrame(offset), 0 - (x * spritePack->getSubX()), 0 - (y * spritePack->getSubY()), 0);
-								}
-								else
-								{
-									if (adding)
-									{
-										// for some reason regular blit() doesn't work here how i want it, so i use this function instead.
-										temp->blitNShade(_sets[sheetName]->addFrame(offset), 0 - (x * spritePack->getSubX()), 0 - (y * spritePack->getSubY()), 0);
-									}
-									else
-									{
-										Log(LOG_VERBOSE) << "Adding frame: " << offset + spritePack->getModIndex();
-										// for some reason regular blit() doesn't work here how i want it, so i use this function instead.
-										temp->blitNShade(_sets[sheetName]->addFrame(offset + spritePack->getModIndex()), 0 - (x * spritePack->getSubX()), 0 - (y * spritePack->getSubY()), 0);
-									}
-								}
-								++offset;
-							}
-						}
-						delete temp;
-					}
-				}
+				loadExtraSprite(*j);
 			}
 		}
 	}
 
-	for (std::vector< std::pair<std::string, ExtraSounds *> >::const_iterator i = _extraSounds.begin(); i != _extraSounds.end(); ++i)
+	if (!Options::mute)
 	{
-		std::string setName = i->first;
-		ExtraSounds *soundPack = i->second;
-		if (_sounds.find(setName) == _sounds.end())
+		for (std::vector< std::pair<std::string, ExtraSounds *> >::const_iterator i = _extraSounds.begin(); i != _extraSounds.end(); ++i)
 		{
-			Log(LOG_VERBOSE) << "Creating new sound set: " << setName << ", this will likely have no in-game use.";
-			_sounds[setName] = new SoundSet();
+			std::string setName = i->first;
+			ExtraSounds *soundPack = i->second;
+			SoundSet *set = 0;
+
+			std::map<std::string, SoundSet*>::iterator j = _sounds.find(setName);
+			if (j != _sounds.end())
+			{
+				set = j->second;
+			}
+			_sounds[setName] = soundPack->loadSoundSet(set);
 		}
-		else Log(LOG_VERBOSE) << "Adding/Replacing items in sound set: " << setName;
-		for (std::map<int, std::string>::iterator j = soundPack->getSounds()->begin(); j != soundPack->getSounds()->end(); ++j)
+	}
+
+	TextButton::soundPress = getSound("GEO.CAT", Mod::BUTTON_PRESS);
+	Window::soundPopup[0] = getSound("GEO.CAT", Mod::WINDOW_POPUP[0]);
+	Window::soundPopup[1] = getSound("GEO.CAT", Mod::WINDOW_POPUP[1]);
+	Window::soundPopup[2] = getSound("GEO.CAT", Mod::WINDOW_POPUP[2]);
+}
+
+void Mod::loadExtraSprite(ExtraSprites *spritePack)
+{
+	if (spritePack->isLoaded())
+		return;
+
+	if (spritePack->getSingleImage())
+	{
+		Surface *surface = 0;
+		std::map<std::string, Surface*>::iterator i = _surfaces.find(spritePack->getType());
+		if (i != _surfaces.end())
 		{
-			int startSound = j->first;
-			std::string fileName = j->second;
-			if (fileName.substr(fileName.length() - 1, 1) == "/")
-			{
-				Log(LOG_VERBOSE) << "Loading sound set from folder: " << fileName << " starting at index: " << startSound;
-				int offset = startSound;
-				const std::set<std::string>& contents = FileMap::getVFolderContents(fileName);
-				for (std::set<std::string>::iterator k = contents.begin(); k != contents.end(); ++k)
-				{
-					try
-					{
-						std::string fullPath = FileMap::getFilePath(fileName + *k);
-						if (_sounds[setName]->getSound(offset))
-						{
-							_sounds[setName]->getSound(offset)->load(fullPath);
-						}
-						else
-						{
-							_sounds[setName]->addSound(offset + soundPack->getModIndex())->load(fullPath);
-						}
-						offset++;
-					}
-					catch (Exception &e)
-					{
-						Log(LOG_WARNING) << e.what();
-					}
-				}
-			}
-			else
-			{
-				const std::string& fullPath = FileMap::getFilePath(fileName);
-				if (_sounds[setName]->getSound(startSound))
-				{
-					Log(LOG_VERBOSE) << "Replacing index: " << startSound;
-					_sounds[setName]->getSound(startSound)->load(fullPath);
-				}
-				else
-				{
-					Log(LOG_VERBOSE) << "Adding index: " << startSound;
-					_sounds[setName]->addSound(startSound + soundPack->getModIndex())->load(fullPath);
-				}
-			}
+			surface = i->second;
+		}
+
+		_surfaces[spritePack->getType()] = spritePack->loadSurface(surface);
+		if (_statePalette)
+		{
+			_surfaces[spritePack->getType()]->setPalette(_statePalette);
+		}
+	}
+	else
+	{
+		SurfaceSet *set = 0;
+		std::map<std::string, SurfaceSet*>::iterator i = _sets.find(spritePack->getType());
+		if (i != _sets.end())
+		{
+			set = i->second;
+		}
+
+		_sets[spritePack->getType()] = spritePack->loadSurfaceSet(set);
+		if (_statePalette)
+		{
+			_sets[spritePack->getType()]->setPalette(_statePalette);
 		}
 	}
 }
@@ -3233,44 +3445,61 @@ void Mod::loadExtraResources()
  */
 void Mod::modResources()
 {
-	// bigger geoscape background
-	int newWidth = 320 - 64, newHeight = 200;
-	Surface *newGeo = new Surface(newWidth * 3, newHeight * 3);
-	Surface *oldGeo = _surfaces["GEOBORD.SCR"];
-	for (int x = 0; x < newWidth; ++x)
+	// we're gonna need these
+	getSurface("GEOBORD.SCR");
+	getSurface("ALTGEOBORD.SCR", false);
+	getSurface("BACK07.SCR");
+	getSurface("ALTBACK07.SCR", false);
+	getSurface("BACK06.SCR");
+	getSurface("UNIBORD.PCK");
+	getSurfaceSet("HANDOB.PCK");
+	getSurfaceSet("FLOOROB.PCK");
+	getSurfaceSet("BIGOBS.PCK");
+
+	// embiggen the geoscape background by mirroring the contents
+	// modders can provide their own backgrounds via ALTGEOBORD.SCR
+	if (_surfaces.find("ALTGEOBORD.SCR") == _surfaces.end())
 	{
-		for (int y = 0; y < newHeight; ++y)
+		int newWidth = 320 - 64, newHeight = 200;
+		Surface *newGeo = new Surface(newWidth * 3, newHeight * 3);
+		Surface *oldGeo = _surfaces["GEOBORD.SCR"];
+		for (int x = 0; x < newWidth; ++x)
 		{
-			newGeo->setPixel(newWidth + x, newHeight + y, oldGeo->getPixel(x, y));
-			newGeo->setPixel(newWidth - x - 1, newHeight + y, oldGeo->getPixel(x, y));
-			newGeo->setPixel(newWidth * 3 - x - 1, newHeight + y, oldGeo->getPixel(x, y));
+			for (int y = 0; y < newHeight; ++y)
+			{
+				newGeo->setPixel(newWidth + x, newHeight + y, oldGeo->getPixel(x, y));
+				newGeo->setPixel(newWidth - x - 1, newHeight + y, oldGeo->getPixel(x, y));
+				newGeo->setPixel(newWidth * 3 - x - 1, newHeight + y, oldGeo->getPixel(x, y));
 
-			newGeo->setPixel(newWidth + x, newHeight - y - 1, oldGeo->getPixel(x, y));
-			newGeo->setPixel(newWidth - x - 1, newHeight - y - 1, oldGeo->getPixel(x, y));
-			newGeo->setPixel(newWidth * 3 - x - 1, newHeight - y - 1, oldGeo->getPixel(x, y));
+				newGeo->setPixel(newWidth + x, newHeight - y - 1, oldGeo->getPixel(x, y));
+				newGeo->setPixel(newWidth - x - 1, newHeight - y - 1, oldGeo->getPixel(x, y));
+				newGeo->setPixel(newWidth * 3 - x - 1, newHeight - y - 1, oldGeo->getPixel(x, y));
 
-			newGeo->setPixel(newWidth + x, newHeight * 3 - y - 1, oldGeo->getPixel(x, y));
-			newGeo->setPixel(newWidth - x - 1, newHeight * 3 - y - 1, oldGeo->getPixel(x, y));
-			newGeo->setPixel(newWidth * 3 - x - 1, newHeight * 3 - y - 1, oldGeo->getPixel(x, y));
+				newGeo->setPixel(newWidth + x, newHeight * 3 - y - 1, oldGeo->getPixel(x, y));
+				newGeo->setPixel(newWidth - x - 1, newHeight * 3 - y - 1, oldGeo->getPixel(x, y));
+				newGeo->setPixel(newWidth * 3 - x - 1, newHeight * 3 - y - 1, oldGeo->getPixel(x, y));
+			}
 		}
+		_surfaces["ALTGEOBORD.SCR"] = newGeo;
 	}
-	_surfaces["ALTGEOBORD.SCR"] = newGeo;
 
 	// here we create an "alternate" background surface for the base info screen.
-	_surfaces["ALTBACK07.SCR"] = new Surface(320, 200);
-	_surfaces["ALTBACK07.SCR"]->loadScr(FileMap::getFilePath("GEOGRAPH/BACK07.SCR"));
-	for (int y = 172; y >= 152; --y)
-		for (int x = 5; x <= 314; ++x)
-			_surfaces["ALTBACK07.SCR"]->setPixel(x, y + 4, _surfaces["ALTBACK07.SCR"]->getPixel(x, y));
-	for (int y = 147; y >= 134; --y)
-		for (int x = 5; x <= 314; ++x)
-			_surfaces["ALTBACK07.SCR"]->setPixel(x, y + 9, _surfaces["ALTBACK07.SCR"]->getPixel(x, y));
-	for (int y = 132; y >= 109; --y)
-		for (int x = 5; x <= 314; ++x)
-			_surfaces["ALTBACK07.SCR"]->setPixel(x, y + 10, _surfaces["ALTBACK07.SCR"]->getPixel(x, y));
+	if (_surfaces.find("ALTBACK07.SCR") == _surfaces.end())
+	{
+		_surfaces["ALTBACK07.SCR"] = new Surface(320, 200);
+		_surfaces["ALTBACK07.SCR"]->loadScr(FileMap::getFilePath("GEOGRAPH/BACK07.SCR"));
+		for (int y = 172; y >= 152; --y)
+			for (int x = 5; x <= 314; ++x)
+				_surfaces["ALTBACK07.SCR"]->setPixel(x, y + 4, _surfaces["ALTBACK07.SCR"]->getPixel(x, y));
+		for (int y = 147; y >= 134; --y)
+			for (int x = 5; x <= 314; ++x)
+				_surfaces["ALTBACK07.SCR"]->setPixel(x, y + 9, _surfaces["ALTBACK07.SCR"]->getPixel(x, y));
+		for (int y = 132; y >= 109; --y)
+			for (int x = 5; x <= 314; ++x)
+				_surfaces["ALTBACK07.SCR"]->setPixel(x, y + 10, _surfaces["ALTBACK07.SCR"]->getPixel(x, y));
+	}
 
 	// we create extra rows on the soldier stat screens by shrinking them all down one pixel.
-	// this is done after loading them, but BEFORE loading the extraSprites, in case a modder wants to replace them.
 
 	// first, let's do the base info screen
 	// erase the old lines, copying from a +2 offset to account for the dithering
@@ -3319,41 +3548,6 @@ void Mod::modResources()
 }
 
 /**
- * Determines if an image file is an acceptable format for the game.
- * @param extension Image file extension.
- * @return True/false
- */
-bool Mod::isImageFile(std::string extension) const
-{
-	std::transform(extension.begin(), extension.end(), extension.begin(), toupper);
-
-	return (
-		// arbitrary limitation: let's not use these ones (although they're officially supported by sdl)
-		/*
-		extension == ".ICO" ||
-		extension == ".CUR" ||
-		extension == ".PNM" ||
-		extension == ".PPM" ||
-		extension == ".PGM" ||
-		extension == ".PBM" ||
-		extension == ".XPM" ||
-		extension == "ILBM" ||
-		// excluding jpeg to avoid inevitable issues due to compression
-		extension == ".JPG" ||
-		extension == "JPEG" ||
-		*/
-		extension == ".BMP" ||
-		extension == ".LBM" ||
-		extension == ".IFF" ||
-		extension == ".PCX" ||
-		extension == ".GIF" ||
-		extension == ".PNG" ||
-		extension == ".TGA" ||
-		extension == ".TIF" ||
-		extension == "TIFF");
-}
-
-/**
  * Loads the specified music file format.
  * @param fmt Format of the music.
  * @param file Filename of the music.
@@ -3366,15 +3560,12 @@ bool Mod::isImageFile(std::string extension) const
  */
 Music *Mod::loadMusic(MusicFormat fmt, const std::string &file, int track, float volume, CatFile *adlibcat, CatFile *aintrocat, GMCatFile *gmcat) const
 {
-	/* MUSIC_AUTO, MUSIC_FLAC, MUSIC_OGG, MUSIC_MP3, MUSIC_MOD, MUSIC_WAV, MUSIC_ADLIB, MUSIC_MIDI */
-	static const std::string exts[] = { "", ".flac", ".ogg", ".mp3", ".mod", ".wav", "", ".mid" };
+	/* MUSIC_AUTO, MUSIC_FLAC, MUSIC_OGG, MUSIC_MP3, MUSIC_MOD, MUSIC_WAV, MUSIC_ADLIB, MUSIC_GM, MUSIC_MIDI */
+	static const std::string exts[] = { "", ".flac", ".ogg", ".mp3", ".mod", ".wav", "", "", ".mid" };
 	Music *music = 0;
 	std::set<std::string> soundContents = FileMap::getVFolderContents("SOUND");
 	try
 	{
-		std::string fname = file + exts[fmt];
-		std::transform(fname.begin(), fname.end(), fname.begin(), tolower);
-
 		// Try Adlib music
 		if (fmt == MUSIC_ADLIB)
 		{
@@ -3401,27 +3592,21 @@ Music *Mod::loadMusic(MusicFormat fmt, const std::string &file, int track, float
 				}
 			}
 		}
-		// Try MIDI music
-		else if (fmt == MUSIC_MIDI)
+		// Try MIDI music (from GM.CAT)
+		else if (fmt == MUSIC_GM)
 		{
 			// DOS MIDI
 			if (gmcat && track < gmcat->getAmount())
 			{
 				music = gmcat->loadMIDI(track);
 			}
-			// Windows MIDI
-			else
-			{
-				if (soundContents.find(fname) != soundContents.end())
-				{
-					music = new Music();
-					music->load(FileMap::getFilePath("SOUND/" + fname));
-				}
-			}
 		}
 		// Try digital tracks
 		else
 		{
+			std::string fname = file + exts[fmt];
+			std::transform(fname.begin(), fname.end(), fname.begin(), ::tolower);
+
 			if (soundContents.find(fname) != soundContents.end())
 			{
 				music = new Music();
@@ -3517,6 +3702,16 @@ int Mod::getDefeatScore() const
 int Mod::getDefeatFunds() const
 {
 	return _defeatFunds;
+}
+
+/**
+ * Enables non-vanilla difficulty features.
+ * Dehumanize yourself and face the Warboy.
+ * @return Is the player screwed?
+*/
+bool Mod::isDemigod() const
+{
+	return _difficultyDemigod;
 }
 
 }

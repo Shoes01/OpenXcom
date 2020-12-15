@@ -73,7 +73,7 @@ BuildNewBaseState::BuildNewBaseState(Base *base, Globe *globe, bool first) : _ba
 	_hoverTimer = new Timer(50);
 	_hoverTimer->onTimer((StateHandler)&BuildNewBaseState::hoverRedraw);
 	_hoverTimer->start();
-	
+
 	// Set palette
 	setInterface("geoscape");
 
@@ -161,7 +161,7 @@ void BuildNewBaseState::init()
 	State::init();
 	_globe->onMouseOver((ActionHandler)&BuildNewBaseState::globeHover);
 	_globe->rotateStop();
-	_globe->setNewBaseHover();
+	_globe->setNewBaseHover(true);
 }
 
 /**
@@ -202,7 +202,7 @@ void BuildNewBaseState::hoverRedraw(void)
 	if (lon == lon && lat == lat)
 	{
 		_globe->setNewBaseHoverPos(lon,lat);
-		_globe->setNewBaseHover();
+		_globe->setNewBaseHover(true);
 	}
 	if (Options::globeRadarLines && !(AreSame(_oldlat, lat) && AreSame(_oldlon, lon)) )
 	{

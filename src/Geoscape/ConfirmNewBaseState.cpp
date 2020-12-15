@@ -30,6 +30,7 @@
 #include "BaseNameState.h"
 #include "../Menu/ErrorMessageState.h"
 #include "../Engine/Options.h"
+#include "../Engine/Unicode.h"
 #include "../Mod/RuleInterface.h"
 
 namespace OpenXcom
@@ -74,7 +75,7 @@ ConfirmNewBaseState::ConfirmNewBaseState(Base *base, Globe *globe) : _base(base)
 	_btnCancel->onMouseClick((ActionHandler)&ConfirmNewBaseState::btnCancelClick);
 	_btnCancel->onKeyboardPress((ActionHandler)&ConfirmNewBaseState::btnCancelClick, Options::keyCancel);
 
-	std::wstring area;
+	std::string area;
 	for (std::vector<Region*>::iterator i = _game->getSavedGame()->getRegions()->begin(); i != _game->getSavedGame()->getRegions()->end(); ++i)
 	{
 		if ((*i)->getRules()->insideRegion(_base->getLongitude(), _base->getLatitude()))
@@ -85,7 +86,7 @@ ConfirmNewBaseState::ConfirmNewBaseState(Base *base, Globe *globe) : _base(base)
 		}
 	}
 
-	_txtCost->setText(tr("STR_COST_").arg(Text::formatFunding(_cost)));
+	_txtCost->setText(tr("STR_COST_").arg(Unicode::formatFunding(_cost)));
 
 	_txtArea->setText(tr("STR_AREA_").arg(area));
 }

@@ -940,6 +940,12 @@
     <ClCompile Include="Menu\SetWindowedRootState.cpp">
       <Filter>Menu</Filter>
     </ClCompile>
+    <ClCompile Include="Engine\Unicode.cpp">
+      <Filter>Engine</Filter>
+    </ClCompile>
+    <ClCompile Include="Menu\OptionsInformExtendedState.cpp">
+      <Filter>Menu</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="resource.h" />
@@ -1920,6 +1926,12 @@
     <ClInclude Include="Menu\SetWindowedRootState.h">
       <Filter>Menu</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\Unicode.h">
+      <Filter>Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="Menu\OptionsInformExtendedState.h">
+      <Filter>Menu</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Geoscape">
@@ -1961,5 +1973,8 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="..\res\windows\openxcom.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <Natvis Include="..\deps\yaml-cpp.natvis" />
   </ItemGroup>
 </Project>

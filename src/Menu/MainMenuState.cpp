@@ -21,7 +21,7 @@
 #include "../version.h"
 #include "../Engine/Game.h"
 #include "../Mod/Mod.h"
-#include "../Engine/Language.h"
+#include "../Engine/LocalizedText.h"
 #include "../Engine/Screen.h"
 #include "../Interface/TextButton.h"
 #include "../Interface/Window.h"
@@ -30,7 +30,7 @@
 #include "NewBattleState.h"
 #include "ListLoadState.h"
 #include "OptionsVideoState.h"
-#include "../Engine/Screen.h"
+#include "OptionsModsState.h"
 #include "../Engine/Options.h"
 
 namespace OpenXcom
@@ -38,7 +38,7 @@ namespace OpenXcom
 
 void GoToMainMenuState::init()
 {
-	Screen::updateScale(Options::geoscapeScale, Options::geoscapeScale, Options::baseXGeoscape, Options::baseYGeoscape, true);
+	Screen::updateScale(Options::geoscapeScale, Options::baseXGeoscape, Options::baseYGeoscape, true);
 	_game->getScreen()->resetDisplay(false);
 	_game->setState(new MainMenuState);
 }
@@ -55,7 +55,8 @@ MainMenuState::MainMenuState()
 	_btnNewBattle = new TextButton(92, 20, 164, 90);
 	_btnLoad = new TextButton(92, 20, 64, 118);
 	_btnOptions = new TextButton(92, 20, 164, 118);
-	_btnQuit = new TextButton(192, 20, 64, 146);
+	_btnMods = new TextButton(92, 20, 64, 146);
+	_btnQuit = new TextButton(92, 20, 164, 146);
 	_txtTitle = new Text(256, 30, 32, 45);
 
 	// Set palette
@@ -66,6 +67,7 @@ MainMenuState::MainMenuState()
 	add(_btnNewBattle, "button", "mainMenu");
 	add(_btnLoad, "button", "mainMenu");
 	add(_btnOptions, "button", "mainMenu");
+	add(_btnMods, "button", "mainMenu");
 	add(_btnQuit, "button", "mainMenu");
 	add(_txtTitle, "text", "mainMenu");
 
@@ -86,14 +88,17 @@ MainMenuState::MainMenuState()
 	_btnOptions->setText(tr("STR_OPTIONS"));
 	_btnOptions->onMouseClick((ActionHandler)&MainMenuState::btnOptionsClick);
 
+	_btnMods->setText(tr("STR_MODS"));
+	_btnMods->onMouseClick((ActionHandler)&MainMenuState::btnModsClick);
+
 	_btnQuit->setText(tr("STR_QUIT"));
 	_btnQuit->onMouseClick((ActionHandler)&MainMenuState::btnQuitClick);
 
 	_txtTitle->setAlign(ALIGN_CENTER);
 	_txtTitle->setBig();
-	std::wostringstream title;
-	title << tr("STR_OPENXCOM") << L"\x02";
-	title << Language::utf8ToWstr(OPENXCOM_VERSION_SHORT) << Language::utf8ToWstr(OPENXCOM_VERSION_GIT);
+	std::ostringstream title;
+	title << tr("STR_OPENXCOM") << Unicode::TOK_NL_SMALL;
+	title << OPENXCOM_VERSION_SHORT << OPENXCOM_VERSION_GIT;
 	_txtTitle->setText(title.str());
 }
 
@@ -143,6 +148,15 @@ void MainMenuState::btnOptionsClick(Action *)
 }
 
 /**
+* Opens the Mods screen.
+* @param action Pointer to an action.
+*/
+void MainMenuState::btnModsClick(Action *)
+{
+	_game->pushState(new OptionsModsState);
+}
+
+/**
  * Quits the game.
  * @param action Pointer to an action.
  */
@@ -160,7 +174,7 @@ void MainMenuState::resize(int &dX, int &dY)
 {
 	dX = Options::baseXResolution;
 	dY = Options::baseYResolution;
-	Screen::updateScale(Options::geoscapeScale, Options::geoscapeScale, Options::baseXGeoscape, Options::baseYGeoscape, true);
+	Screen::updateScale(Options::geoscapeScale, Options::baseXGeoscape, Options::baseYGeoscape, true);
 	dX = Options::baseXResolution - dX;
 	dY = Options::baseYResolution - dY;
 	State::resize(dX, dY);

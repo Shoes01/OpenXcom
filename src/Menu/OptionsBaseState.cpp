@@ -52,7 +52,7 @@ namespace OpenXcom
  * @param game Pointer to the core game.
  * @param origin Game section that originated this state.
  */
-OptionsBaseState::OptionsBaseState(OptionsOrigin origin) : _origin(origin)
+OptionsBaseState::OptionsBaseState(OptionsOrigin origin) : _origin(origin), _group(0)
 {
 	// Create objects
 	_window = new Window(this, 320, 200, 0, 0);
@@ -63,7 +63,6 @@ OptionsBaseState::OptionsBaseState(OptionsOrigin origin) : _origin(origin)
 	_btnGeoscape = new TextButton(80, 16, 8, 68);
 	_btnBattlescape = new TextButton(80, 16, 8, 88);
 	_btnAdvanced = new TextButton(80, 16, 8, 108);
-	_btnMods = new TextButton(80, 16, 8, 128);
 
 	_btnOk = new TextButton(100, 16, 8, 176);
 	_btnCancel = new TextButton(100, 16, 110, 176);
@@ -82,7 +81,6 @@ OptionsBaseState::OptionsBaseState(OptionsOrigin origin) : _origin(origin)
 	add(_btnGeoscape, "button", "optionsMenu");
 	add(_btnBattlescape, "button", "optionsMenu");
 	add(_btnAdvanced, "button", "optionsMenu");
-	add(_btnMods, "button", "optionsMenu");
 
 	add(_btnOk, "button", "optionsMenu");
 	add(_btnCancel, "button", "optionsMenu");
@@ -110,10 +108,6 @@ OptionsBaseState::OptionsBaseState(OptionsOrigin origin) : _origin(origin)
 
 	_btnAdvanced->setText(tr("STR_ADVANCED"));
 	_btnAdvanced->onMousePress((ActionHandler)&OptionsBaseState::btnGroupPress, SDL_BUTTON_LEFT);
-
-	_btnMods->setText(tr("STR_MODS"));
-	_btnMods->onMousePress((ActionHandler)&OptionsBaseState::btnGroupPress, SDL_BUTTON_LEFT);
-	_btnMods->setVisible(_origin == OPT_MENU); // Mods require a restart, don't enable them in-game
 
 	_btnOk->setText(tr("STR_OK"));
 	_btnOk->onMouseClick((ActionHandler)&OptionsBaseState::btnOkClick);
@@ -181,7 +175,6 @@ void OptionsBaseState::setCategory(TextButton *button)
 	_btnGeoscape->setGroup(&_group);
 	_btnBattlescape->setGroup(&_group);
 	_btnAdvanced->setGroup(&_group);
-	_btnMods->setGroup(&_group);
 }
 
 /**
@@ -190,20 +183,20 @@ void OptionsBaseState::setCategory(TextButton *button)
  */
 void OptionsBaseState::btnOkClick(Action *)
 {
+	Options::switchDisplay();
 	int dX = Options::baseXResolution;
 	int dY = Options::baseYResolution;
-	Screen::updateScale(Options::battlescapeScale, Options::newBattlescapeScale, Options::baseXBattlescape, Options::baseYBattlescape, _origin == OPT_BATTLESCAPE);
-	Screen::updateScale(Options::geoscapeScale, Options::newGeoscapeScale, Options::baseXGeoscape, Options::baseYGeoscape, _origin != OPT_BATTLESCAPE);
+	Screen::updateScale(Options::battlescapeScale, Options::baseXBattlescape, Options::baseYBattlescape, _origin == OPT_BATTLESCAPE);
+	Screen::updateScale(Options::geoscapeScale, Options::baseXGeoscape, Options::baseYGeoscape, _origin != OPT_BATTLESCAPE);
 	dX = Options::baseXResolution - dX;
 	dY = Options::baseYResolution - dY;
 	recenter(dX, dY);
-	Options::switchDisplay();
 	Options::save();
 	if (Options::reload && _origin == OPT_MENU)
 	{
 		Options::mapResources();
 	}
-	_game->loadLanguage(Options::language);
+	_game->loadLanguages();
 	SDL_WM_GrabInput(Options::captureMouse);
 	_game->getScreen()->resetDisplay();
 	_game->setVolume(Options::soundVolume, Options::musicVolume, Options::uiVolume);
@@ -239,8 +232,8 @@ void OptionsBaseState::btnCancelClick(Action *)
 	Options::reload = false;
 	Options::load();
 	SDL_WM_GrabInput(Options::captureMouse);
-	Screen::updateScale(Options::newBattlescapeScale, Options::battlescapeScale, Options::baseXBattlescape, Options::baseYBattlescape, _origin == OPT_BATTLESCAPE);
-	Screen::updateScale(Options::newGeoscapeScale, Options::geoscapeScale, Options::baseXGeoscape, Options::baseYGeoscape, _origin != OPT_BATTLESCAPE);
+	Screen::updateScale(Options::battlescapeScale, Options::baseXBattlescape, Options::baseYBattlescape, _origin == OPT_BATTLESCAPE);
+	Screen::updateScale(Options::geoscapeScale, Options::baseXGeoscape, Options::baseYGeoscape, _origin != OPT_BATTLESCAPE);
 	_game->setVolume(Options::soundVolume, Options::musicVolume, Options::uiVolume);
 	_game->popState();
 }
@@ -291,10 +284,6 @@ void OptionsBaseState::btnGroupPress(Action *action)
 		{
 			_game->pushState(new OptionsAdvancedState(_origin));
 		}
-		else if (sender == _btnMods)
-		{
-			_game->pushState(new OptionsModsState(_origin));
-		}
 	}
 }
 
@@ -316,7 +305,7 @@ void OptionsBaseState::txtTooltipOut(Action *action)
 {
 	if (_currentTooltip == action->getSender()->getTooltip())
 	{
-		_txtTooltip->setText(L"");
+		_txtTooltip->setText("");
 	}
 }
 

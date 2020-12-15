@@ -27,7 +27,6 @@
 #include "../Engine/ShaderDraw.h"
 #include "../Engine/ShaderMove.h"
 #include "../Engine/Options.h"
-#include "../fmath.h"
 
 namespace OpenXcom
 {
@@ -526,7 +525,7 @@ void UnitSprite::drawRoutine0()
 	}
 
 	// offset everything to the left by 16 pixels.
-	// this is because we draw the sprites double wide, to accomodate weapons in-hand
+	// this is because we draw the sprites double wide, to accommodate weapons in-hand
 	torso->setX(offXSprite);
 	legs->setX(offXSprite);
 	leftArm->setX(offXSprite);
@@ -535,7 +534,7 @@ void UnitSprite::drawRoutine0()
 		itemR->setX(itemR->getX() + offXSprite);
 	if (itemL)
 		itemL->setX(itemL->getX() + offXSprite);
-	
+
 	// fix the errant muton arm.
 	if (!itemR && _drawingRoutine == 10 && _unit->getStatus() == STATUS_WALKING && unitDir == 2)
 	{
@@ -719,9 +718,9 @@ void UnitSprite::drawRoutine1()
 		rightArm->setY(0);
 		torso->setY(0);
 	}
-	
+
 	// offset everything to the left by 16 pixels.
-	// this is because we draw the sprites double wide, to accomodate weapons in-hand
+	// this is because we draw the sprites double wide, to accommodate weapons in-hand
 	torso->setX(offXSprite);
 	leftArm->setX(offXSprite);
 	rightArm->setX(offXSprite);
@@ -828,9 +827,9 @@ void UnitSprite::drawRoutine3()
 		}
 	}
 	s = _unitSurface->getFrame((_part * 8) + _unit->getDirection());
-	
+
 	// offset everything to the left by 16 pixels.
-	// this is because we draw the sprites double wide, to accomodate weapons in-hand
+	// this is because we draw the sprites double wide, to accommodate weapons in-hand
 	s->setX(offXSprite);
 
 	drawRecolored(s);
@@ -963,9 +962,9 @@ void UnitSprite::drawRoutine4()
 			itemL->setY(offY3[unitDir]);
 		}
 	}
-	
+
 	// offset everything to the right by 16 pixels.
-	// this is because we draw the sprites double wide, to accomodate weapons in-hand
+	// this is because we draw the sprites double wide, to accommodate weapons in-hand
 	s->setX(offXSprite);
 	if (itemR)
 		itemR->setX(itemR->getX() + offXSprite);
@@ -1012,9 +1011,9 @@ void UnitSprite::drawRoutine5()
 	{
 		s = _unitSurface->getFrame((_part * 8) + _unit->getDirection());
 	}
-	
+
 	// offset everything to the right by 16 pixels.
-	// this is because we draw the sprites double wide, to accomodate weapons in-hand
+	// this is because we draw the sprites double wide, to accommodate weapons in-hand
 	s->setX(offXSprite);
 	drawRecolored(s);
 }
@@ -1183,7 +1182,7 @@ void UnitSprite::drawRoutine6()
 		torso->setY(0);
 	}
 	// offset everything to the right by 16 pixels.
-	// this is because we draw the sprites double wide, to accomodate weapons in-hand
+	// this is because we draw the sprites double wide, to accommodate weapons in-hand
 	torso->setX(offXSprite);
 	legs->setX(offXSprite);
 	leftArm->setX(offXSprite);
@@ -1269,7 +1268,7 @@ void UnitSprite::drawRoutine7()
 		torso->setY(0);
 	}
 	// offset everything to the right by 16 pixels.
-	// this is because we draw the sprites double wide, to accomodate weapons in-hand
+	// this is because we draw the sprites double wide, to accommodate weapons in-hand
 	torso->setX(offXSprite);
 	legs->setX(offXSprite);
 	leftArm->setX(offXSprite);
@@ -1314,9 +1313,9 @@ void UnitSprite::drawRoutine8()
 
 	else if (_unit->getStatus() == STATUS_AIMING)
 		legs = _unitSurface->getFrame(aim);
-	
+
 	// offset everything to the right by 16 pixels.
-	// this is because we draw the sprites double wide, to accomodate weapons in-hand
+	// this is because we draw the sprites double wide, to accommodate weapons in-hand
 	legs->setX(offXSprite);
 
 	drawRecolored(legs);
@@ -1343,9 +1342,9 @@ void UnitSprite::drawRoutine9()
 
 	if (_unit->getStatus() == STATUS_COLLAPSING)
 		torso = _unitSurface->getFrame(die + _unit->getFallingPhase());
-	
+
 	// offset everything to the right by 16 pixels.
-	// this is because we draw the sprites double wide, to accomodate weapons in-hand
+	// this is because we draw the sprites double wide, to accommodate weapons in-hand
 	torso->setX(offXSprite);
 
 	drawRecolored(torso);

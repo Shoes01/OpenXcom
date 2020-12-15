@@ -72,7 +72,7 @@ InventoryState::InventoryState(bool tu, BattlescapeState *parent) : _tu(tu), _pa
 	}
 	else if (!_battleGame->getTileEngine())
 	{
-		Screen::updateScale(Options::battlescapeScale, Options::battlescapeScale, Options::baseXBattlescape, Options::baseYBattlescape, true);
+		Screen::updateScale(Options::battlescapeScale, Options::baseXBattlescape, Options::baseYBattlescape, true);
 		_game->getScreen()->resetDisplay(false);
 	}
 
@@ -254,7 +254,7 @@ InventoryState::~InventoryState()
 	{
 		if (Options::maximizeInfoScreens)
 		{
-			Screen::updateScale(Options::battlescapeScale, Options::battlescapeScale, Options::baseXBattlescape, Options::baseYBattlescape, true);
+			Screen::updateScale(Options::battlescapeScale, Options::baseXBattlescape, Options::baseYBattlescape, true);
 			_game->getScreen()->resetDisplay(false);
 		}
 		Tile *inventoryTile = _battleGame->getSelectedUnit()->getTile();
@@ -264,7 +264,7 @@ InventoryState::~InventoryState()
 	}
 	else
 	{
-		Screen::updateScale(Options::geoscapeScale, Options::geoscapeScale, Options::baseXGeoscape, Options::baseYGeoscape, true);
+		Screen::updateScale(Options::geoscapeScale, Options::baseXGeoscape, Options::baseYGeoscape, true);
 		_game->getScreen()->resetDisplay(false);
 	}
 }
@@ -288,7 +288,7 @@ void InventoryState::init()
 	{
 		if (_parent)
 		{
-			_parent->selectNextPlayerUnit(false, false, true);
+			_parent->selectNextPlayerUnit(false, false, true, _tu);
 		}
 		else
 		{
@@ -388,7 +388,7 @@ void InventoryState::updateStats()
 	}
 	else
 	{
-		_txtPSkill->setText(L"");
+		_txtPSkill->setText("");
 	}
 
 	if (unit->getBaseStats()->psiSkill > 0 || (Options::psiStrengthEval && _game->getSavedGame()->isResearched(_game->getMod()->getPsiRequirements())))
@@ -397,7 +397,7 @@ void InventoryState::updateStats()
 	}
 	else
 	{
-		_txtPStr->setText(L"");
+		_txtPStr->setText("");
 	}
 }
 
@@ -472,7 +472,7 @@ void InventoryState::btnOkClick(Action *)
 				continue;
 			}
 
-			(*j)->prepareNewTurn();
+			(*j)->prepareNewTurn(false);
 		}
 	}
 }
@@ -528,8 +528,8 @@ void InventoryState::btnUnloadClick(Action *)
 {
 	if (_inv->unload())
 	{
-		_txtItem->setText(L"");
-		_txtAmmo->setText(L"");
+		_txtItem->setText("");
+		_txtAmmo->setText("");
 		_selAmmo->clear();
 		updateStats();
 		_game->getMod()->getSoundByDepth(0, Mod::ITEM_DROP)->play();
@@ -850,7 +850,7 @@ void InventoryState::invMouseOver(Action *)
 				_txtItem->setText(tr("STR_ALIEN_ARTIFACT"));
 			}
 		}
-		std::wstring s;
+		std::string s;
 		if (item->getAmmoItem() != 0 && item->needsAmmo())
 		{
 			s = tr("STR_AMMO_ROUNDS_LEFT").arg(item->getAmmoItem()->getAmmoQuantity());
@@ -887,9 +887,9 @@ void InventoryState::invMouseOver(Action *)
 	{
 		if (_currentTooltip.empty())
 		{
-			_txtItem->setText(L"");
+			_txtItem->setText("");
 		}
-		_txtAmmo->setText(L"");
+		_txtAmmo->setText("");
 		_selAmmo->clear();
 		_updateTemplateButtons(!_tu);
 	}
@@ -901,8 +901,8 @@ void InventoryState::invMouseOver(Action *)
  */
 void InventoryState::invMouseOut(Action *)
 {
-	_txtItem->setText(L"");
-	_txtAmmo->setText(L"");
+	_txtItem->setText("");
+	_txtAmmo->setText("");
 	_selAmmo->clear();
 	_updateTemplateButtons(!_tu);
 }
@@ -955,7 +955,7 @@ void InventoryState::txtTooltipOut(Action *action)
 		if (_currentTooltip == action->getSender()->getTooltip())
 		{
 			_currentTooltip = "";
-			_txtItem->setText(L"");
+			_txtItem->setText("");
 		}
 	}
 }

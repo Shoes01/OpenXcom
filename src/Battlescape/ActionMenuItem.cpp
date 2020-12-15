@@ -31,7 +31,7 @@ namespace OpenXcom
  * @param id The unique identifier of the menu item.
  * @param game Pointer to the game.
  * @param x Position on the x-axis.
- * @param y Position on the y-asis.
+ * @param y Position on the y-axis.
  */
 ActionMenuItem::ActionMenuItem(int id, Game *game, int x, int y) : InteractiveSurface(272, 40, x + 24, y - (id*40)), _highlighted(false), _action(BA_NONE), _tu(0)
 {
@@ -87,7 +87,7 @@ ActionMenuItem::~ActionMenuItem()
  * @param timeunits The timeunits string, including the TUs> prefix.
  * @param tu The timeunits value.
  */
-void ActionMenuItem::setAction(BattleActionType action, const std::wstring &description, const std::wstring &accuracy, const std::wstring &timeunits, int tu)
+void ActionMenuItem::setAction(BattleActionType action, const std::string &description, const std::string &accuracy, const std::string &timeunits, int tu)
 {
 	_action = action;
 	_txtDescription->setText(description);

@@ -52,9 +52,9 @@ BattleUnit::BattleUnit(Soldier *soldier, int depth) :
 	_verticalDirection(0), _status(STATUS_STANDING), _walkPhase(0), _fallPhase(0), _kneeled(false), _floating(false),
 	_dontReselect(false), _fire(0), _currentAIState(0), _visible(false), _cacheInvalid(true),
 	_expBravery(0), _expReactions(0), _expFiring(0), _expThrowing(0), _expPsiSkill(0), _expPsiStrength(0), _expMelee(0),
-	_motionPoints(0), _kills(0), _hitByFire(false), _hitByAnything(false), _moraleRestored(0), _coverReserve(0), _charging(0), _turnsSinceSpotted(255),
+	_motionPoints(0), _kills(0), _hitByFire(false), _hitByAnything(false), _moraleRestored(0), _charging(0), _turnsSinceSpotted(255),
 	_statistics(), _murdererId(0), _mindControllerID(0), _fatalShotSide(SIDE_FRONT), _fatalShotBodyPart(BODYPART_HEAD),
-	_geoscapeSoldier(soldier), _unitRules(0), _rankInt(0), _turretType(-1), _hidingForTurn(false), _respawn(false)
+	_geoscapeSoldier(soldier), _unitRules(0), _rankInt(0), _turretType(-1), _hidingForTurn(false), _respawn(false), _capturable(true)
 {
 	_name = soldier->getName(true);
 	_id = soldier->getId();
@@ -98,7 +98,11 @@ BattleUnit::BattleUnit(Soldier *soldier, int depth) :
 	_loftempsSet = _armor->getLoftempsSet();
 	_gender = soldier->getGender();
 	_faceDirection = -1;
-	_breathFrame = 0;
+	_breathFrame = -1;
+	if (_armor->drawBubbles())
+	{
+		_breathFrame = 0;
+	}
 	_floorAbove = false;
 	_breathing = false;
 
@@ -113,7 +117,7 @@ BattleUnit::BattleUnit(Soldier *soldier, int depth) :
 	default:             rankbonus =  0; break;
 	}
 
-	_value = 20 + soldier->getMissions() + rankbonus;
+	_value = soldier->getRules()->getValue() + soldier->getMissions() + rankbonus;
 
 	_tu = _stats.tu;
 	_energy = _stats.stamina;
@@ -165,7 +169,7 @@ BattleUnit::BattleUnit(Unit *unit, UnitFaction faction, int id, Armor *armor, St
 	_fallPhase(0), _kneeled(false), _floating(false), _dontReselect(false), _fire(0), _currentAIState(0),
 	_visible(false), _cacheInvalid(true), _expBravery(0), _expReactions(0), _expFiring(0),
 	_expThrowing(0), _expPsiSkill(0), _expPsiStrength(0), _expMelee(0), _motionPoints(0), _kills(0), _hitByFire(false), _hitByAnything(false),
-	_moraleRestored(0), _coverReserve(0), _charging(0), _turnsSinceSpotted(255),
+	_moraleRestored(0), _charging(0), _turnsSinceSpotted(255),
 	_statistics(), _murdererId(0), _mindControllerID(0), _fatalShotSide(SIDE_FRONT),
 	_fatalShotBodyPart(BODYPART_HEAD), _armor(armor),  _geoscapeSoldier(0), _unitRules(unit),
 	_rankInt(0), _turretType(-1), _hidingForTurn(false), _respawn(false)
@@ -187,6 +191,7 @@ BattleUnit::BattleUnit(Unit *unit, UnitFaction faction, int id, Armor *armor, St
 	_spawnUnit = unit->getSpawnUnit();
 	_value = unit->getValue();
 	_faceDirection = -1;
+	_capturable = unit->getCapturable();
 
 	_movementType = _armor->getMovementType();
 	if (_movementType == MT_FLOAT)
@@ -215,7 +220,7 @@ BattleUnit::BattleUnit(Unit *unit, UnitFaction faction, int id, Armor *armor, St
 	_stats += *_armor->getStats();	// armors may modify effective stats
 
 	_breathFrame = -1; // most aliens don't breathe per-se, that's exclusive to humanoids
-	if (armor->getDrawingRoutine() == 14)
+	if (armor->drawBubbles())
 	{
 		_breathFrame = 0;
 	}
@@ -916,17 +921,25 @@ void BattleUnit::setCache(Surface *cache, int part)
 }
 
 /**
- * Check if the unit is still cached in the Map cache.
+ * Returns the current cache surface.
  * When the unit changes it needs to be re-cached.
- * @param invalid Get if the cache is invalid.
  * @param part Unit part to check.
  * @return Pointer to cache surface used.
  */
-Surface *BattleUnit::getCache(bool *invalid, int part) const
+Surface *BattleUnit::getCache(int part) const
 {
 	if (part < 0) part = 0;
-	*invalid = _cacheInvalid;
 	return _cache[part];
+}
+
+/**
+ * Check if the unit is still cached in the Map cache.
+ * When the unit changes it needs to be re-cached.
+ * @return True if it needs to be re-cached.
+ */
+bool BattleUnit::isCacheInvalid() const
+{
+	return _cacheInvalid;
 }
 
 /**
@@ -984,6 +997,11 @@ void BattleUnit::aim(bool aiming)
 
 /**
  * Returns the direction from this unit to a given point.
+ * 0 <-> y = -1, x = 0
+ * 1 <-> y = -1, x = 1
+ * 3 <-> y = 1, x = 1
+ * 5 <-> y = 1, x = -1
+ * 7 <-> y = -1, x = -1
  * @param point given position.
  * @return direction.
  */
@@ -1656,6 +1674,11 @@ void BattleUnit::prepareNewTurn(bool fullProcess)
 	// transition between stages, don't do damage or panic
 	if (!fullProcess)
 	{
+		if (_kneeled)
+		{
+			// stand up if kneeling
+			_kneeled = false;
+		}
 		return;
 	}
 
@@ -2089,6 +2112,17 @@ bool BattleUnit::isInExitArea(SpecialTileType stt) const
 }
 
 /**
+ * Check if this unit lies (e.g. unconscious) in the exit area.
+ * @param tile Unit's location.
+ * @param stt Type of exit tile to check for.
+ * @return Is in the exit area?
+ */
+bool BattleUnit::liesInExitArea(Tile *tile, SpecialTileType stt) const
+{
+	return tile && tile->getMapData(O_FLOOR) && (tile->getMapData(O_FLOOR)->getSpecialType() == stt);
+}
+
+/**
  * Gets the unit height taking into account kneeling/standing.
  * @return Unit's height.
  */
@@ -2388,11 +2422,11 @@ Armor *BattleUnit::getArmor() const
  * @param debugAppendId Append unit ID to name for debug purposes.
  * @return name Widecharstring of the unit's name.
  */
-std::wstring BattleUnit::getName(Language *lang, bool debugAppendId) const
+std::string BattleUnit::getName(Language *lang, bool debugAppendId) const
 {
 	if (_type != "SOLDIER" && lang != 0)
 	{
-		std::wstring ret;
+		std::string ret;
 
 		if (_type.find("STR_") != std::string::npos)
 			ret = lang->getString(_type);
@@ -2401,8 +2435,8 @@ std::wstring BattleUnit::getName(Language *lang, bool debugAppendId) const
 
 		if (debugAppendId)
 		{
-			std::wostringstream ss;
-			ss << ret << L" " << _id;
+			std::ostringstream ss;
+			ss << ret << " " << _id;
 			ret = ss.str();
 		}
 		return ret;
@@ -2667,15 +2701,6 @@ int BattleUnit::getAggroSound() const
 }
 
 /**
- * Set a specific number of energy.
- * @param energy energy.
- */
-void BattleUnit::setEnergy(int energy)
-{
-	_energy = energy;
-}
-
-/**
  * Get the faction the unit was killed by.
  * @return faction
  */
@@ -2879,7 +2904,7 @@ void BattleUnit::adjustStats(const StatAdjustment &adjustment)
 	_stats.psiStrength += adjustment.statGrowth.psiStrength * adjustment.growthMultiplier * _stats.psiStrength / 100;
 	_stats.psiSkill += adjustment.statGrowth.psiSkill * adjustment.growthMultiplier * _stats.psiSkill / 100;
 	_stats.melee += adjustment.statGrowth.melee * adjustment.growthMultiplier * _stats.melee / 100;
-	
+
 	_stats.firing *= adjustment.aimAndArmorMultiplier;
 	_maxArmor[0] *= adjustment.aimAndArmorMultiplier;
 	_maxArmor[1] *= adjustment.aimAndArmorMultiplier;
@@ -2904,24 +2929,6 @@ bool BattleUnit::tookFireDamage() const
 void BattleUnit::toggleFireDamage()
 {
 	_hitByFire = !_hitByFire;
-}
-
-/**
- * Changes the amount of TUs reserved for cover.
- * @param reserve time units.
- */
-void BattleUnit::setCoverReserve(int reserve)
-{
-	_coverReserve = reserve;
-}
-
-/**
- * Returns the amount of TUs reserved for cover.
- * @return time units.
- */
-int BattleUnit::getCoverReserve() const
-{
-	return _coverReserve;
 }
 
 /**
@@ -3285,6 +3292,14 @@ bool BattleUnit::getHitState()
 void BattleUnit::resetHitState()
 {
 	_hitByAnything = false;
+}
+
+/**
+ * Gets whether this unit can be captured alive (applies to aliens).
+ */
+bool BattleUnit::getCapturable() const
+{
+	return _capturable;
 }
 
 }

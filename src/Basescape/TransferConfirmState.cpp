@@ -22,6 +22,7 @@
 #include "../Mod/Mod.h"
 #include "../Engine/LocalizedText.h"
 #include "../Engine/Options.h"
+#include "../Engine/Unicode.h"
 #include "../Interface/TextButton.h"
 #include "../Interface/Window.h"
 #include "../Interface/Text.h"
@@ -79,11 +80,11 @@ TransferConfirmState::TransferConfirmState(Base *base, TransferItemsState *state
 	_txtCost->setBig();
 	_txtCost->setText(tr("STR_COST"));
 
-	std::wostringstream ss;
-	ss << L'\x01' << Text::formatFunding(_state->getTotal());
+	std::ostringstream ss;
+	ss << Unicode::TOK_COLOR_FLIP << Unicode::formatFunding(_state->getTotal());
 
 	_txtTotal->setBig();
-	_txtTotal->setText(ss.str().c_str());
+	_txtTotal->setText(ss.str());
 }
 
 /**

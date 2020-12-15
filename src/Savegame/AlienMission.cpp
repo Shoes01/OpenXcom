@@ -177,8 +177,8 @@ void AlienMission::think(Game &engine, const Globe &globe)
 		//Some missions may not spawn a UFO!
 		game.getUfos()->push_back(ufo);
 	}
-	else if ((mod.getDeployment(wave.ufoType) && !mod.getUfo(wave.ufoType) && mod.getDeployment(wave.ufoType)->getMarkerName() != "") // a mission site that we want to spawn directly
-			|| (_rule.getObjective() == OBJECTIVE_SITE && wave.objective))																		// or we want to spawn one at random according to our terrain
+	else if ((mod.getDeployment(wave.ufoType) && !mod.getUfo(wave.ufoType) && !mod.getDeployment(wave.ufoType)->getMarkerName().empty()) // a mission site that we want to spawn directly
+			|| (_rule.getObjective() == OBJECTIVE_SITE && wave.objective)) // or we want to spawn one at random according to our terrain
 	{
 		std::vector<MissionArea> areas = mod.getRegion(_region, true)->getMissionZones().at((_rule.getSpawnZone() == -1) ? trajectory.getZone(0) : _rule.getSpawnZone()).areas;
 		MissionArea area = areas.at((_missionSiteZone == -1) ? RNG::generate(0, areas.size()-1) : _missionSiteZone);
@@ -200,7 +200,7 @@ void AlienMission::think(Game &engine, const Globe &globe)
 	}
 
 	++_nextUfoCounter;
-	if (_nextUfoCounter == wave.ufoCount)
+	if (_nextUfoCounter >= wave.ufoCount)
 	{
 		_nextUfoCounter = 0;
 		++_nextWave;
@@ -483,17 +483,12 @@ void AlienMission::ufoReachedWaypoint(Ufo &ufo, Game &engine, const Globe &globe
 			MissionSite *missionSite = spawnMissionSite(game, deployment, area);
 			if (missionSite)
 			{
-				for (std::vector<Target*>::iterator t = ufo.getFollowers()->begin(); t != ufo.getFollowers()->end();)
+				std::vector<Craft*> followers = ufo.getCraftFollowers();
+				for (std::vector<Craft*>::iterator c = followers.begin(); c != followers.end(); ++c)
 				{
-					Craft* c = dynamic_cast<Craft*>(*t);
-					if (c && c->getNumSoldiers() != 0)
+					if ((*c)->getNumSoldiers() != 0)
 					{
-						c->setDestination(missionSite);
-						t = ufo.getFollowers()->begin();
-					}
-					else
-					{
-						++t;
+						(*c)->setDestination(missionSite);
 					}
 				}
 			}
@@ -753,7 +748,7 @@ std::pair<double, double> AlienMission::getWaypoint(const UfoTrajectory &traject
 
 	if (_missionSiteZone != -1 && _rule.getWave(waveNumber).objective && trajectory.getZone(nextWaypoint) == (size_t)(_rule.getSpawnZone()))
 	{
-		const MissionArea *area = &region.getMissionZones().at(_rule.getObjective()).areas.at(_missionSiteZone);
+		const MissionArea *area = &region.getMissionZones().at(_rule.getSpawnZone()).areas.at(_missionSiteZone);
 		return std::make_pair(area->lonMin, area->latMin);
 	}
 
@@ -766,30 +761,43 @@ std::pair<double, double> AlienMission::getWaypoint(const UfoTrajectory &traject
 
 /**
  * Get a random point inside the given region zone.
- * The point will be used to land a UFO, so it HAS to be on land.
+ * The point will be used to land a UFO, so it HAS to be on land (UNLESS it's landing on a city).
+ * @param globe reference to the globe data.
+ * @param region reference to the region we want a land point in.
+ * @param zone the missionZone set within the region to find a landing zone in.
+ * @return a set of longitudinal and latitudinal coordinates.
  */
 std::pair<double, double> AlienMission::getLandPoint(const Globe &globe, const RuleRegion &region, size_t zone)
 {
-	if (zone >= region.getMissionZones().size())
+	if (zone >= region.getMissionZones().size() || region.getMissionZones().at(zone).areas.size() == 0)
 	{
 		logMissionError(zone, region);
 	}
-	int tries = 0;
+
 	std::pair<double, double> pos;
-	do
+
+	if (region.getMissionZones().at(zone).areas.at(0).isPoint()) // if a UFO wants to land on a city, let it.
 	{
 		pos = region.getRandomPoint(zone);
-		++tries;
 	}
-	while (!(globe.insideLand(pos.first, pos.second)
-		&& region.insideRegion(pos.first, pos.second))
-		&& tries < 100);
-	if (tries == 100)
+	else
 	{
-		Log(LOG_DEBUG) << "Region: " << region.getType() << " Longitude: " << pos.first << " Latitude: " << pos.second << " invalid zone: " << zone << " ufo forced to land on water!";
+		int tries = 0;
+		do
+		{
+			pos = region.getRandomPoint(zone);
+			++tries;
+		}
+		while (!(globe.insideLand(pos.first, pos.second)
+			&& region.insideRegion(pos.first, pos.second))
+			&& tries < 100);
+
+		if (tries == 100)
+		{
+			Log(LOG_DEBUG) << "Region: " << region.getType() << " Longitude: " << pos.first << " Latitude: " << pos.second << " invalid zone: " << zone << " ufo forced to land on water!";
+		}
 	}
 	return pos;
-
 }
 
 /**
@@ -828,7 +836,7 @@ void AlienMission::setMissionSiteZone(int zone)
 
 void AlienMission::logMissionError(int zone, const RuleRegion &region)
 {
-	if (region.getMissionZones().size() > 0)
+	if (!region.getMissionZones().empty())
 	{
 		std::stringstream ss, ss2;
 		ss << zone;

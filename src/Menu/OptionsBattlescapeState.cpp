@@ -97,9 +97,9 @@ OptionsBattlescapeState::OptionsBattlescapeState(OptionsOrigin origin) : Options
 	_txtEdgeScroll->setText(tr("STR_EDGE_SCROLL"));
 
 	std::vector<std::string> edgeScrolls;
-	edgeScrolls.push_back("STR_DISABLED");
-	edgeScrolls.push_back("STR_TRIGGER_SCROLL");
-	edgeScrolls.push_back("STR_AUTO_SCROLL");
+	edgeScrolls.push_back(tr("STR_DISABLED"));
+	edgeScrolls.push_back(tr("STR_TRIGGER_SCROLL"));
+	edgeScrolls.push_back(tr("STR_AUTO_SCROLL"));
 
 	_cbxEdgeScroll->setOptions(edgeScrolls);
 	_cbxEdgeScroll->setSelected(Options::battleEdgeScroll);
@@ -109,12 +109,12 @@ OptionsBattlescapeState::OptionsBattlescapeState(OptionsOrigin origin) : Options
 	_cbxEdgeScroll->onMouseOut((ActionHandler)&OptionsBattlescapeState::txtTooltipOut);
 
 	_txtDragScroll->setText(tr("STR_DRAG_SCROLL"));
-	
+
 	std::vector<std::string> dragScrolls;
-	dragScrolls.push_back("STR_DISABLED");
-	dragScrolls.push_back("STR_LEFT_MOUSE_BUTTON");
-	dragScrolls.push_back("STR_MIDDLE_MOUSE_BUTTON");
-	dragScrolls.push_back("STR_RIGHT_MOUSE_BUTTON");
+	dragScrolls.push_back(tr("STR_DISABLED"));
+	dragScrolls.push_back(tr("STR_LEFT_MOUSE_BUTTON"));
+	dragScrolls.push_back(tr("STR_MIDDLE_MOUSE_BUTTON"));
+	dragScrolls.push_back(tr("STR_RIGHT_MOUSE_BUTTON"));
 
 	_cbxDragScroll->setOptions(dragScrolls);
 	_cbxDragScroll->setSelected(Options::battleDragScrollButton);
@@ -176,7 +176,7 @@ OptionsBattlescapeState::OptionsBattlescapeState(OptionsOrigin origin) : Options
 	_btnTuCost->onMouseOut((ActionHandler)&OptionsBattlescapeState::txtTooltipOut);
 
 	_txtOptions->setText(tr("STR_USER_INTERFACE_OPTIONS"));
-	
+
 	_btnTooltips->setText(tr("STR_TOOLTIPS"));
 	_btnTooltips->setPressed(Options::battleTooltips);
 	_btnTooltips->onMouseClick((ActionHandler)&OptionsBattlescapeState::btnTooltipsClick);

@@ -18,6 +18,7 @@
  */
 #include "SurfaceSet.h"
 #include <fstream>
+#include <climits>
 #include "Surface.h"
 #include "Exception.h"
 
@@ -29,7 +30,7 @@ namespace OpenXcom
  * @param width Frame width in pixels.
  * @param height Frame height in pixels.
  */
-SurfaceSet::SurfaceSet(int width, int height) : _width(width), _height(height)
+SurfaceSet::SurfaceSet(int width, int height) : _width(width), _height(height), _sharedFrames(INT_MAX)
 {
 
 }
@@ -42,7 +43,8 @@ SurfaceSet::SurfaceSet(const SurfaceSet& other)
 {
 	_width = other._width;
 	_height = other._height;
-	
+	_sharedFrames = other._sharedFrames;
+
 	for (std::map<int, Surface*>::const_iterator f = other._frames.begin(); f != other._frames.end(); ++f)
 	{
 		_frames[f->first] = new Surface(*f->second);
@@ -259,6 +261,29 @@ int SurfaceSet::getWidth() const
 int SurfaceSet::getHeight() const
 {
 	return _height;
+}
+
+/**
+ * Set number of shared frame indexs that are accessible for all mods.
+ */
+void SurfaceSet::setMaxSharedFrames(int i)
+{
+	if (i >= 0)
+	{
+		_sharedFrames = i;
+	}
+	else
+	{
+		_sharedFrames = 0;
+	}
+}
+
+/**
+ * Gets number of shared frame indexs that are accessible for all mods.
+ */
+int SurfaceSet::getMaxSharedFrames() const
+{
+	return _sharedFrames;
 }
 
 /**

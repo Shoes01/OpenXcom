@@ -27,7 +27,7 @@ namespace OpenXcom
  * Creates a certain type of unit.
  * @param type String defining the type.
  */
-Unit::Unit(const std::string &type) : _type(type), _standHeight(0), _kneelHeight(0), _floatHeight(0), _value(0), _aggroSound(-1), _moveSound(-1), _intelligence(0), _aggression(0), _energyRecovery(30), _specab(SPECAB_NONE), _livingWeapon(false), _psiWeapon("ALIEN_PSI_WEAPON")
+Unit::Unit(const std::string &type) : _type(type), _standHeight(0), _kneelHeight(0), _floatHeight(0), _value(0), _aggroSound(-1), _moveSound(-1), _intelligence(0), _aggression(0), _energyRecovery(30), _specab(SPECAB_NONE), _livingWeapon(false), _psiWeapon("ALIEN_PSI_WEAPON"), _capturable(true)
 {
 }
 
@@ -67,34 +67,15 @@ void Unit::load(const YAML::Node &node, Mod *mod)
 	_livingWeapon = node["livingWeapon"].as<bool>(_livingWeapon);
 	_meleeWeapon = node["meleeWeapon"].as<std::string>(_meleeWeapon);
 	_psiWeapon = node["psiWeapon"].as<std::string>(_psiWeapon);
+	_capturable = node["capturable"].as<bool>(_capturable);
 	_builtInWeapons = node["builtInWeaponSets"].as<std::vector<std::vector<std::string> > >(_builtInWeapons);
 	if (node["builtInWeapons"])
 	{
 		_builtInWeapons.push_back(node["builtInWeapons"].as<std::vector<std::string> >());
 	}
-	if (node["deathSound"])
-	{
-		_deathSound.clear();
-		if (node["deathSound"].IsSequence())
-		{
-			for (YAML::const_iterator i = node["deathSound"].begin(); i != node["deathSound"].end(); ++i)
-			{
-				_deathSound.push_back(mod->getSoundOffset(i->as<int>(), "BATTLE.CAT"));
-			}
-		}
-		else
-		{
-			_deathSound.push_back(mod->getSoundOffset(node["deathSound"].as<int>(), "BATTLE.CAT"));
-		}
-	}
-	if (node["aggroSound"])
-	{
-		_aggroSound = mod->getSoundOffset(node["aggroSound"].as<int>(_aggroSound), "BATTLE.CAT");
-	}
-	if (node["moveSound"])
-	{
-		_moveSound = mod->getSoundOffset(node["moveSound"].as<int>(_moveSound), "BATTLE.CAT");
-	}
+	mod->loadSoundOffset(_type, _deathSound, node["deathSound"], "BATTLE.CAT");
+	mod->loadSoundOffset(_type, _aggroSound, node["aggroSound"], "BATTLE.CAT");
+	mod->loadSoundOffset(_type, _moveSound, node["moveSound"], "BATTLE.CAT");
 }
 
 /**
@@ -291,6 +272,15 @@ std::string Unit::getPsiWeapon() const
 const std::vector<std::vector<std::string> > &Unit::getBuiltInWeapons() const
 {
 	return _builtInWeapons;
+}
+
+/**
+* Gets whether the alien can be captured alive.
+* @return a value determining whether the alien can be captured alive.
+*/
+bool Unit::getCapturable() const
+{
+	return _capturable;
 }
 
 }

@@ -25,13 +25,14 @@
 #include "../Engine/Options.h"
 #include "../Engine/CrossPlatform.h"
 #include "../Engine/Screen.h"
-#include "../Engine/Language.h"
+#include "../Engine/LocalizedText.h"
 #include "../Interface/Text.h"
 #include "../Geoscape/GeoscapeState.h"
 #include "ErrorMessageState.h"
 #include "../Battlescape/BattlescapeState.h"
 #include "../Mod/Mod.h"
 #include "../Engine/Sound.h"
+#include "../Engine/Unicode.h"
 #include "../Mod/RuleInterface.h"
 #include "StatisticsState.h"
 
@@ -74,7 +75,7 @@ LoadGameState::LoadGameState(OptionsOrigin origin, SaveType type, SDL_Color *pal
 		// can't auto-load ironman games
 		break;
 	}
-	
+
 	buildUi(palette);
 }
 
@@ -184,36 +185,37 @@ void LoadGameState::think()
 		}
 		catch (Exception &e)
 		{
-			Log(LOG_ERROR) << e.what();
-			std::wostringstream error;
-			error << tr("STR_LOAD_UNSUCCESSFUL") << L'\x02' << Language::fsToWstr(e.what());
-			if (_origin != OPT_BATTLESCAPE)
-				_game->pushState(new ErrorMessageState(error.str(), _palette, _game->getMod()->getInterface("errorMessages")->getElement("geoscapeColor")->color, "BACK01.SCR", _game->getMod()->getInterface("errorMessages")->getElement("geoscapePalette")->color));
-			else
-				_game->pushState(new ErrorMessageState(error.str(), _palette, _game->getMod()->getInterface("errorMessages")->getElement("battlescapeColor")->color, "TAC00.SCR", _game->getMod()->getInterface("errorMessages")->getElement("battlescapePalette")->color));
-
-			if (_game->getSavedGame() == s)
-				_game->setSavedGame(0);
-			else
-				delete s;
+			error(e.what(), s);
 		}
 		catch (YAML::Exception &e)
 		{
-			Log(LOG_ERROR) << e.what();
-			std::wostringstream error;
-			error << tr("STR_LOAD_UNSUCCESSFUL") << L'\x02' << Language::fsToWstr(e.what());
-			if (_origin != OPT_BATTLESCAPE)
-				_game->pushState(new ErrorMessageState(error.str(), _palette, _game->getMod()->getInterface("errorMessages")->getElement("geoscapeColor")->color, "BACK01.SCR", _game->getMod()->getInterface("errorMessages")->getElement("geoscapePalette")->color));
-			else
-				_game->pushState(new ErrorMessageState(error.str(), _palette, _game->getMod()->getInterface("errorMessages")->getElement("battlescapeColor")->color, "TAC00.SCR", _game->getMod()->getInterface("errorMessages")->getElement("battlescapePalette")->color));
-
-			if (_game->getSavedGame() == s)
-				_game->setSavedGame(0);
-			else
-				delete s;
+			error(e.what(), s);
 		}
 		CrossPlatform::flashWindow();
 	}
+}
+
+/**
+ * Pops up a window with an error message
+ * and cleans up afterwards.
+ * @param msg Error message.
+ * @param save Pending save.
+ */
+void LoadGameState::error(const std::string &msg, SavedGame *save)
+{
+
+	Log(LOG_ERROR) << msg;
+	std::ostringstream error;
+	error << tr("STR_LOAD_UNSUCCESSFUL") << Unicode::TOK_NL_SMALL << Unicode::convPathToUtf8(msg);
+	if (_origin != OPT_BATTLESCAPE)
+		_game->pushState(new ErrorMessageState(error.str(), _palette, _game->getMod()->getInterface("errorMessages")->getElement("geoscapeColor")->color, "BACK01.SCR", _game->getMod()->getInterface("errorMessages")->getElement("geoscapePalette")->color));
+	else
+		_game->pushState(new ErrorMessageState(error.str(), _palette, _game->getMod()->getInterface("errorMessages")->getElement("battlescapeColor")->color, "TAC00.SCR", _game->getMod()->getInterface("errorMessages")->getElement("battlescapePalette")->color));
+
+	if (_game->getSavedGame() == save)
+		_game->setSavedGame(0);
+	else
+		delete save;
 }
 
 }

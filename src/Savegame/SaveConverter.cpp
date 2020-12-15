@@ -72,7 +72,6 @@ template <> Sint16 load(char* data) { return SDL_SwapLE16(*(Sint16*)data); }
 template <> int load(char* data) { return SDL_SwapLE32(*(int*)data); }
 template <> unsigned int load(char* data) { return SDL_SwapLE32(*(unsigned int*)data); }
 template <> std::string load(char* data) { return data; }
-template <> std::wstring load(char* data) { return Language::utf8ToWstr(data); }
 
 char *SaveConverter::binaryBuffer(const std::string &filename, std::vector<char> &buffer) const
 {
@@ -131,7 +130,7 @@ void SaveConverter::getList(Language *lang, SaveOriginal info[NUM_SAVES])
 			std::vector<char> buffer((std::istreambuf_iterator<char>(datFile)), (std::istreambuf_iterator<char>()));
 			char *data = &buffer[0];
 
-			std::wstring name = load<std::wstring>(data + 0x02);
+			std::string name = load<std::string>(data + 0x02);
 			int year = load<Uint16>(data + 0x1C);
 			int month = load<Uint16>(data + 0x1E);
 			int day = load<Uint16>(data + 0x20);
@@ -141,9 +140,9 @@ void SaveConverter::getList(Language *lang, SaveOriginal info[NUM_SAVES])
 
 			GameTime time = GameTime(0, day, month + 1, year, hour, minute, 0);
 
-			std::wostringstream ssDate, ssTime;
-			ssDate << time.getDayString(lang) << L"  " << lang->getString(time.getMonthString()) << L"  " << time.getYear();
-			ssTime << time.getHour() << L":" << std::setfill(L'0') << std::setw(2) << time.getMinute();
+			std::ostringstream ssDate, ssTime;
+			ssDate << time.getDayString(lang) << "  " << lang->getString(time.getMonthString()) << "  " << time.getYear();
+			ssTime << time.getHour() << ":" << std::setfill('0') << std::setw(2) << time.getMinute();
 
 			save.id = id;
 			save.name = name;
@@ -342,7 +341,6 @@ void SaveConverter::loadDatUIGlob()
 		ids[_rules->getMarkers()[i]] = load<Uint16>(data + i * sizeof(Uint16));
 	}
 	ids["STR_CRASH_SITE"] = ids["STR_LANDING_SITE"] = ids["STR_UFO"];
-	_save->setAllIds(ids);
 
 	_year = load<Uint16>(data + 0x16);
 
@@ -352,6 +350,35 @@ void SaveConverter::loadDatUIGlob()
 		int score = load<Sint16>(data + 0x18 + i * sizeof(Sint16));
 		_save->getResearchScores().push_back(score);
 	}
+
+	// Loads the SITE.DAT file (TFTD only).
+	std::string s = _savePath + CrossPlatform::PATH_SEPARATOR + "SITE.DAT";
+	if (CrossPlatform::fileExists(s))
+	{
+		std::vector<char> sitebuffer;
+		char* sitedata = binaryBuffer("SITE.DAT", sitebuffer);
+		int generatedArtifactSiteMissions = load<Uint16>(sitedata + 0x24);
+		if (generatedArtifactSiteMissions > 0)
+		{
+			_save->getAlienStrategy().addMissionRun("artifacts", generatedArtifactSiteMissions);
+
+			int spawnedArtifactSites = generatedArtifactSiteMissions;
+			char siteTypeToBeSpawned = load<char>(sitedata + 0x26);
+			if (siteTypeToBeSpawned == 'T')
+			{
+				// before the first hour of the month, the mission was generated already, but the site has not spawned yet
+				spawnedArtifactSites--;
+			}
+			else
+			{
+				// after the first hour of the month
+				// or not an artifact site type
+			}
+			ids["STR_ARTIFACT_SITE"] = spawnedArtifactSites + 1; // OXC stores the ID of the next site, thus +1
+		}
+	}
+
+	_save->setAllIds(ids);
 }
 
 /**
@@ -363,11 +390,11 @@ void SaveConverter::loadDatLease()
 	std::vector<char> buffer;
 	char *data = binaryBuffer("LEASE.DAT", buffer);
 
-	double lat = -load<Sint16>(data + 0x00) * 0.125 * M_PI / 180;
-	double lon = -load<Sint16>(data + 0x06) * 0.125 * M_PI / 180;
+	double lat = -Xcom2Rad(load<Sint16>(data + 0x00));
+	double lon = -Xcom2Rad(load<Sint16>(data + 0x06));
 	_save->setGlobeLongitude(lon);
 	_save->setGlobeLatitude(lat);
-	
+
 	int zoom = load<Sint16>(data + 0x0C);
 	const int DISTANCE[] = { 90, 120, 180, 360, 450, 720 };
 	for (size_t i = 0; i < 6; ++i)
@@ -558,22 +585,20 @@ void SaveConverter::loadDatMissions()
 			AlienMission *m = new AlienMission(*_mod->getAlienMission(_rules->getMissions()[mission], true));
 			node["region"] = _rules->getRegions()[region];
 			node["race"] = _rules->getCrews()[race];
-			node["nextWave"] = wave * 30;
+			node["nextWave"] = wave;
 			node["nextUfoCounter"] = ufoCounter;
-			node["spawnCountdown"] = spawn;
+			node["spawnCountdown"] = spawn * 30;
 			node["uniqueID"] = _save->getId("ALIEN_MISSIONS");
 			if (m->getRules().getObjective() == OBJECTIVE_SITE)
 			{
-				if (_mod->getRegion(_rules->getRegions()[region], true)->getMissionZones().size() >= 3)
-				{
-					// pick a city for terror missions
-					node["missionSiteZone"] = RNG::generate(0, _mod->getRegion(_rules->getRegions()[region], true)->getMissionZones().at(3).areas.size() - 1);
-				}
-				else
+				int missionZone = 3; // pick a city for terror missions
+				RuleRegion *rule = _mod->getRegion(_rules->getRegions()[region], true);
+				if (rule->getMissionZones().size() <= 3)
 				{
 					// try to account for TFTD's artefacts and such
-					node["missionSiteZone"] = RNG::generate(0, _mod->getRegion(_rules->getRegions()[region], true)->getMissionZones().at(0).areas.size() - 1);
+					missionZone = 0;
 				}
+				node["missionSiteZone"] = RNG::generate(0, rule->getMissionZones().at(missionZone).areas.size() - 1);
 			}
 			m->load(node, *_save);
 			_save->getAlienMissions().push_back(m);
@@ -599,11 +624,12 @@ void SaveConverter::loadDatLoc()
 		TargetType type = (TargetType)load<Uint8>(tdata);
 
 		int dat = load<Uint8>(tdata + 0x01);
-		double lon = load<Sint16>(tdata + 0x02) * 0.125 * M_PI / 180;
-		double lat = load<Sint16>(tdata + 0x04) * 0.125 * M_PI / 180;
+		double lon = Xcom2Rad(load<Sint16>(tdata + 0x02));
+		double lat = Xcom2Rad(load<Sint16>(tdata + 0x04));
 		int timer = load<Sint16>(tdata + 0x06);
 		int id = load<Sint16>(tdata + 0x0A);
 		std::bitset<3> visibility(load<int>(tdata + 0x10));
+		bool detected = !visibility.test(0);
 
 		// can't declare variables in switches :(
 		Target *target = 0;
@@ -626,7 +652,7 @@ void SaveConverter::loadDatLoc()
 			ufo->setCrashId(id);
 			ufo->setLandId(id);
 			ufo->setSecondsRemaining(timer);
-			ufo->setDetected(!visibility.test(0));
+			ufo->setDetected(detected);
 			target = ufo;
 			break;
 		case TARGET_CRAFT:
@@ -641,7 +667,7 @@ void SaveConverter::loadDatLoc()
 			abase = new AlienBase(_mod->getDeployment("STR_ALIEN_BASE_ASSAULT", true));
 			abase->setId(id);
 			abase->setAlienRace(_rules->getCrews()[dat]);
-			abase->setDiscovered(!visibility.test(0));
+			abase->setDiscovered(detected);
 			_save->getAlienBases()->push_back(abase);
 			target = abase;
 			break;
@@ -655,16 +681,16 @@ void SaveConverter::loadDatLoc()
 			mission = new MissionSite(_mod->getAlienMission("STR_ALIEN_TERROR", true), _mod->getDeployment("STR_TERROR_MISSION", true));
 			break;
 		case TARGET_PORT:
-			mission = new MissionSite(_mod->getAlienMission("STR_ALIEN_TERROR", true), _mod->getDeployment("STR_PORT_TERROR", true));
+			mission = new MissionSite(_mod->getAlienMission("STR_ALIEN_SURFACE_ATTACK", true), _mod->getDeployment("STR_PORT_TERROR", true));
 			break;
 		case TARGET_ISLAND:
-			mission = new MissionSite(_mod->getAlienMission("STR_ALIEN_TERROR", true), _mod->getDeployment("STR_ISLAND_TERROR", true));
+			mission = new MissionSite(_mod->getAlienMission("STR_ALIEN_SURFACE_ATTACK", true), _mod->getDeployment("STR_ISLAND_TERROR", true));
 			break;
 		case TARGET_SHIP:
-			mission = new MissionSite(_mod->getAlienMission("STR_ALIEN_TERROR", true), _mod->getDeployment("STR_CARGO_SHIP_P1", true));
+			mission = new MissionSite(_mod->getAlienMission("STR_ALIEN_SHIP_ATTACK", true), _mod->getDeployment("STR_CARGO_SHIP_P1", true));
 			break;
 		case TARGET_ARTEFACT:
-			mission = new MissionSite(_mod->getAlienMission("STR_ALIEN_TERROR", true), _mod->getDeployment("STR_ARTIFACT_SITE_P1", true));
+			mission = new MissionSite(_mod->getAlienMission("STR_ALIEN_ARTIFACT", true), _mod->getDeployment("STR_ARTIFACT_SITE_P1", true));
 			break;
 		}
 		if (mission != 0)
@@ -672,6 +698,7 @@ void SaveConverter::loadDatLoc()
 			mission->setId(id);
 			mission->setAlienRace(_rules->getCrews()[dat]);
 			mission->setSecondsRemaining(timer * 3600);
+			mission->setDetected(detected);
 			_save->getMissionSites()->push_back(mission);
 			target = mission;
 		}
@@ -706,7 +733,7 @@ void SaveConverter::loadDatBase()
 		{
 			int j = _targetDat[i];
 			char *bdata = (data + j * ENTRY_SIZE);
-			std::wstring name = load<std::wstring>(bdata);
+			std::string name = load<std::string>(bdata);
 			// facilities
 			for (size_t k = 0; k < FACILITIES; ++k)
 			{
@@ -916,12 +943,12 @@ void SaveConverter::loadDatCraft()
 
 				craft->load(node, _mod, _save);
 
-				if (flight != 0 && dest != 0xFF)
+				if (flight != 0 && dest != 0xFFFF)
 				{
 					Target *t = _targets[dest];
 					craft->setDestination(t);
 				}
-				if (base != 0xFF)
+				if (base != 0xFFFF)
 				{
 					Base *b = dynamic_cast<Base*>(_targets[base]);
 					craft->setBase(b, false);
@@ -935,8 +962,8 @@ void SaveConverter::loadDatCraft()
 				node["damage"] = (int)load<Uint16>(cdata + _rules->getOffset("CRAFT.DAT_DAMAGE"));
 				node["altitude"] = xcomAltitudes[load<Uint16>(cdata + _rules->getOffset("CRAFT.DAT_ALTITUDE"))];
 				node["speed"] = (int)load<Uint16>(cdata + _rules->getOffset("CRAFT.DAT_SPEED"));
-				node["dest"]["lon"] = load<Sint16>(cdata + _rules->getOffset("CRAFT.DAT_DEST_LON")) * 0.125 * M_PI / 180;
-				node["dest"]["lat"] = load<Sint16>(cdata + _rules->getOffset("CRAFT.DAT_DEST_LAT")) * 0.125 * M_PI / 180;
+				node["dest"]["lon"] = Xcom2Rad(load<Sint16>(cdata + _rules->getOffset("CRAFT.DAT_DEST_LON")));
+				node["dest"]["lat"] = Xcom2Rad(load<Sint16>(cdata + _rules->getOffset("CRAFT.DAT_DEST_LAT")));
 
 				int mission = load<Uint16>(cdata + _rules->getOffset("CRAFT.DAT_MISSION"));
 				int region = load<Uint16>(cdata + _rules->getOffset("CRAFT.DAT_REGION"));

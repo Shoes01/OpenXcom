@@ -73,7 +73,7 @@ TestState::TestState()
 	_window->setBackground(_game->getMod()->getSurface("BACK04.SCR"));
 
 	_button->setColor(Palette::blockOffset(15)+1);
-	_button->setText(L"LOLOLOL");
+	_button->setText("LOLOLOL");
 
 	_text->setColor(Palette::blockOffset(15)+1);
 	//_text->setBig();
@@ -84,9 +84,9 @@ TestState::TestState()
 
 	_list->setColor(Palette::blockOffset(15)+1);
 	_list->setColumns(3, 100, 50, 100);
-	_list->addRow(2, L"a", L"b");
-	_list->addRow(3, L"lol", L"welp", L"yo");
-	_list->addRow(1, L"0123456789");
+	_list->addRow(2, "a", "b");
+	_list->addRow(3, "lol", "welp", "yo");
+	_list->addRow(1, "0123456789");
 
 	_number->setColor(Palette::blockOffset(15) + 1);
 	_number->setValue(1234567890);
@@ -96,11 +96,11 @@ TestState::TestState()
 	std::vector<std::string> difficulty;
 	for (int i = 0; i != 3; ++i)
 	{
-		difficulty.push_back("STR_1_BEGINNER");
-		difficulty.push_back("STR_2_EXPERIENCED");
-		difficulty.push_back("STR_3_VETERAN");
-		difficulty.push_back("STR_4_GENIUS");
-		difficulty.push_back("STR_5_SUPERHUMAN");
+		difficulty.push_back(tr("STR_1_BEGINNER"));
+		difficulty.push_back(tr("STR_2_EXPERIENCED"));
+		difficulty.push_back(tr("STR_3_VETERAN"));
+		difficulty.push_back(tr("STR_4_GENIUS"));
+		difficulty.push_back(tr("STR_5_SUPERHUMAN"));
 	}
 
 	_comboBox->setColor(Palette::blockOffset(15)+1);

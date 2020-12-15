@@ -75,10 +75,26 @@ class RuleGlobe;
 class RuleConverter;
 class SoundDefinition;
 class MapScript;
+class ModInfo;
 class RuleVideo;
 class RuleMusic;
 class RuleMissionScript;
 struct StatAdjustment;
+
+/**
+ * Mod data used when loading resources
+ */
+struct ModData
+{
+	/// Mod name
+	std::string name;
+	/// Optional info about mod
+	const ModInfo* info;
+	/// Offset that mod use is common sets
+	size_t offset;
+	/// Maximum size allowed by mod in common sets
+	size_t size;
+};
 
 /**
  * Contains all the game-specific static data that never changes
@@ -127,7 +143,7 @@ private:
 	std::map<std::string, std::vector<MapScript *> > _mapScripts;
 	std::map<std::string, RuleCommendations *> _commendations;
 	std::map<std::string, RuleMissionScript*> _missionScripts;
-	std::vector<std::pair<std::string, ExtraSprites *> > _extraSprites;
+	std::map<std::string, std::vector<ExtraSprites *> > _extraSprites;
 	std::vector<std::pair<std::string, ExtraSounds *> > _extraSounds;
 	std::map<std::string, ExtraStrings *> _extraStrings;
 	std::vector<StatString*> _statStrings;
@@ -135,6 +151,7 @@ private:
 	RuleGlobe *_globe;
 	RuleConverter *_converter;
 	int _costEngineer, _costScientist, _timePersonnel, _initialFunding, _turnAIUseGrenade, _turnAIUseBlaster, _defeatScore, _defeatFunds;
+	bool _difficultyDemigod;
 	std::pair<std::string, int> _alienFuel;
 	std::string _fontName, _finalResearch;
 	YAML::Node _startingBase;
@@ -143,14 +160,19 @@ private:
 
 	std::map<std::string, int> _ufopaediaSections;
 	std::vector<std::string> _countriesIndex, _regionsIndex, _facilitiesIndex, _craftsIndex, _craftWeaponsIndex, _itemsIndex, _invsIndex, _ufosIndex;
-	std::vector<std::string> _soldiersIndex, _aliensIndex, _deploymentsIndex, _armorsIndex, _ufopaediaIndex, _ufopaediaCatIndex, _researchIndex, _manufactureIndex, _MCDPatchesIndex;
-	std::vector<std::string> _alienMissionsIndex, _terrainIndex, _extraSpritesIndex, _extraSoundsIndex, _extraStringsIndex, _missionScriptIndex;
+	std::vector<std::string> _soldiersIndex, _aliensIndex, _deploymentsIndex, _armorsIndex, _ufopaediaIndex, _ufopaediaCatIndex, _researchIndex, _manufactureIndex;
+	std::vector<std::string> _alienMissionsIndex, _terrainIndex, _missionScriptIndex;
 	std::vector<std::vector<int> > _alienItemLevels;
 	std::vector<SDL_Color> _transparencies;
 	int _facilityListOrder, _craftListOrder, _itemListOrder, _researchListOrder,  _manufactureListOrder, _ufopaediaListOrder, _invListOrder;
-	size_t _modOffset;
+	std::vector<ModData> _modData;
+	ModData* _modCurrent;
+	SDL_Color *_statePalette;
 	std::vector<std::string> _psiRequirements; // it's a cache for psiStrengthEval
 
+	/// Loads a ruleset from a YAML file that have basic resources configuration.
+	void loadResourceConfigFile(const std::string &filename);
+	void loadConstants(const YAML::Node &node);
 	/// Loads a ruleset from a YAML file.
 	void loadFile(const std::string &filename);
 	/// Loads a ruleset element.
@@ -165,18 +187,20 @@ private:
 	SoundSet *getSoundSet(const std::string &name, bool error = true) const;
 	/// Loads battlescape specific resources.
 	void loadBattlescapeResources();
-	/// Checks if an extension is a valid image file.
-	bool isImageFile(std::string extension) const;
 	/// Loads a specified music file.
 	Music *loadMusic(MusicFormat fmt, const std::string &file, int track, float volume, CatFile *adlibcat, CatFile *aintrocat, GMCatFile *gmcat) const;
 	/// Creates a transparency lookup table for a given palette.
 	void createTransparencyLUT(Palette *pal);
 	/// Loads a specified mod content.
-	void loadMod(const std::vector<std::string> &rulesetFiles, size_t modIdx);
+	void loadMod(const std::vector<std::string> &rulesetFiles);
 	/// Loads resources from vanilla.
 	void loadVanillaResources();
 	/// Loads resources from extra rulesets.
 	void loadExtraResources();
+	/// Loads surfaces on demand.
+	void lazyLoadSurface(const std::string &name);
+	/// Loads an external sprite.
+	void loadExtraSprite(ExtraSprites *spritePack);
 	/// Applies mods to vanilla resources.
 	void modResources();
 	/// Sorts all our lists according to their weight.
@@ -227,9 +251,9 @@ public:
 	/// Gets a particular font.
 	Font *getFont(const std::string &name, bool error = true) const;
 	/// Gets a particular surface.
-	Surface *getSurface(const std::string &name, bool error = true) const;
+	Surface *getSurface(const std::string &name, bool error = true);
 	/// Gets a particular surface set.
-	SurfaceSet *getSurfaceSet(const std::string &name, bool error = true) const;
+	SurfaceSet *getSurfaceSet(const std::string &name, bool error = true);
 	/// Gets a particular music.
 	Music *getMusic(const std::string &name, bool error = true) const;
 	/// Plays a particular music.
@@ -246,12 +270,19 @@ public:
 	Sound *getSoundByDepth(unsigned int depth, unsigned int sound, bool error = true) const;
 	/// Gets list of LUT data.
 	const std::vector<std::vector<Uint8> > *getLUTs() const;
+
 	/// Gets the mod offset.
 	int getModOffset() const;
+	/// Get offset and index for sound set or sprite set.
+	void loadOffsetNode(const std::string &parent, int& offset, const YAML::Node &node, int shared, const std::string &set, size_t multiplier) const;
 	/// Gets the mod offset for a certain sprite.
-	int getSpriteOffset(int sprite, const std::string &set) const;
+	void loadSpriteOffset(const std::string &parent, int& sprite, const YAML::Node &node, const std::string &set, size_t multiplier = 1) const;
 	/// Gets the mod offset for a certain sound.
-	int getSoundOffset(int sound, const std::string &set) const;
+	void loadSoundOffset(const std::string &parent, int& sound, const YAML::Node &node, const std::string &set) const;
+	/// Gets the mod offset array for a certain sound.
+	void loadSoundOffset(const std::string &parent, std::vector<int>& sounds, const YAML::Node &node, const std::string &set) const;
+	/// Gets the mod offset for a generic value.
+	int getOffset(int id, int max) const;
 
 	/// Loads a list of mods.
 	void loadAll(const std::vector< std::pair< std::string, std::vector<std::string> > > &mods);
@@ -296,7 +327,9 @@ public:
 	/// Gets the available soldiers.
 	const std::vector<std::string> &getSoldiersList() const;
 	/// Gets commendation rules.
-	std::map<std::string, RuleCommendations *> getCommendation() const;
+	RuleCommendations *getCommendation(const std::string &id, bool error = false) const;
+	/// Gets the available commendations.
+	const std::map<std::string, RuleCommendations *> &getCommendationsList() const;
 	/// Gets generated unit rules.
 	Unit *getUnit(const std::string &name, bool error = false) const;
 	/// Gets alien race rules.
@@ -354,7 +387,7 @@ public:
 	/// Gets an MCDPatch.
 	MCDPatch *getMCDPatch(const std::string &id) const;
 	/// Gets the list of external Sprites.
-	const std::vector<std::pair<std::string, ExtraSprites *> > &getExtraSprites() const;
+	const std::map<std::string, std::vector<ExtraSprites *> > &getExtraSprites() const;
 	/// Gets the list of external Sounds.
 	const std::vector<std::pair<std::string, ExtraSounds *> > &getExtraSounds() const;
 	/// Gets the list of external Strings.
@@ -399,6 +432,7 @@ public:
 	StatAdjustment *getStatAdjustment(int difficulty);
 	int getDefeatScore() const;
 	int getDefeatFunds() const;
+	bool isDemigod() const;
 };
 
 }

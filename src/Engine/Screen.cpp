@@ -22,6 +22,7 @@
 #include <cmath>
 #include <iomanip>
 #include <climits>
+#include <cstdio>
 #include "../lodepng.h"
 #include "Exception.h"
 #include "Surface.h"
@@ -39,6 +40,13 @@ namespace OpenXcom
 
 const int Screen::ORIGINAL_WIDTH = 320;
 const int Screen::ORIGINAL_HEIGHT = 200;
+
+static const int VIDEO_WINDOW_POS_LEN = 40;
+static char VIDEO_WINDOW_POS[VIDEO_WINDOW_POS_LEN];
+
+static const char* SDL_VIDEO_CENTERED_UNSET = "SDL_VIDEO_CENTERED=";
+static const char* SDL_VIDEO_CENTERED_CENTER = "SDL_VIDEO_CENTERED=center";
+static const char* SDL_VIDEO_WINDOW_POS_UNSET = "SDL_VIDEO_WINDOW_POS=";
 
 /**
  * Sets up all the internal display flags depending on
@@ -64,24 +72,23 @@ void Screen::makeVideoFlags()
 	{
 		_flags |= SDL_RESIZABLE;
 	}
-	
+
 	// Handle window positioning
 	if (!Options::fullscreen && Options::rootWindowedMode)
 	{
-		std::ostringstream ss;
-		ss << "SDL_VIDEO_WINDOW_POS=" << std::dec << Options::windowedModePositionX << "," << Options::windowedModePositionY;
-		SDL_putenv(const_cast<char*>(ss.str().c_str()));
-		SDL_putenv(const_cast<char*>("SDL_VIDEO_CENTERED="));
+		snprintf(VIDEO_WINDOW_POS, VIDEO_WINDOW_POS_LEN, "SDL_VIDEO_WINDOW_POS=%d,%d", Options::windowedModePositionX, Options::windowedModePositionY);
+		SDL_putenv(VIDEO_WINDOW_POS);
+		SDL_putenv((char *)SDL_VIDEO_CENTERED_UNSET);
 	}
 	else if (Options::borderless)
 	{
-		SDL_putenv(const_cast<char*>("SDL_VIDEO_WINDOW_POS="));
-		SDL_putenv(const_cast<char*>("SDL_VIDEO_CENTERED=center"));
+		SDL_putenv((char *)SDL_VIDEO_WINDOW_POS_UNSET);
+		SDL_putenv((char *)SDL_VIDEO_CENTERED_CENTER);
 	}
 	else
 	{
-		SDL_putenv(const_cast<char*>("SDL_VIDEO_WINDOW_POS="));
-		SDL_putenv(const_cast<char*>("SDL_VIDEO_CENTERED="));
+		SDL_putenv((char *)SDL_VIDEO_WINDOW_POS_UNSET);
+		SDL_putenv((char *)SDL_VIDEO_CENTERED_UNSET);
 	}
 
 	// Handle display mode
@@ -148,7 +155,7 @@ void Screen::handle(Action *action)
 			}
 		}
 	}
-	
+
 	if (action->getDetails()->type == SDL_KEYDOWN && action->getDetails()->key.keysym.sym == SDLK_RETURN && (SDL_GetModState() & KMOD_ALT) != 0)
 	{
 		Options::fullscreen = !Options::fullscreen;
@@ -201,7 +208,7 @@ void Screen::flip()
 	}
 
 
-	
+
 	if (SDL_Flip(_screen) == -1)
 	{
 		throw Exception(SDL_GetError());
@@ -316,7 +323,7 @@ void Screen::resetDisplay(bool resetVideo)
 		_surface = new Surface(_baseWidth, _baseHeight, 0, 0, Screen::use32bitScaler() ? 32 : 8); // only HQX/XBRZ needs 32bpp for this surface; the OpenGL class has its own 32bpp buffer
 		if (_surface->getSurface()->format->BitsPerPixel == 8) _surface->setPalette(deferredPalette);
 	}
-	SDL_SetColorKey(_surface->getSurface(), 0, 0); // turn off color key! 
+	SDL_SetColorKey(_surface->getSurface(), 0, 0); // turn off color key!
 
 	if (resetVideo || _screen->format->BitsPerPixel != _bpp)
 	{
@@ -444,7 +451,7 @@ void Screen::resetDisplay(bool resetVideo)
 		_topBlackBand = _bottomBlackBand = _leftBlackBand = _rightBlackBand = _cursorTopBlackBand = _cursorLeftBlackBand = 0;
 	}
 
-	if (useOpenGL()) 
+	if (useOpenGL())
 	{
 #ifndef __NO_OPENGL
 		OpenGL::checkErrors = Options::checkOpenGLErrors;
@@ -510,7 +517,7 @@ int Screen::getCursorLeftBlackBand() const
 void Screen::screenshot(const std::string &filename) const
 {
 	SDL_Surface *screenshot = SDL_AllocSurface(0, getWidth() - getWidth()%4, getHeight(), 24, 0xff, 0xff00, 0xff0000, 0);
-	
+
 	if (useOpenGL())
 	{
 #ifndef __NO_OPENGL
@@ -602,13 +609,12 @@ int Screen::getDY() const
 
 /**
  * Changes a given scale, and if necessary, switch the current base resolution.
- * @param type reference to which scale option we are using, battlescape or geoscape.
- * @param selection the new scale level.
+ * @param type the new scale level.
  * @param width reference to which x scale to adjust.
  * @param height reference to which y scale to adjust.
  * @param change should we change the current scale.
  */
-void Screen::updateScale(int &type, int selection, int &width, int &height, bool change)
+void Screen::updateScale(int type, int &width, int &height, bool change)
 {
 	double pixelRatioY = 1.0;
 
@@ -617,7 +623,6 @@ void Screen::updateScale(int &type, int selection, int &width, int &height, bool
 		pixelRatioY = 1.2;
 	}
 
-	type = selection;
 	switch (type)
 	{
 	case SCALE_15X:
@@ -629,11 +634,11 @@ void Screen::updateScale(int &type, int selection, int &width, int &height, bool
 		height = Screen::ORIGINAL_HEIGHT * 2;
 		break;
 	case SCALE_SCREEN_DIV_3:
-		width = Options::displayWidth / 3;
-		height = Options::displayHeight / pixelRatioY / 3;
+		width = Options::displayWidth / 3.0;
+		height = Options::displayHeight / pixelRatioY / 3.0;
 		break;
 	case SCALE_SCREEN_DIV_2:
-		width = Options::displayWidth / 2;
+		width = Options::displayWidth / 2.0;
 		height = Options::displayHeight / pixelRatioY  / 2.0;
 		break;
 	case SCALE_SCREEN:

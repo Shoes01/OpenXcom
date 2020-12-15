@@ -45,7 +45,7 @@ items: #done
     bulletSprite: 6
     hitSound: 31
     hitAnimation: 46
-    power: 120
+    power: 110
     damageType: 4
     vaporColor: 2
     vaporDensity: 10
@@ -77,7 +77,7 @@ items: #done
       - STR_HWP_SOLID_HARPOON_BOLTS
     accuracySnap: 60
     accuracyAimed: 90
-    tuSnap: 33
+    tuSnap: 30
     tuAimed: 80
     battleType: 1
     fixedWeapon: true
@@ -92,7 +92,7 @@ items: #done
     weight: 1
     hitSound: 21
     hitAnimation: 26
-    power: 50
+    power: 60
     damageType: 1
     clipSize: 30
     battleType: 2
@@ -125,7 +125,7 @@ items: #done
     costBuy: 3000
     costSell: 2250
     transferTime: 48
-    power: 90
+    power: 85
     damageType: 3
     clipSize: 8
     battleType: 2
@@ -161,10 +161,10 @@ items: #done
     bulletSprite: 8
     fireSound: 36
     hitSound: 31
-    power: 130
+    power: 110
     damageType: 5
     hitAnimation: 46
-    accuracySnap: 85
+    accuracySnap: 86
     accuracyAimed: 100
     tuSnap: 30
     tuAimed: 60
@@ -185,7 +185,7 @@ items: #done
     fireSound: 26
     compatibleAmmo:
       - STR_HWP_DISPLACER_PWT
-    accuracyAimed: 100
+    accuracyAimed: 60
     tuAimed: 66
     battleType: 1
     fixedWeapon: true
@@ -1414,7 +1414,7 @@ items: #done
     size: 0.8
     costSell: 115000
   - type: STR_BIODRONE_MELEE_WEAPON
-    bigSprite: -2
+    bigSprite: 73
     meleeSound: 26
     strengthApplied: true
     damageType: 7
@@ -1427,7 +1427,7 @@ items: #done
     clipSize: -1
     recover: false
   - type: HALLUCINOID_WEAPON
-    bigSprite: -7
+    bigSprite: 68
     meleeSound: 26
     strengthApplied: true
     damageType: 7
@@ -1440,7 +1440,7 @@ items: #done
     clipSize: -1
     recover: false
   - type: STR_LOBSTERMAN_MELEE_WEAPON
-    bigSprite: -5
+    bigSprite: 70
     meleeSound: 42
     strengthApplied: true
     damageType: 7
@@ -1453,7 +1453,7 @@ items: #done
     clipSize: -1
     recover: false
   - type: CALCINITE_WEAPON
-    bigSprite: -9
+    bigSprite: 66
     meleeSound: 16
     strengthApplied: true
     damageType: 7
@@ -1465,8 +1465,8 @@ items: #done
     invHeight: 3
     clipSize: -1
     recover: false
-  - type: DEEP_ONE_WEAPON 
-    bigSprite: -3
+  - type: DEEP_ONE_WEAPON
+    bigSprite: 72
     bulletSprite: 8
     fireSound: 40
     hitSound: 41
@@ -1487,7 +1487,7 @@ items: #done
     arcingShot: true
     hitAnimation: -1
   - type: STR_TRISCENE_MELEE_WEAPON
-    bigSprite: -6
+    bigSprite: 69
     handSprite: 41
     meleeSound: 44
     strengthApplied: true
@@ -1502,7 +1502,7 @@ items: #done
     recover: false
   - type: STR_TRIBIO_SONIC_WEAPON
     weight: 3
-    bigSprite: -8
+    bigSprite: 67
     floorSprite: 29
     handSprite: 40
     fireSound: 36
@@ -1525,7 +1525,7 @@ items: #done
     vaporDensity: 30
   - type: XARQUID_WEAPON
     weight: 3
-    bigSprite: -8
+    bigSprite: 67
     floorSprite: 29
     handSprite: 40
     fireSound: 37
@@ -1547,7 +1547,7 @@ items: #done
     vaporColor: 3
     vaporDensity: 30
   - type: TENTACULAT_WEAPON
-    bigSprite: -4
+    bigSprite: 71
     meleeSound: 42
     strengthApplied: true
     damageType: 7
@@ -1561,7 +1561,7 @@ items: #done
     recover: false
     zombieUnit: STR_ZOMBIE
   - type: ZOMBIE_WEAPON
-    bigSprite: -1
+    bigSprite: 74
     meleeSound: 42
     strengthApplied: true
     damageType: 7

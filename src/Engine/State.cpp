@@ -31,8 +31,6 @@
 #include "../Interface/TextEdit.h"
 #include "../Interface/TextList.h"
 #include "../Interface/BattlescapeButton.h"
-#include "../Interface/ArrowButton.h"
-#include "../Interface/Slider.h"
 #include "../Interface/ComboBox.h"
 #include "../Interface/Cursor.h"
 #include "../Interface/FpsCounter.h"
@@ -347,23 +345,35 @@ void State::resetAll()
  * Get the localized text for dictionary key @a id.
  * This function forwards the call to Language::getString(const std::string &).
  * @param id The dictionary key to search for.
- * @return A reference to the localized text.
+ * @return The localized text.
  */
-const LocalizedText &State::tr(const std::string &id) const
+LocalizedText State::tr(const std::string &id) const
 {
 	return _game->getLanguage()->getString(id);
 }
 
 /**
- * Get a modifiable copy of the localized text for dictionary key @a id.
+ * Get the localized text for dictionary key @a id.
  * This function forwards the call to Language::getString(const std::string &, unsigned).
  * @param id The dictionary key to search for.
  * @param n The number to use for the proper version.
- * @return A copy of the localized text.
+ * @return The localized text.
  */
 LocalizedText State::tr(const std::string &id, unsigned n) const
 {
 	return _game->getLanguage()->getString(id, n);
+}
+
+/**
+ * Get the localized text for dictionary key @a id.
+ * This function forwards the call to Language::getString(const std::string &, SoldierGender).
+ * @param id The dictionary key to search for.
+ * @param gender Current soldier gender.
+ * @return The localized text.
+ */
+LocalizedText State::tr(const std::string &id, SoldierGender gender) const
+{
+	return _game->getLanguage()->getString(id, gender);
 }
 
 /**

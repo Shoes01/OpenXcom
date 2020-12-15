@@ -33,7 +33,7 @@ enum KeyboardType { KEYBOARD_OFF, KEYBOARD_ON, KEYBOARD_VIRTUAL };
 /// Savegame sorting modes.
 enum SaveSort { SORT_NAME_ASC, SORT_NAME_DESC, SORT_DATE_ASC, SORT_DATE_DESC };
 /// Music format preferences.
-enum MusicFormat { MUSIC_AUTO, MUSIC_FLAC, MUSIC_OGG, MUSIC_MP3, MUSIC_MOD, MUSIC_WAV, MUSIC_ADLIB, MUSIC_MIDI };
+enum MusicFormat { MUSIC_AUTO, MUSIC_FLAC, MUSIC_OGG, MUSIC_MP3, MUSIC_MOD, MUSIC_WAV, MUSIC_ADLIB, MUSIC_GM, MUSIC_MIDI };
 /// Sound format preferences.
 enum SoundFormat { SOUND_AUTO, SOUND_14, SOUND_10 };
 /// Video format preferences.
@@ -72,9 +72,9 @@ namespace Options
 	/// Initializes the options settings.
 	bool init(int argc, char *argv[]);
 	/// Loads options from YAML.
-	void load(const std::string &filename = "options");
+	bool load(const std::string &filename = "options");
 	/// Saves options to YAML.
-	void save(const std::string &filename = "options");
+	bool save(const std::string &filename = "options");
 	/// Gets the game's data folder.
 	std::string getDataFolder();
 	/// Sets the game's data folder.
@@ -101,16 +101,18 @@ namespace Options
 	void switchDisplay();
 	/// returns the id of the active master mod
 	std::string getActiveMaster();
-	/// Updates the reservedSpace for master mods if necessary
-	void updateReservedSpace();
 	/// Maps resources in active mods to the virtual file system
 	void mapResources();
 	/// Gets the map of mod ids to mod infos
 	const std::map<std::string, ModInfo> &getModInfos();
+	/// Refreshes the mods.
+	void refreshMods();
 	/// Refreshes the mods and filemaps.
 	void updateMods();
 	/// Gets the list of currently active mods.
 	std::vector<const ModInfo*> getActiveMods();
+	/// Gets a specified mod info.
+	ModInfo getModInfo(const std::string& id);
 }
 
 }

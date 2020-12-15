@@ -23,6 +23,7 @@
 #include "../Mod/Mod.h"
 #include "../Engine/LocalizedText.h"
 #include "../Engine/Options.h"
+#include "../Engine/Unicode.h"
 #include "../Interface/TextButton.h"
 #include "../Interface/Window.h"
 #include "../Interface/Text.h"
@@ -49,7 +50,7 @@ namespace OpenXcom
  * @param base Pointer to the base to get info from.
  * @param craftId ID of the selected craft.
  */
-CraftInfoState::CraftInfoState(Base *base, size_t craftId) : _base(base), _craftId(craftId)
+CraftInfoState::CraftInfoState(Base *base, size_t craftId) : _base(base), _craftId(craftId), _craft(0)
 {
 	// Create objects
 	if (_game->getSavedGame()->getMonthsPassed() != -1)
@@ -93,9 +94,9 @@ CraftInfoState::CraftInfoState(Base *base, size_t craftId) : _base(base), _craft
 	add(_txtDamage, "text1", "craftInfo");
 	add(_txtFuel, "text1", "craftInfo");
 	add(_txtW1Name, "text2", "craftInfo");
-	add(_txtW1Ammo, "text2", "craftInfo");
+	add(_txtW1Ammo, "text3", "craftInfo");
 	add(_txtW2Name, "text2", "craftInfo");
-	add(_txtW2Ammo, "text2", "craftInfo");
+	add(_txtW2Ammo, "text3", "craftInfo");
 	add(_sprite);
 	add(_weapon1);
 	add(_weapon2);
@@ -111,10 +112,10 @@ CraftInfoState::CraftInfoState(Base *base, size_t craftId) : _base(base), _craft
 	_btnOk->onMouseClick((ActionHandler)&CraftInfoState::btnOkClick);
 	_btnOk->onKeyboardPress((ActionHandler)&CraftInfoState::btnOkClick, Options::keyCancel);
 
-	_btnW1->setText(L"1");
+	_btnW1->setText("1");
 	_btnW1->onMouseClick((ActionHandler)&CraftInfoState::btnW1Click);
 
-	_btnW2->setText(L"2");
+	_btnW2->setText("2");
 	_btnW2->onMouseClick((ActionHandler)&CraftInfoState::btnW2Click);
 
 	_btnCrew->setText(tr("STR_CREW"));
@@ -161,8 +162,8 @@ void CraftInfoState::init()
 	texture->getFrame(_craft->getRules()->getSprite() + 33)->setY(0);
 	texture->getFrame(_craft->getRules()->getSprite() + 33)->blit(_sprite);
 
-	std::wostringstream firlsLine;
-	firlsLine << tr("STR_DAMAGE_UC_").arg(Text::formatPercentage(_craft->getDamagePercentage()));
+	std::ostringstream firlsLine;
+	firlsLine << tr("STR_DAMAGE_UC_").arg(Unicode::formatPercentage(_craft->getDamagePercentage()));
 	if (_craft->getStatus() == "STR_REPAIRS" && _craft->getDamage() > 0)
 	{
 		int damageHours = (int)ceil((double)_craft->getDamage() / _craft->getRules()->getRepairRate());
@@ -170,8 +171,8 @@ void CraftInfoState::init()
 	}
 	_txtDamage->setText(firlsLine.str());
 
-	std::wostringstream secondLine;
-	secondLine << tr("STR_FUEL").arg(Text::formatPercentage(_craft->getFuelPercentage()));
+	std::ostringstream secondLine;
+	secondLine << tr("STR_FUEL").arg(Unicode::formatPercentage(_craft->getFuelPercentage()));
 	if (_craft->getStatus() == "STR_REFUELLING" && _craft->getRules()->getMaxFuel() - _craft->getFuel() > 0)
 	{
 		int fuelHours = (int)ceil((double)(_craft->getRules()->getMaxFuel() - _craft->getFuel()) / _craft->getRules()->getRefuelRate() / 2.0);
@@ -228,11 +229,11 @@ void CraftInfoState::init()
 			frame->setY(0);
 			frame->blit(_weapon1);
 
-			std::wostringstream leftWeaponLine;
-			leftWeaponLine << L'\x01' << tr(w1->getRules()->getType());
+			std::ostringstream leftWeaponLine;
+			leftWeaponLine << Unicode::TOK_COLOR_FLIP << tr(w1->getRules()->getType());
 			_txtW1Name->setText(leftWeaponLine.str());
-			leftWeaponLine.str(L"");
-			leftWeaponLine << tr("STR_AMMO_").arg(w1->getAmmo()) << L"\n\x01";
+			leftWeaponLine.str("");
+			leftWeaponLine << tr("STR_AMMO_").arg(w1->getAmmo()) << "\n" << Unicode::TOK_COLOR_FLIP;
 			leftWeaponLine << tr("STR_MAX").arg(w1->getRules()->getAmmoMax());
 			if (_craft->getStatus() == "STR_REARMING" && w1->getAmmo() < w1->getRules()->getAmmoMax())
 			{
@@ -243,8 +244,8 @@ void CraftInfoState::init()
 		}
 		else
 		{
-			_txtW1Name->setText(L"");
-			_txtW1Ammo->setText(L"");
+			_txtW1Name->setText("");
+			_txtW1Ammo->setText("");
 		}
 	}
 	else
@@ -267,11 +268,11 @@ void CraftInfoState::init()
 			frame->setY(0);
 			frame->blit(_weapon2);
 
-			std::wostringstream rightWeaponLine;
-			rightWeaponLine << L'\x01' << tr(w2->getRules()->getType());
+			std::ostringstream rightWeaponLine;
+			rightWeaponLine << Unicode::TOK_COLOR_FLIP << tr(w2->getRules()->getType());
 			_txtW2Name->setText(rightWeaponLine.str());
-			rightWeaponLine.str(L"");
-			rightWeaponLine << tr("STR_AMMO_").arg(w2->getAmmo()) << L"\n\x01";
+			rightWeaponLine.str("");
+			rightWeaponLine << tr("STR_AMMO_").arg(w2->getAmmo()) << "\n" << Unicode::TOK_COLOR_FLIP;
 			rightWeaponLine << tr("STR_MAX").arg(w2->getRules()->getAmmoMax());
 			if (_craft->getStatus() == "STR_REARMING" && w2->getAmmo() < w2->getRules()->getAmmoMax())
 			{
@@ -282,8 +283,8 @@ void CraftInfoState::init()
 		}
 		else
 		{
-			_txtW2Name->setText(L"");
-			_txtW2Ammo->setText(L"");
+			_txtW2Name->setText("");
+			_txtW2Ammo->setText("");
 		}
 	}
 	else
@@ -300,21 +301,21 @@ void CraftInfoState::init()
  * day/hour string.
  * @param total Amount in hours.
  */
-std::wstring CraftInfoState::formatTime(int total)
+std::string CraftInfoState::formatTime(int total)
 {
-	std::wostringstream ss;
+	std::ostringstream ss;
 	int days = total / 24;
 	int hours = total % 24;
-	ss << L"\n(";
+	ss << "\n(";
 	if (days > 0)
 	{
-		ss << tr("STR_DAY", days) << L"/";
+		ss << tr("STR_DAY", days) << "/";
 	}
 	if (hours > 0)
 	{
 		ss << tr("STR_HOUR", hours);
 	}
-	ss << L")";
+	ss << ")";
 	return ss.str();
 }
 
@@ -382,7 +383,7 @@ void CraftInfoState::edtCraftChange(Action *action)
 {
 	if (_edtCraft->getText() == _craft->getDefaultName(_game->getLanguage()))
 	{
-		_craft->setName(L"");
+		_craft->setName("");
 	}
 	else
 	{

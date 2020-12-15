@@ -9,12 +9,12 @@ Build-Depends:
 	libsdl-mixer1.2-dev,
 	libsdl-gfx1.2-dev,
 	libsdl-image1.2-dev,
-	libyaml-cpp-dev (>= 0.5),
+	libyaml-cpp-dev (>= 0.5.3),
 	libboost-dev
 Standards-Version: 3.9.6
 Homepage: https://openxcom.org/
-Vcs-Git: git://github.com/SupSuper/OpenXcom.git
-Vcs-Browser: https://github.com/SupSuper/OpenXcom
+Vcs-Git: git://github.com/OpenXcom/OpenXcom.git
+Vcs-Browser: https://github.com/OpenXcom/OpenXcom
 
 Package: openxcom
 Architecture: any

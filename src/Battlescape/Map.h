@@ -35,6 +35,7 @@ class BattlescapeMessage;
 class Camera;
 class Timer;
 class Text;
+class Tile;
 
 enum CursorType { CT_NONE, CT_NORMAL, CT_AIM, CT_PSI, CT_WAYPOINT, CT_THROW };
 /**
@@ -45,7 +46,7 @@ class Map : public InteractiveSurface
 private:
 	static const int SCROLL_INTERVAL = 15;
 	static const int BULLET_SPRITES = 35;
-	Timer *_scrollMouseTimer, *_scrollKeyTimer;
+	Timer *_scrollMouseTimer, *_scrollKeyTimer, *_obstacleTimer;
 	Game *_game;
 	SavedBattleGame *_save;
 	Surface *_arrow;
@@ -68,10 +69,12 @@ private:
 	Text *_txtAccuracy;
 	SurfaceSet *_projectileSet;
 
+	void drawUnit(Surface *surface, Tile *unitTile, Tile *currTile, Position tileScreenPosition, int shade, int obstacleShade, bool topLayer);
 	void drawTerrain(Surface *surface);
 	int getTerrainLevel(const Position& pos, int size) const;
 	int _iconHeight, _iconWidth, _messageColor;
 	const std::vector<Uint8> *_transparencies;
+	bool _showObstacles;
 public:
 	/// Creates a new map at the specified position and size.
 	Map(Game* game, int width, int height, int x, int y, int visibleMapHeight);
@@ -102,7 +105,7 @@ public:
 	/// Gets the currently selected position.
 	void getSelectorPosition(Position *pos) const;
 	/// Calculates the offset of a soldier, when it is walking in the middle of 2 tiles.
-	void calculateWalkingOffset(BattleUnit *unit, Position *offset);
+	void calculateWalkingOffset(BattleUnit *unit, Position *offset, int *shadeOffset = 0);
 	/// Sets the 3D cursor type.
 	void setCursorType(CursorType type, int size = 1);
 	/// Gets the 3D cursor type.
@@ -149,6 +152,12 @@ public:
 	void setBlastFlash(bool flash);
 	/// Check if the screen is flashing this.
 	bool getBlastFlash() const;
+	/// Resets obstacle markers.
+	void resetObstacles();
+	/// Enables obstacle markers.
+	void enableObstacles();
+	/// Disables obstacle markers.
+	void disableObstacles();
 };
 
 }

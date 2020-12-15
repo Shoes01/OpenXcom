@@ -18,6 +18,12 @@
  */
 
 #include "ExtraSounds.h"
+#include "../Engine/SoundSet.h"
+#include "../Engine/Sound.h"
+#include "../Engine/FileMap.h"
+#include "../Engine/Logger.h"
+#include "../Engine/Exception.h"
+#include "Mod.h"
 
 namespace OpenXcom
 {
@@ -25,7 +31,7 @@ namespace OpenXcom
 /**
  * Creates a blank set of extra sound data.
  */
-ExtraSounds::ExtraSounds() : _modIndex(0)
+ExtraSounds::ExtraSounds() : _current(0)
 {
 }
 
@@ -41,10 +47,20 @@ ExtraSounds::~ExtraSounds()
  * @param node YAML node.
  * @param modIndex The internal index of the associated mod.
  */
-void ExtraSounds::load(const YAML::Node &node, int modIndex)
+void ExtraSounds::load(const YAML::Node &node, const ModData* current)
 {
+	_type = node["type"].as<std::string>(_type);
 	_sounds = node["files"].as< std::map<int, std::string> >(_sounds);
-	_modIndex = modIndex;
+	_current = current;
+}
+
+/**
+ * Gets the filename that this sound set represents.
+ * @return The sound name.
+ */
+std::string ExtraSounds::getType() const
+{
+	return _type;
 }
 
 /**
@@ -57,12 +73,77 @@ std::map<int, std::string> *ExtraSounds::getSounds()
 }
 
 /**
- * Gets the mod index for this external sounds set.
- * @return The mod index for this external sounds set.
+ * Loads the external sounds into a new or existing soundset.
+ * @param set Existing soundset.
+ * @return New soundset.
  */
-int ExtraSounds::getModIndex() const
+SoundSet *ExtraSounds::loadSoundSet(SoundSet *set) const
 {
-	return _modIndex;
+	if (set == 0)
+	{
+		Log(LOG_WARNING) << "Creating new sound set: " << _type << ", this will likely have no in-game use.";
+		set = new SoundSet();
+	}
+	else
+	{
+		Log(LOG_VERBOSE) << "Adding/Replacing items in sound set: " << _type;
+	}
+	for (std::map<int, std::string>::const_iterator j = _sounds.begin(); j != _sounds.end(); ++j)
+	{
+		int startSound = j->first;
+		std::string fileName = j->second;
+		if (fileName[fileName.length() - 1] == '/')
+		{
+			Log(LOG_VERBOSE) << "Loading sound set from folder: " << fileName << " starting at index: " << startSound;
+			int offset = startSound;
+			const std::set<std::string> &contents = FileMap::getVFolderContents(fileName);
+			for (std::set<std::string>::iterator k = contents.begin(); k != contents.end(); ++k)
+			{
+				try
+				{
+					loadSound(set, offset, fileName + *k);
+					offset++;
+				}
+				catch (Exception &e)
+				{
+					Log(LOG_WARNING) << e.what();
+				}
+			}
+		}
+		else
+		{
+			loadSound(set, startSound, fileName);
+		}
+	}
+	return set;
+}
+
+void ExtraSounds::loadSound(SoundSet *set, int index, const std::string &fileName) const
+{
+	int indexWithOffset = index;
+	if (indexWithOffset >= set->getMaxSharedSounds())
+	{
+		if ((size_t)indexWithOffset >= _current->size)
+		{
+			std::ostringstream err;
+			err << "ExtraSounds '" << _type << "' sound '" << indexWithOffset << "' exceeds mod '"<< _current->name <<"' size limit " << _current->size;
+			throw Exception(err.str());
+		}
+		indexWithOffset += _current->offset;
+	}
+
+	const std::string &fullPath = FileMap::getFilePath(fileName);
+	Sound *sound = set->getSound(indexWithOffset);
+	if (sound)
+	{
+		Log(LOG_VERBOSE) << "Replacing sound: " << index << ", using index: " << indexWithOffset;
+	}
+	else
+	{
+		Log(LOG_VERBOSE) << "Adding sound: " << index << ", using index: " << indexWithOffset;
+		sound = set->addSound(indexWithOffset);
+	}
+	sound->load(fullPath);
 }
 
 }

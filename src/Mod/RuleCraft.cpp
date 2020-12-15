@@ -54,12 +54,19 @@ void RuleCraft::load(const YAML::Node &node, Mod *mod, int listOrder)
 	_requires = node["requires"].as< std::vector<std::string> >(_requires);
 	if (node["sprite"])
 	{
-		_sprite = node["sprite"].as<int>(_sprite);
-		// this is an offset in BASEBITS.PCK, and two in INTICONS.PCK
-		if (_sprite > 4)
-			_sprite += mod->getModOffset();
+		// used in
+		// Surface set (baseOffset):
+		//   BASEBITS.PCK (33)
+		//   INTICON.PCK (11)
+		//   INTICON.PCK (0)
+		//
+		// Final index in surfaceset is `baseOffset + sprite + (sprite > 4 ? modOffset : 0)`
+		_sprite = mod->getOffset(node["sprite"].as<int>(_sprite), 4);
 	}
-	_marker = node["marker"].as<int>(_marker);
+	if (node["marker"])
+	{
+		_marker = mod->getOffset(node["marker"].as<int>(_marker), 8);
+	}
 	_fuelMax = node["fuelMax"].as<int>(_fuelMax);
 	_damageMax = node["damageMax"].as<int>(_damageMax);
 	_speedMax = node["speedMax"].as<int>(_speedMax);

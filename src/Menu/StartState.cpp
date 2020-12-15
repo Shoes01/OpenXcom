@@ -53,8 +53,8 @@ StartState::StartState() : _anim(0)
 	//updateScale() uses newDisplayWidth/Height and needs to be set ahead of time
 	Options::newDisplayWidth = Options::displayWidth;
 	Options::newDisplayHeight = Options::displayHeight;
-	Screen::updateScale(Options::geoscapeScale, Options::geoscapeScale, Options::baseXGeoscape, Options::baseYGeoscape, false);
-	Screen::updateScale(Options::battlescapeScale, Options::battlescapeScale, Options::baseXBattlescape, Options::baseYBattlescape, false);
+	Screen::updateScale(Options::geoscapeScale, Options::baseXGeoscape, Options::baseYGeoscape, false);
+	Screen::updateScale(Options::battlescapeScale, Options::baseXBattlescape, Options::baseYBattlescape, false);
 	Options::baseXResolution = Options::displayWidth;
 	Options::baseYResolution = Options::displayHeight;
 	_game->getScreen()->resetDisplay(false);
@@ -63,6 +63,7 @@ StartState::StartState() : _anim(0)
 	_thread = 0;
 	loading = LOADING_STARTED;
 	error = "";
+	_oldMaster = Options::getActiveMaster();
 
 	_font = new Font();
 	_font->loadTerminal();
@@ -71,7 +72,7 @@ StartState::StartState() : _anim(0)
 	_text = new Text(Options::baseXResolution, Options::baseYResolution, 0, 0);
 	_cursor = new Text(_font->getWidth(), _font->getHeight(), 0, 0);
 	_timer = new Timer(150);
-	
+
 	setPalette(_font->getPalette(), 0, 2);
 
 	add(_text);
@@ -84,7 +85,7 @@ StartState::StartState() : _anim(0)
 
 	_cursor->initText(_font, _font, _lang);
 	_cursor->setColor(0);
-	_cursor->setText(L"_");
+	_cursor->setText("_");
 
 	_timer->onTimer((StateHandler)&StartState::animate);
 	_timer->start();
@@ -95,12 +96,12 @@ StartState::StartState() : _anim(0)
 
 	if (Options::reload)
 	{
-		addLine(L"Restarting...");
-		addLine(L"");
+		addLine("Restarting...");
+		addLine("");
 	}
 	else
 	{
-		addLine(Language::utf8ToWstr(CrossPlatform::getDosPath()) + L">openxcom");
+		addLine(CrossPlatform::getDosPath() + ">openxcom");
 	}
 }
 
@@ -155,23 +156,24 @@ void StartState::think()
 	{
 	case LOADING_FAILED:
 		CrossPlatform::flashWindow();
-		addLine(L"");
-		addLine(L"ERROR: " + Language::utf8ToWstr(error));
-		addLine(L"Make sure you installed OpenXcom correctly.");
-		addLine(L"Check the wiki documentation for more details.");
-		addLine(L"");
-		addLine(L"Press any key to continue.");
+		addLine("");
+		addLine("ERROR: " + error);
+		addLine("");
+		addLine("More details here: " + Logger::logFile());
+		addLine("Make sure OpenXcom and any mods are installed correctly.");
+		addLine("");
+		addLine("Press any key to continue.");
 		loading = LOADING_DONE;
 		break;
 	case LOADING_SUCCESSFUL:
 		CrossPlatform::flashWindow();
 		Log(LOG_INFO) << "OpenXcom started successfully!";
 		_game->setState(new GoToMainMenuState);
-		if (!Options::reload && Options::playIntro)
+		if (_oldMaster != Options::getActiveMaster() && Options::playIntro)
 		{
 			_game->pushState(new CutsceneState("intro"));
 		}
-		else
+		if (Options::reload)
 		{
 			Options::reload = false;
 		}
@@ -210,8 +212,8 @@ void StartState::animate()
 
 	if (loading == LOADING_STARTED)
 	{
-		std::wostringstream ss;
-		ss << L"Loading OpenXcom " << Language::utf8ToWstr(OPENXCOM_VERSION_SHORT) << Language::utf8ToWstr(OPENXCOM_VERSION_GIT) << "...";
+		std::ostringstream ss;
+		ss << "Loading OpenXcom " << OPENXCOM_VERSION_SHORT << OPENXCOM_VERSION_GIT << "...";
 		if (Options::reload)
 		{
 			if (_anim == 2)
@@ -222,29 +224,29 @@ void StartState::animate()
 			switch (_anim)
 			{
 			case 1:
-				addLine(L"DOS/4GW Protected Mode Run-time  Version 1.9");
-				addLine(L"Copyright (c) Rational Systems, Inc. 1990-1993");
+				addLine("DOS/4GW Protected Mode Run-time  Version 1.9");
+				addLine("Copyright (c) Rational Systems, Inc. 1990-1993");
 				break;
 			case 6:
-				addLine(L"");
-				addLine(L"OpenXcom initialisation");
+				addLine("");
+				addLine("OpenXcom initialisation");
 				break;
 			case 7:
-				addLine(L"");
+				addLine("");
 				if (Options::mute)
 				{
-					addLine(L"No Sound Detected");
+					addLine("No Sound Detected");
 				}
 				else
 				{
-					addLine(L"SoundBlaster Sound Effects");
+					addLine("SoundBlaster Sound Effects");
 					if (Options::preferredMusic == MUSIC_MIDI)
-						addLine(L"General MIDI Music");
+						addLine("General MIDI Music");
 					else
-						addLine(L"SoundBlaster Music");
-					addLine(L"Base Port 220  Irq 7  Dma 1");
+						addLine("SoundBlaster Music");
+					addLine("Base Port 220  Irq 7  Dma 1");
 				}
-				addLine(L"");
+				addLine("");
 				break;
 			case 9:
 				addLine(ss.str());
@@ -259,9 +261,9 @@ void StartState::animate()
  * the cursor appropriately.
  * @param str Text line to add.
  */
-void StartState::addLine(const std::wstring &str)
+void StartState::addLine(const std::string &str)
 {
-	_output << L"\n" << str;
+	_output << "\n" << str;
 	_text->setText(_output.str());
 	int y = _text->getTextHeight() - _font->getHeight();
 	int x = _text->getTextWidth(y / _font->getHeight());
@@ -284,7 +286,7 @@ int StartState::load(void *game_ptr)
 		game->loadMods();
 		Log(LOG_INFO) << "Data loaded successfully.";
 		Log(LOG_INFO) << "Loading language...";
-		game->defaultLanguage();
+		game->loadLanguages();
 		Log(LOG_INFO) << "Language loaded successfully.";
 		loading = LOADING_SUCCESSFUL;
 	}

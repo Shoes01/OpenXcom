@@ -24,16 +24,14 @@
 #include <algorithm>
 #include <sstream>
 #include <string>
-#include <locale>
 #include <stdint.h>
 #include <time.h>
-#include <sys/stat.h>
 #include <signal.h>
+#include <sys/stat.h>
 #include "../dirent.h"
 #include "Logger.h"
 #include "Exception.h"
 #include "Options.h"
-#include "Language.h"
 #ifdef _WIN32
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -42,21 +40,25 @@
 #include <windows.h>
 #include <shlobj.h>
 #include <shlwapi.h>
-#ifdef _MSC_VER
+#ifndef __NO_DBGHELP
 #include <dbghelp.h>
+#endif
+#ifdef __MINGW32__
+#include <cxxabi.h>
 #endif
 #define EXCEPTION_CODE_CXX 0xe06d7363
 #ifndef __GNUC__
 #pragma comment(lib, "advapi32.lib")
 #pragma comment(lib, "shell32.lib")
 #pragma comment(lib, "shlwapi.lib")
-#ifdef _MSC_VER
+#ifndef __NO_DBGHELP
 #pragma comment(lib, "dbghelp.lib")
 #endif
 #endif
 #else
 #include <iostream>
 #include <fstream>
+#include <locale>
 #include <SDL_image.h>
 #include <cstring>
 #include <cstdio>
@@ -66,6 +68,9 @@
 #include <sys/types.h>
 #include <pwd.h>
 #include <execinfo.h>
+#include <cxxabi.h>
+#include <dlfcn.h>
+#include "Unicode.h"
 #endif
 #include <SDL.h>
 #include <SDL_syswm.h>
@@ -91,7 +96,7 @@ void getErrorDialog()
 		if (getenv("KDE_SESSION_UID") && system("which kdialog 2>&1 > /dev/null") == 0)
 			errorDlg = "kdialog --error ";
 		else if (system("which zenity 2>&1 > /dev/null") == 0)
-			errorDlg = "zenity --error --text=";
+			errorDlg = "zenity --no-wrap --error --text=";
 		else if (system("which kdialog 2>&1 > /dev/null") == 0)
 			errorDlg = "kdialog --error ";
 		else if (system("which gdialog 2>&1 > /dev/null") == 0)
@@ -118,7 +123,7 @@ void showError(const std::string &error)
 	else
 	{
 		std::string nError = '"' + error + '"';
-		Language::replace(nError, "\n", "\\n");
+		Unicode::replace(nError, "\n", "\\n");
 		std::string cmd = errorDlg + nError;
 		if (system(cmd.c_str()) != 0)
 			std::cerr << error << std::endl;
@@ -156,7 +161,7 @@ std::vector<std::string> findDataFolders()
 	list.push_back("PROGDIR:");
 	return list;
 #endif
-	
+
 #ifdef _WIN32
 	char path[MAX_PATH];
 
@@ -205,9 +210,11 @@ std::vector<std::string> findDataFolders()
  	list.push_back(path);
 
 	// Get global data folders
-	if (char *xdg_data_dirs = getenv("XDG_DATA_DIRS"))
+	if (char const *const xdg_data_dirs = getenv("XDG_DATA_DIRS"))
 	{
-		char *dir = strtok(xdg_data_dirs, ":");
+		char xdg_data_dirs_copy[strlen(xdg_data_dirs)+1];
+		strcpy(xdg_data_dirs_copy, xdg_data_dirs);
+		char *dir = strtok(xdg_data_dirs_copy, ":");
 		while (dir != 0)
 		{
 			snprintf(path, MAXPATHLEN, "%s/openxcom/", dir);
@@ -241,7 +248,7 @@ std::vector<std::string> findDataFolders()
 std::vector<std::string> findUserFolders()
 {
 	std::vector<std::string> list;
-	
+
 #ifdef __MORPHOS__
 	list.push_back("PROGDIR:");
 	return list;
@@ -280,7 +287,7 @@ std::vector<std::string> findUserFolders()
 #endif
 	char const *home = getHome();
 	char path[MAXPATHLEN];
-	
+
 	// Get user folders
 	if (char const *const xdg_data_home = getenv("XDG_DATA_HOME"))
  	{
@@ -448,8 +455,6 @@ std::string endPath(const std::string &path)
 std::vector<std::string> getFolderContents(const std::string &path, const std::string &ext)
 {
 	std::vector<std::string> files;
-	std::string extl = ext;
-	std::transform(extl.begin(), extl.end(), extl.begin(), ::tolower);
 
 	DIR *dp = opendir(path.c_str());
 	if (dp == 0)
@@ -467,25 +472,14 @@ std::vector<std::string> getFolderContents(const std::string &path, const std::s
 	{
 		std::string file = dirp->d_name;
 
-		if (file == "." || file == "..")
+		if (!file.empty() && file[0] == '.')
 		{
+			//skip ".", "..", ".git", ".svn", ".bashrc", ".ssh" etc.
 			continue;
 		}
-		if (!extl.empty())
+		if (!compareExt(file, ext))
 		{
-			if (file.length() >= extl.length() + 1)
-			{
-				std::string end = file.substr(file.length() - extl.length() - 1);
-				std::transform(end.begin(), end.end(), end.begin(), ::tolower);
-				if (end != "." + extl)
-				{
-					continue;
-				}
-			}
-			else
-			{
-				continue;
-			}
+			continue;
 		}
 
 		files.push_back(file);
@@ -555,6 +549,11 @@ bool deleteFile(const std::string &path)
 #endif
 }
 
+/**
+ * Returns only the filename from a specified path.
+ * @param path Full path.
+ * @return Filename component.
+ */
 std::string baseFilename(const std::string &path)
 {
 	size_t sep = path.find_last_of("/\\");
@@ -577,7 +576,7 @@ std::string baseFilename(const std::string &path)
 /**
  * Replaces invalid filesystem characters with _.
  * @param filename Original filename.
- * @return Filename without invalid characters
+ * @return Filename without invalid characters.
  */
 std::string sanitizeFilename(const std::string &filename)
 {
@@ -598,6 +597,12 @@ std::string sanitizeFilename(const std::string &filename)
 	return newFilename;
 }
 
+/**
+ * Removes the extension from a filename. Only the
+ * last dot is considered.
+ * @param filename Original filename.
+ * @return Filename without the extension.
+ */
 std::string noExt(const std::string &filename)
 {
 	size_t dot = filename.find_last_of('.');
@@ -606,6 +611,45 @@ std::string noExt(const std::string &filename)
 		return filename;
 	}
 	return filename.substr(0, dot);
+}
+
+/**
+ * Returns the extension from a filename. Only the
+ * last dot is considered.
+ * @param filename Original filename.
+ * @return Extension component, includes dot.
+ */
+std::string getExt(const std::string &filename)
+{
+	size_t dot = filename.find_last_of('.');
+	if (dot == std::string::npos)
+	{
+		return "";
+	}
+	return filename.substr(dot);
+}
+
+/**
+ * Compares the extension in a filename (case-insensitive).
+ * @param filename Filename to compare.
+ * @param extension Extension to compare to.
+ * @return If the extensions match.
+ */
+bool compareExt(const std::string &filename, const std::string &extension)
+{
+	if (extension.empty())
+		return true;
+	int j = filename.length() - extension.length();
+	if (j <= 0)
+		return false;
+	if (filename[j - 1] != '.')
+		return false;
+	for (size_t i = 0; i < extension.length(); ++i)
+	{
+		if (::tolower(filename[j + i]) != ::tolower(extension[i]))
+			return false;
+	}
+	return true;
 }
 
 /**
@@ -623,19 +667,13 @@ std::string getLocale()
 	std::ostringstream locale;
 	locale << language << "-" << country;
 	return locale.str();
-	/*
-	wchar_t locale[LOCALE_NAME_MAX_LENGTH];
-	LCIDToLocaleName(GetUserDefaultUILanguage(), locale, LOCALE_NAME_MAX_LENGTH, 0);
-
-	return Language::wstrToUtf8(locale);
-	*/
 #else
 	std::locale l;
 	try
 	{
 		l = std::locale("");
 	}
-	catch (std::runtime_error)
+	catch (const std::runtime_error &)
 	{
 		return "x-";
 	}
@@ -719,9 +757,9 @@ time_t getDateModified(const std::string &path)
  * @param time Value in timestamp format.
  * @return String pair with date and time.
  */
-std::pair<std::wstring, std::wstring> timeToString(time_t time)
+std::pair<std::string, std::string> timeToString(time_t time)
 {
-	wchar_t localDate[25], localTime[25];
+	char localDate[25], localTime[25];
 
 /*#ifdef _WIN32
 	LARGE_INTEGER li;
@@ -738,35 +776,10 @@ std::pair<std::wstring, std::wstring> timeToString(time_t time)
 #endif*/
 
 	struct tm *timeinfo = localtime(&(time));
-	wcsftime(localDate, 25, L"%Y-%m-%d", timeinfo);
-	wcsftime(localTime, 25, L"%H:%M", timeinfo);
+	strftime(localDate, 25, "%Y-%m-%d", timeinfo);
+	strftime(localTime, 25, "%H:%M", timeinfo);
 
 	return std::make_pair(localDate, localTime);
-}
-
-/**
- * Compares two Unicode strings using natural human ordering.
- * @param a String A.
- * @param b String B.
- * @return String A comes before String B.
- */
-bool naturalCompare(const std::wstring &a, const std::wstring &b)
-{
-#if defined(_WIN32) && (!defined(__MINGW32__) || defined(__MINGW64_VERSION_MAJOR))
-	typedef int (WINAPI *WinStrCmp)(PCWSTR, PCWSTR);
-	WinStrCmp pWinStrCmp = (WinStrCmp)GetProcAddress(GetModuleHandleA("shlwapi.dll"), "StrCmpLogicalW");
-	if (pWinStrCmp)
-	{
-		return (pWinStrCmp(a.c_str(), b.c_str()) < 0);
-	}
-	else
-#endif
-	{
-		// sorry unix users you get ASCII sort
-		std::wstring::const_iterator i, j;
-		for (i = a.begin(), j = b.begin(); i != a.end() && j != b.end() && tolower(*i) == tolower(*j); i++, j++);
-		return (i != a.end() && j != b.end() && tolower(*i) < tolower(*j));
-	}
 }
 
 /**
@@ -794,7 +807,7 @@ bool moveFile(const std::string &src, const std::string &dest)
 		srcStream.close();
 		destStream.close();
 	}
-	catch (std::fstream::failure)
+	catch (const std::fstream::failure &)
 	{
 		return false;
 	}
@@ -871,9 +884,9 @@ std::string getDosPath()
  * @param winResource ID for Windows icon.
  * @param unixPath Path to PNG icon for Unix.
  */
-void setWindowIcon(int winResource, const std::string &unixPath)
-{
 #ifdef _WIN32
+void setWindowIcon(int winResource, const std::string &)
+{
 	HINSTANCE handle = GetModuleHandle(NULL);
 	HICON icon = LoadIcon(handle, MAKEINTRESOURCE(winResource));
 
@@ -884,26 +897,28 @@ void setWindowIcon(int winResource, const std::string &unixPath)
 		HWND hwnd = wminfo.window;
 		SetClassLongPtr(hwnd, GCLP_HICON, (LONG_PTR)icon);
 	}
+}
 #else
-	// SDL only takes UTF-8 filenames
-	// so here's an ugly hack to match this ugly reasoning
-	std::string utf8 = Language::wstrToUtf8(Language::fsToWstr(unixPath));
+void setWindowIcon(int, const std::string &unixPath)
+{
+	std::string utf8 = Unicode::convPathToUtf8(unixPath);
 	SDL_Surface *icon = IMG_Load(utf8.c_str());
 	if (icon != 0)
 	{
 		SDL_WM_SetIcon(icon, NULL);
 		SDL_FreeSurface(icon);
 	}
-#endif
 }
+#endif
 
 /**
  * Logs the stack back trace leading up to this function call.
- * @param ex Pointer to stack context (PCONTEXT on Windows), NULL to use current context.
+ * @param ctx Pointer to stack context (PCONTEXT on Windows), NULL to use current context.
  */
 void stackTrace(void *ctx)
 {
-#ifdef _MSC_VER
+#ifdef _WIN32
+#ifndef __NO_DBGHELP
 	const int MAX_SYMBOL_LENGTH = 1024;
 	CONTEXT context;
 	if (ctx != 0)
@@ -912,9 +927,30 @@ void stackTrace(void *ctx)
 	}
 	else
 	{
+#ifdef _M_IX86
 		memset(&context, 0, sizeof(CONTEXT));
-		context.ContextFlags = CONTEXT_FULL;
+		context.ContextFlags = CONTEXT_CONTROL;
+#ifdef __MINGW32__
+		asm("Label:\n\t"
+			"movl %%ebp,%0;\n\t"
+			"movl %%esp,%1;\n\t"
+			"movl $Label,%%eax;\n\t"
+			"movl %%eax,%2;\n\t"
+			: "=r" (context.Ebp), "=r" (context.Esp), "=r" (context.Eip)
+			: //no input
+			: "eax");
+#else
+		_asm {
+		Label:
+			mov[context.Ebp], ebp;
+			mov[context.Esp], esp;
+			mov eax, [Label];
+			mov[context.Eip], eax;
+		}
+#endif
+#else
 		RtlCaptureContext(&context);
+#endif
 	}
 	HANDLE thread = GetCurrentThread();
 	HANDLE process = GetCurrentProcess();
@@ -948,7 +984,6 @@ void stackTrace(void *ctx)
 	frame.AddrStack.Offset = context.IntSp;
 	frame.AddrStack.Mode = AddrModeFlat;
 #else
-	// TODO: Stack trace not supported on this architecture
 	Log(LOG_FATAL) << "Unfortunately, no stack trace information is available";
 	return;
 #endif
@@ -963,6 +998,23 @@ void stackTrace(void *ctx)
 	{
 		if (SymFromAddr(process, frame.AddrPC.Offset, NULL, symbol))
 		{
+			std::string symname = symbol->Name;
+#ifdef __MINGW32__
+			symname = "_" + symname;
+			int status = 0;
+			size_t outSz = 0;
+			char* demangled = abi::__cxa_demangle(symname.c_str(), 0, &outSz, &status);
+			if (status == 0)
+			{
+				symname = demangled;
+				if (outSz > 0)
+					free(demangled);
+			}
+			else
+			{
+				symname = symbol->Name;
+			}
+#endif
 			if (SymGetLineFromAddr64(process, frame.AddrPC.Offset, &displacement, line))
 			{
 				std::string filename = line->FileName;
@@ -971,43 +1023,63 @@ void stackTrace(void *ctx)
 				{
 					filename = filename.substr(n + 1);
 				}
-				Log(LOG_FATAL) << "0x" << std::hex << symbol->Address << std::dec << " " << symbol->Name << " (" << filename << ":" << line->LineNumber << ")";
+				Log(LOG_FATAL) << "0x" << std::hex << symbol->Address << std::dec << " " << symname << " (" << filename << ":" << line->LineNumber << ")";
 			}
 			else
 			{
-				Log(LOG_FATAL) << "0x" << std::hex << symbol->Address << std::dec << " " << symbol->Name << " (??: " << GetLastError() << ")";
+				Log(LOG_FATAL) << "0x" << std::hex << symbol->Address << std::dec << " " << symname;
 			}
 		}
 		else
 		{
-			Log(LOG_FATAL) << "??: " << GetLastError();
+			Log(LOG_FATAL) << "??";
 		}
 	}
 	DWORD err = GetLastError();
 	if (err)
 	{
-		Log(LOG_FATAL) << "No stack trace generated: " << err;
+		Log(LOG_FATAL) << "Unfortunately, no stack trace information is available";
 	}
 	SymCleanup(process);
 #else
-#ifdef _WIN32
-	// TODO: Figure out stack trace on MinGW, use dbg
 	Log(LOG_FATAL) << "Unfortunately, no stack trace information is available";
-	return;
+#endif
+#elif __CYGWIN__
+	Log(LOG_FATAL) << "Unfortunately, no stack trace information is available";
 #else
-	const int MAX_STACK_FRAMES = 16;
-	void *array[MAX_STACK_FRAMES];
-	size_t size = backtrace(array, MAX_STACK_FRAMES);
-	char **strings = backtrace_symbols(array, size);
+	void *frames[32];
+	char buf[1024];
+	int  frame_count = backtrace(frames, 32);
+	char *demangled = NULL;
+	const char *mangled = NULL;
+	int status;
+	size_t sym_offset;
 
-	for (size_t i = 0; i < size; ++i)
-	{
-		Log(LOG_FATAL) << strings[i];
+	for (int i = 0; i < frame_count; i++) {
+		Dl_info dl_info;
+		if (dladdr(frames[i], &dl_info )) {
+			demangled = NULL;
+			mangled = dl_info.dli_sname;
+			if ( mangled != NULL) {
+				sym_offset = (char *)frames[i] - (char *)dl_info.dli_saddr;
+				demangled = abi::__cxa_demangle( dl_info.dli_sname, NULL, 0, &status);
+				snprintf(buf, sizeof(buf), "%s(%s+0x%zx) [%p]",
+						dl_info.dli_fname,
+						status == 0 ? demangled : mangled,
+						sym_offset, frames[i] );
+			} else { // symbol not found
+				sym_offset = (char *)frames[i] - (char *)dl_info.dli_fbase;
+				snprintf(buf, sizeof(buf), "%s(+0x%zx) [%p]", dl_info.dli_fname, sym_offset, frames[i]);
+			}
+			free(demangled);
+			Log(LOG_FATAL) << buf;
+		} else { // object not found
+			snprintf(buf, sizeof(buf), "? ? [%p]", frames[i]);
+			Log(LOG_FATAL) << buf;
+		}
 	}
-
-	free(strings);
 #endif
-#endif
+	ctx = (void*)ctx;
 }
 
 /**
@@ -1101,7 +1173,7 @@ void crashDump(void *ex, const std::string &err)
 #endif
 	std::ostringstream msg;
 	msg << "OpenXcom has crashed: " << error.str() << std::endl;
-	msg << "Extra information has been saved to openxcom.log." << std::endl;
+	msg << "More details here: " << Logger::logFile() << std::endl;
 	msg << "If this error was unexpected, please report it to the developers.";
 	showError(msg.str());
 }

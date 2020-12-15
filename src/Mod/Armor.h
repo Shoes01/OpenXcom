@@ -41,13 +41,14 @@ private:
 	std::string _type, _spriteSheet, _spriteInv, _corpseGeo, _storeItem, _specWeapon;
 	std::vector<std::string> _corpseBattle;
 	int _frontArmor, _sideArmor, _rearArmor, _underArmor, _drawingRoutine;
+	bool _drawBubbles;
 	MovementType _movementType;
 	int _size, _weight;
 	float _damageModifier[DAMAGE_TYPES];
 	std::vector<int> _loftempsSet;
 	UnitStats _stats;
 	int _deathFrames;
-	bool _constantAnimation, _canHoldWeapon, _hasInventory;
+	bool _constantAnimation, _hasInventory;
 	ForcedTorso _forcedTorso;
 	int _faceColorGroup, _hairColorGroup, _utileColorGroup, _rankColorGroup;
 	std::vector<int> _faceColor, _hairColor, _utileColor, _rankColor;
@@ -83,6 +84,8 @@ public:
 	std::string getSpecialWeapon() const;
 	/// Gets the battlescape drawing routine ID.
 	int getDrawingRoutine() const;
+	/// Gets whether or not to draw bubbles (breathing animation).
+	bool drawBubbles() const;
 	/// DO NOT USE THIS FUNCTION OUTSIDE THE BATTLEUNIT CONSTRUCTOR OR I WILL HUNT YOU DOWN.
 	MovementType getMovementType() const;
 	/// Gets whether this is a normal or big unit.
@@ -99,8 +102,6 @@ public:
 	int getDeathFrames() const;
 	/// Gets if armor uses constant animation.
 	bool getConstantAnimation() const;
-	/// Gets if armor can hold weapon.
-	bool getCanHoldWeapon() const;
 	/// Checks if this armor ignores gender (power suit/flying suit).
 	ForcedTorso getForcedTorso() const;
 	/// Get face base color

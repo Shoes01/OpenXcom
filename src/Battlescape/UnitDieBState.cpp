@@ -32,7 +32,6 @@
 #include "../Engine/Options.h"
 #include "../Engine/Language.h"
 #include "../Mod/Armor.h"
-#include "../Mod/Unit.h"
 #include "InfoboxOKState.h"
 #include "InfoboxState.h"
 #include "../Savegame/Node.h"
@@ -211,7 +210,7 @@ void UnitDieBState::think()
 		{
 			playDeathSound();
 		}
-		if (_unit->getStatus() == STATUS_UNCONSCIOUS && (_unit->getSpecialAbility() == SPECAB_EXPLODEONDEATH || _unit->getSpecialAbility() == SPECAB_BURN_AND_EXPLODE))
+		if (_unit->getStatus() == STATUS_UNCONSCIOUS && !_unit->getCapturable())
 		{
 			_unit->instaKill();
 		}
@@ -233,7 +232,7 @@ void UnitDieBState::think()
 			_parent->getSave()->setSelectedUnit(0);
 		}
 	}
-	
+
 	_parent->getMap()->cacheUnit(_unit);
 }
 

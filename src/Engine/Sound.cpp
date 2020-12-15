@@ -20,7 +20,7 @@
 #include "Exception.h"
 #include "Options.h"
 #include "Logger.h"
-#include "Language.h"
+#include "Unicode.h"
 
 namespace OpenXcom
 {
@@ -46,10 +46,7 @@ Sound::~Sound()
  */
 void Sound::load(const std::string &filename)
 {
-	// SDL only takes UTF-8 filenames
-	// so here's an ugly hack to match this ugly reasoning
-	std::string utf8 = Language::wstrToUtf8(Language::fsToWstr(filename));
-
+	std::string utf8 = Unicode::convPathToUtf8(filename);
 	_sound = Mix_LoadWAV(utf8.c_str());
 	if (_sound == 0)
 	{

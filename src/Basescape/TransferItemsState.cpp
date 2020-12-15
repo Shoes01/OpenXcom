@@ -20,7 +20,6 @@
 #include <algorithm>
 #include <sstream>
 #include <climits>
-#include <cfloat>
 #include "../Engine/Action.h"
 #include "../Engine/Game.h"
 #include "../Mod/Mod.h"
@@ -202,7 +201,7 @@ TransferItemsState::TransferItemsState(Base *baseFrom, Base *baseTo) : _baseFrom
 		}
 	}
 
-	_cbxCategory->setOptions(_cats);
+	_cbxCategory->setOptions(_cats, true);
 	_cbxCategory->onChange((ActionHandler)&TransferItemsState::cbxCategoryChange);
 
 	updateList();
@@ -286,7 +285,7 @@ void TransferItemsState::updateList()
 		{
 			continue;
 		}
-		std::wstring name = _items[i].name;
+		std::string name = _items[i].name;
 		bool ammo = false;
 		if (_items[i].type == TRANSFER_ITEM)
 		{
@@ -294,10 +293,10 @@ void TransferItemsState::updateList()
 			ammo = (rule->getBattleType() == BT_AMMO || (rule->getBattleType() == BT_NONE && rule->getClipSize() > 0));
 			if (ammo)
 			{
-				name.insert(0, L"  ");
+				name.insert(0, "  ");
 			}
 		}
-		std::wostringstream ssQtySrc, ssQtyDst, ssAmount;
+		std::ostringstream ssQtySrc, ssQtyDst, ssAmount;
 		ssQtySrc << _items[i].qtySrc - _items[i].amount;
 		ssQtyDst << _items[i].qtyDst;
 		ssAmount << _items[i].amount;
@@ -343,10 +342,7 @@ void TransferItemsState::completeTransfer()
 				{
 					if (*s == i->rule)
 					{
-						 if ((*s)->isInPsiTraining())
-						 {
-							 (*s)->setPsiTraining();
-						 }
+						(*s)->setPsiTraining(false);
 						t = new Transfer(time);
 						t->setSoldier(*s);
 						_baseTo->getTransfers()->push_back(t);
@@ -362,8 +358,11 @@ void TransferItemsState::completeTransfer()
 				{
 					if ((*s)->getCraft() == craft)
 					{
-						if ((*s)->isInPsiTraining()) (*s)->setPsiTraining();
-						if (craft->getStatus() == "STR_OUT") _baseTo->getSoldiers()->push_back(*s);
+						(*s)->setPsiTraining(false);
+						if (craft->getStatus() == "STR_OUT")
+						{
+							_baseTo->getSoldiers()->push_back(*s);
+						}
 						else
 						{
 							t = new Transfer(time);
@@ -379,45 +378,28 @@ void TransferItemsState::completeTransfer()
 				}
 
 				// Transfer craft
-				for (std::vector<Craft*>::iterator c = _baseFrom->getCrafts()->begin(); c != _baseFrom->getCrafts()->end(); ++c)
+				_baseFrom->removeCraft(craft, false);
+				if (craft->getStatus() == "STR_OUT")
 				{
-					if (*c == craft)
+					bool returning = (craft->getDestination() == (Target*)craft->getBase());
+					_baseTo->getCrafts()->push_back(craft);
+					craft->setBase(_baseTo, false);
+					if (craft->getFuel() <= craft->getFuelLimit(_baseTo))
 					{
-						if (craft->getStatus() == "STR_OUT")
-						{
-							bool returning = (craft->getDestination() == (Target*)craft->getBase());
-							_baseTo->getCrafts()->push_back(craft);
-							craft->setBase(_baseTo, false);
-							if (craft->getFuel() <= craft->getFuelLimit(_baseTo))
-							{
-								craft->setLowFuel(true);
-								craft->returnToBase();
-							}
-							else if (returning)
-							{
-								craft->setLowFuel(false);
-								craft->returnToBase();
-							}
-						}
-						else
-						{
-							t = new Transfer(time);
-							t->setCraft(*c);
-							_baseTo->getTransfers()->push_back(t);
-						}
-						// Clear hangar
-						for (std::vector<BaseFacility*>::iterator f = _baseFrom->getFacilities()->begin(); f != _baseFrom->getFacilities()->end(); ++f)
-						{
-							if ((*f)->getCraft() == *c)
-							{
-								(*f)->setCraft(0);
-								break;
-							}
-						}
-
-						_baseFrom->getCrafts()->erase(c);
-						break;
+						craft->setLowFuel(true);
+						craft->returnToBase();
 					}
+					else if (returning)
+					{
+						craft->setLowFuel(false);
+						craft->returnToBase();
+					}
+				}
+				else
+				{
+					t = new Transfer(time);
+					t->setCraft(craft);
+					_baseTo->getTransfers()->push_back(t);
 				}
 				break;
 			case TRANSFER_SCIENTIST:
@@ -575,7 +557,7 @@ void TransferItemsState::increase()
 void TransferItemsState::increaseByValue(int change)
 {
 	if (0 >= change || getRow().qtySrc <= getRow().amount) return;
-	std::wstring errorMessage;
+	std::string errorMessage;
 	RuleItem *selItem = 0;
 	Craft *craft = 0;
 
@@ -610,7 +592,7 @@ void TransferItemsState::increaseByValue(int change)
 		{
 			errorMessage = tr("STR_NOT_ENOUGH_STORE_SPACE");
 		}
-			else if (selItem->isAlien() && Options::storageLimitsEnforced * _aQty + 1 > _baseTo->getAvailableContainment() - Options::storageLimitsEnforced * _baseTo->getUsedContainment())
+		else if (selItem->isAlien() && Options::storageLimitsEnforced * _aQty + 1 > _baseTo->getAvailableContainment() - Options::storageLimitsEnforced * _baseTo->getUsedContainment())
 		{
 			errorMessage = tr("STR_NO_ALIEN_CONTAINMENT_FOR_TRANSFER");
 		}
@@ -692,7 +674,7 @@ void TransferItemsState::decreaseByValue(int change)
 	if (0 >= change || 0 >= getRow().amount) return;
 	Craft *craft = 0;
 	change = std::min(getRow().amount, change);
-	
+
 	switch (getRow().type)
 	{
 	case TRANSFER_SOLDIER:
@@ -729,7 +711,7 @@ void TransferItemsState::decreaseByValue(int change)
  */
 void TransferItemsState::updateItemStrings()
 {
-	std::wostringstream ss1, ss2;
+	std::ostringstream ss1, ss2;
 	ss1 << getRow().qtySrc - getRow().amount;
 	ss2 << getRow().amount;
 	_lstItems->setCellText(_sel, 1, ss1.str());

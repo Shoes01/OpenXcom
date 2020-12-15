@@ -54,7 +54,7 @@ MiniMapState::MiniMapState (Camera * camera, SavedBattleGame * battleGame)
 	_btnLvlDwn = new BattlescapeButton(18, 20, 24, 88);
 	_btnOk = new BattlescapeButton(32, 32, 275, 145);
 	_txtLevel = new Text(28, 16, 281, 75);
-	
+
 	// Set palette
 	battleGame->setPaletteByDepth(this);
 
@@ -124,7 +124,7 @@ void MiniMapState::btnOkClick(Action *)
 {
 	if (Options::maximizeInfoScreens)
 	{
-		Screen::updateScale(Options::battlescapeScale, Options::battlescapeScale, Options::baseXBattlescape, Options::baseYBattlescape, true);
+		Screen::updateScale(Options::battlescapeScale, Options::baseXBattlescape, Options::baseYBattlescape, true);
 		_game->getScreen()->resetDisplay(false);
 	}
 	_game->popState();

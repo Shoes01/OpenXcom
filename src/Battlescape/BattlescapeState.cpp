@@ -165,7 +165,7 @@ BattlescapeState::BattlescapeState() : _reserve(0), _firstInit(true), _isMouseSc
 	if (_game->getMod()->getInterface("battlescape")->getElement("pathfinding"))
 	{
 		Element *pathing = _game->getMod()->getInterface("battlescape")->getElement("pathfinding");
-		
+
 		Pathfinding::green = pathing->color;
 		Pathfinding::yellow = pathing->color2;
 		Pathfinding::red = pathing->border;
@@ -173,7 +173,7 @@ BattlescapeState::BattlescapeState() : _reserve(0), _firstInit(true), _isMouseSc
 
 	add(_map);
 	add(_icons);
-	
+
 	// Add in custom reserve buttons
 	Surface *icons = _game->getMod()->getSurface("ICONS.PCK");
 	if (_game->getMod()->getSurface("TFTDReserve", false))
@@ -183,7 +183,7 @@ BattlescapeState::BattlescapeState() : _reserve(0), _firstInit(true), _isMouseSc
 		tftdIcons->setY(176);
 		tftdIcons->blit(icons);
 	}
-	
+
 	// there is some cropping going on here, because the icons image is 320x200 while we only need the bottom of it.
 	SDL_Rect *r = icons->getCrop();
 	r->x = 0;
@@ -453,9 +453,9 @@ BattlescapeState::BattlescapeState() : _reserve(0), _firstInit(true), _isMouseSc
 	_btnReserveSnap->setGroup(&_reserve);
 	_btnReserveAimed->setGroup(&_reserve);
 	_btnReserveAuto->setGroup(&_reserve);
-	
+
 	// Set music
-	if (_save->getMusic() == "")
+	if (_save->getMusic().empty())
 	{
 		_game->getMod()->playMusic("GMTACTIC");
 	}
@@ -538,7 +538,7 @@ void BattlescapeState::init()
 		_btnReserveAimed->setGroup(&_reserve);
 		_btnReserveAuto->setGroup(&_reserve);
 	}
-	_txtTooltip->setText(L"");
+	_txtTooltip->setText("");
 	_btnReserveKneel->toggle(_save->getKneelReserved());
 	_battleGame->setKneelReserved(_save->getKneelReserved());
 	if (_autosave)
@@ -612,7 +612,7 @@ void BattlescapeState::mapOver(Action *action)
 		}
 
 		_isMouseScrolled = true;
-		
+
 		if (Options::touchEnabled == false)
 		{
 			// Set the mouse cursor back
@@ -645,7 +645,7 @@ void BattlescapeState::mapOver(Action *action)
 				_totalMouseMoveX = -(int) (delta2.x * action->getXScale());
 				_totalMouseMoveY = -(int) (delta2.y * action->getYScale());
 			}
-			
+
 			if (Options::touchEnabled == false)
 			{
 				action->getDetails()->motion.x = _xBeforeMouseScrolling;
@@ -675,9 +675,9 @@ void BattlescapeState::mapOver(Action *action)
 			int barHeight = _game->getScreen()->getCursorTopBlackBand();
 			int cursorX = _cursorPosition.x + Round(delta.x * action->getXScale());
 			int cursorY = _cursorPosition.y + Round(delta.y * action->getYScale());
-			_cursorPosition.x = std::min(_game->getScreen()->getWidth() - barWidth - (int)(Round(action->getXScale())), std::max(barWidth, cursorX));
-			_cursorPosition.y = std::min(_game->getScreen()->getHeight() - barHeight - (int)(Round(action->getYScale())), std::max(barHeight, cursorY));
-			
+			_cursorPosition.x = Clamp(cursorX, barWidth, _game->getScreen()->getWidth() - barWidth - (int)(Round(action->getXScale())));
+			_cursorPosition.y = Clamp(cursorY, barHeight, _game->getScreen()->getHeight() - barHeight - (int)(Round(action->getYScale())));
+
 			if (Options::touchEnabled == false)
 			{
 				action->getDetails()->motion.x = _cursorPosition.x;
@@ -774,7 +774,7 @@ void BattlescapeState::mapClick(Action *action)
 			return;
 		}
 	}
-	
+
 	// don't handle mouseclicks over the buttons (it overlaps with map surface)
 	if (_mouseOverIcons) return;
 
@@ -787,8 +787,8 @@ void BattlescapeState::mapClick(Action *action)
 
 	if (_save->getDebugMode())
 	{
-		std::wostringstream ss;
-		ss << L"Clicked " << pos;
+		std::ostringstream ss;
+		ss << "Clicked " << pos;
 		debug(ss.str());
 	}
 
@@ -823,7 +823,7 @@ void BattlescapeState::btnUnitUpClick(Action *)
 {
 	if (playableUnitSelected() && _save->getPathfinding()->validateUpDown(_save->getSelectedUnit(), _save->getSelectedUnit()->getPosition(), Pathfinding::DIR_UP))
 	{
-		_battleGame->cancelCurrentAction();
+		_battleGame->cancelAllActions();
 		_battleGame->moveUpDown(_save->getSelectedUnit(), Pathfinding::DIR_UP);
 	}
 }
@@ -836,7 +836,7 @@ void BattlescapeState::btnUnitDownClick(Action *)
 {
 	if (playableUnitSelected() && _save->getPathfinding()->validateUpDown(_save->getSelectedUnit(), _save->getSelectedUnit()->getPosition(), Pathfinding::DIR_DOWN))
 	{
-		_battleGame->cancelCurrentAction();
+		_battleGame->cancelAllActions();
 		_battleGame->moveUpDown(_save->getSelectedUnit(), Pathfinding::DIR_DOWN);
 	}
 }
@@ -926,17 +926,7 @@ void BattlescapeState::btnInventoryClick(Action *)
 	if (playableUnitSelected()
 		&& (_save->getSelectedUnit()->hasInventory() || _save->getDebugMode()))
 	{
-		// clean up the waypoints
-		if (_battleGame->getCurrentAction()->type == BA_LAUNCH)
-		{
-			_battleGame->getCurrentAction()->waypoints.clear();
-			_battleGame->getMap()->getWaypoints()->clear();
-			showLaunchButton(false);
-		}
-
-		_battleGame->getPathfinding()->removePreview();
-		_battleGame->cancelCurrentAction(true);
-
+		_battleGame->cancelAllActions();
 		_game->pushState(new InventoryState(!_save->getDebugMode(), this));
 	}
 }
@@ -974,7 +964,10 @@ void BattlescapeState::btnNextSoldierClick(Action *)
 void BattlescapeState::btnNextStopClick(Action *)
 {
 	if (allowButtons())
+	{
 		selectNextPlayerUnit(true, true);
+		_map->refreshSelectorPosition();
+	}
 }
 
 /**
@@ -996,15 +989,14 @@ void BattlescapeState::btnPrevSoldierClick(Action *)
  * @param setReselect When true, flag the current unit first.
  * @param checkInventory When true, don't select a unit that has no inventory.
  */
-void BattlescapeState::selectNextPlayerUnit(bool checkReselect, bool setReselect, bool checkInventory)
+void BattlescapeState::selectNextPlayerUnit(bool checkReselect, bool setReselect, bool checkInventory, bool checkFOV)
 {
 	if (allowButtons())
 	{
-		if (_battleGame->getCurrentAction()->type != BA_NONE) return;
 		BattleUnit *unit = _save->selectNextPlayerUnit(checkReselect, setReselect, checkInventory);
-		updateSoldierInfo();
+		updateSoldierInfo(checkFOV);
 		if (unit) _map->getCamera()->centerOnPosition(unit->getPosition());
-		_battleGame->cancelCurrentAction();
+		_battleGame->cancelAllActions();
 		_battleGame->getCurrentAction()->actor = unit;
 		_battleGame->setupCursor();
 	}
@@ -1020,11 +1012,10 @@ void BattlescapeState::selectPreviousPlayerUnit(bool checkReselect, bool setRese
 {
 	if (allowButtons())
 	{
-		if (_battleGame->getCurrentAction()->type != BA_NONE) return;
 		BattleUnit *unit = _save->selectPreviousPlayerUnit(checkReselect, setReselect, checkInventory);
 		updateSoldierInfo();
 		if (unit) _map->getCamera()->centerOnPosition(unit->getPosition());
-		_battleGame->cancelCurrentAction();
+		_battleGame->cancelAllActions();
 		_battleGame->getCurrentAction()->actor = unit;
 		_battleGame->setupCursor();
 	}
@@ -1058,7 +1049,7 @@ void BattlescapeState::btnEndTurnClick(Action *)
 {
 	if (allowButtons())
 	{
-		_txtTooltip->setText(L"");
+		_txtTooltip->setText("");
 		_battleGame->requestEndTurn();
 	}
 }
@@ -1081,7 +1072,7 @@ void BattlescapeState::btnStatsClick(Action *action)
 {
 	if (playableUnitSelected())
 	{
-		bool b = true;
+		bool scroll = false;
 		if (SCROLL_TRIGGER == Options::battleEdgeScroll &&
 			SDL_MOUSEBUTTONUP == action->getDetails()->type && SDL_BUTTON_LEFT == action->getDetails()->button.button)
 		{
@@ -1093,19 +1084,13 @@ void BattlescapeState::btnStatsClick(Action *action)
 				|| (posY > (_map->getHeight() - Camera::SCROLL_BORDER) * action->getYScale()))
 				// To avoid handling this event as a click
 				// on the stats button when the mouse is on the scroll-border
-				b = false;
+				scroll = true;
 		}
-		// clean up the waypoints
-		if (_battleGame->getCurrentAction()->type == BA_LAUNCH)
+		if (!scroll)
 		{
-			_battleGame->getCurrentAction()->waypoints.clear();
-			_battleGame->getMap()->getWaypoints()->clear();
-			showLaunchButton(false);
+			_battleGame->cancelAllActions();
+			popup(new UnitInfoState(_save->getSelectedUnit(), this, false, false));
 		}
-
-		_battleGame->cancelCurrentAction(true);
-
-		if (b) popup(new UnitInfoState(_save->getSelectedUnit(), this, false, false));
 	}
 }
 
@@ -1128,10 +1113,16 @@ void BattlescapeState::btnLeftHandItemClick(Action *)
 
 		_battleGame->cancelCurrentAction();
 
-		_save->getSelectedUnit()->setActiveHand("STR_LEFT_HAND");
+		BattleUnit *unit = _save->getSelectedUnit();
+		BattleItem *leftHandItem = getLeftHandItem(unit);
+
+		if (leftHandItem != getSpecialMeleeWeapon(unit))
+		{
+			unit->setActiveHand("STR_LEFT_HAND");
+		}
+
 		_map->cacheUnits();
 		_map->draw();
-		BattleItem *leftHandItem = _save->getSelectedUnit()->getItem("STR_LEFT_HAND");
 		handleItemClick(leftHandItem);
 	}
 }
@@ -1155,10 +1146,16 @@ void BattlescapeState::btnRightHandItemClick(Action *)
 
 		_battleGame->cancelCurrentAction();
 
-		_save->getSelectedUnit()->setActiveHand("STR_RIGHT_HAND");
+		BattleUnit *unit = _save->getSelectedUnit();
+		BattleItem *rightHandItem = getRightHandItem(unit);
+
+		if (rightHandItem != getSpecialMeleeWeapon(unit))
+		{
+			unit->setActiveHand("STR_RIGHT_HAND");
+		}
+
 		_map->cacheUnits();
 		_map->draw();
-		BattleItem *rightHandItem = _save->getSelectedUnit()->getItem("STR_RIGHT_HAND");
 		handleItemClick(rightHandItem);
 	}
 }
@@ -1276,7 +1273,7 @@ bool BattlescapeState::playableUnitSelected()
 /**
  * Updates a soldier's name/rank/tu/energy/health/morale.
  */
-void BattlescapeState::updateSoldierInfo()
+void BattlescapeState::updateSoldierInfo(bool checkFOV)
 {
 	BattleUnit *battleUnit = _save->getSelectedUnit();
 
@@ -1307,7 +1304,7 @@ void BattlescapeState::updateSoldierInfo()
 	_numAmmoRight->setVisible(playableUnit);
 	if (!playableUnit)
 	{
-		_txtName->setText(L"");
+		_txtName->setText("");
 		showPsiButton(false);
 		toggleKneelButton(0);
 		return;
@@ -1340,7 +1337,7 @@ void BattlescapeState::updateSoldierInfo()
 
 	toggleKneelButton(battleUnit);
 
-	BattleItem *leftHandItem = battleUnit->getItem("STR_LEFT_HAND");
+	BattleItem *leftHandItem = getLeftHandItem(battleUnit);
 	_btnLeftHandItem->clear();
 	_numAmmoLeft->setVisible(false);
 	if (leftHandItem)
@@ -1355,7 +1352,7 @@ void BattlescapeState::updateSoldierInfo()
 				_numAmmoLeft->setValue(0);
 		}
 	}
-	BattleItem *rightHandItem = battleUnit->getItem("STR_RIGHT_HAND");
+	BattleItem *rightHandItem = getRightHandItem(battleUnit);
 	_btnRightHandItem->clear();
 	_numAmmoRight->setVisible(false);
 	if (rightHandItem)
@@ -1371,7 +1368,10 @@ void BattlescapeState::updateSoldierInfo()
 		}
 	}
 
-	_save->getTileEngine()->calculateFOV(_save->getSelectedUnit());
+	if (checkFOV)
+	{
+		_save->getTileEngine()->calculateFOV(_save->getSelectedUnit());
+	}
 	int j = 0;
 	for (std::vector<BattleUnit*>::iterator i = battleUnit->getVisibleUnits()->begin(); i != battleUnit->getVisibleUnits()->end() && j < VISIBLE_MAX; ++i)
 	{
@@ -1382,6 +1382,43 @@ void BattlescapeState::updateSoldierInfo()
 	}
 
 	showPsiButton(battleUnit->getSpecialWeapon(BT_PSIAMP) != 0);
+}
+
+/**
+ * Gets the item currently accessible through the left hand slot in the battlescape UI.
+ */
+BattleItem *BattlescapeState::getLeftHandItem(BattleUnit *battleUnit)
+{
+	BattleItem *melee = getSpecialMeleeWeapon(battleUnit);
+	BattleItem *leftHand = battleUnit->getItem("STR_LEFT_HAND");
+
+	// If the unit has a melee weapon, and the right hand is already occupied,
+	// allow access to the melee weapon through the left hand slot,
+	// provided that the left hand is empty.
+	return melee && battleUnit->getItem("STR_RIGHT_HAND") && !leftHand
+		? melee
+		: leftHand;
+}
+
+/**
+ * Gets the item currently accessible through the right hand slot in the battlescape UI.
+ */
+BattleItem *BattlescapeState::getRightHandItem(BattleUnit *battleUnit)
+{
+	BattleItem *melee = getSpecialMeleeWeapon(battleUnit);
+	BattleItem *rightHand = battleUnit->getItem("STR_RIGHT_HAND");
+
+	// If the unit has a built-in melee weapon, and the right hand is not occupied,
+	// allow access to the melee weapon through the right hand slot.
+	return melee && !rightHand ? melee : rightHand;
+}
+
+/**
+ * Gets the built-in melee weapon of a unit, if any.
+ */
+BattleItem *BattlescapeState::getSpecialMeleeWeapon(BattleUnit *battleUnit)
+{
+	return battleUnit->getSpecialWeapon(BT_MELEE);
 }
 
 /**
@@ -1496,7 +1533,7 @@ Map *BattlescapeState::getMap() const
  * Shows a debug message in the topleft corner.
  * @param message Debug message.
  */
-void BattlescapeState::debug(const std::wstring &message)
+void BattlescapeState::debug(const std::string &message)
 {
 	if (_save->getDebugMode())
 	{
@@ -1524,7 +1561,7 @@ inline void BattlescapeState::handle(Action *action)
 		if (_game->getCursor()->getVisible() || ((action->getDetails()->type == SDL_MOUSEBUTTONDOWN || action->getDetails()->type == SDL_MOUSEBUTTONUP) && action->getDetails()->button.button == SDL_BUTTON_RIGHT))
 		{
 			State::handle(action);
-			
+
 			if (Options::touchEnabled == false && _isMouseScrolling && !Options::battleDragScrollInvert)
 			{
 				_map->setSelectorPosition((_cursorPosition.x - _game->getScreen()->getCursorLeftBlackBand()) / action->getXScale(), (_cursorPosition.y - _game->getScreen()->getCursorTopBlackBand()) / action->getYScale());
@@ -1550,18 +1587,18 @@ inline void BattlescapeState::handle(Action *action)
 					if (action->getDetails()->key.keysym.sym == SDLK_d && (SDL_GetModState() & KMOD_CTRL) != 0)
 					{
 						_save->setDebugMode();
-						debug(L"Debug Mode");
+						debug("Debug Mode");
 					}
 					// "ctrl-v" - reset tile visibility
 					else if (_save->getDebugMode() && action->getDetails()->key.keysym.sym == SDLK_v && (SDL_GetModState() & KMOD_CTRL) != 0)
 					{
-						debug(L"Resetting tile visibility");
+						debug("Resetting tile visibility");
 						_save->resetTiles();
 					}
 					// "ctrl-k" - kill all aliens
 					else if (_save->getDebugMode() && action->getDetails()->key.keysym.sym == SDLK_k && (SDL_GetModState() & KMOD_CTRL) != 0)
 					{
-						debug(L"Influenza bacterium dispersed");
+						debug("Influenza bacterium dispersed");
 						for (std::vector<BattleUnit*>::iterator i = _save->getUnits()->begin(); i !=_save->getUnits()->end(); ++i)
 						{
 							if ((*i)->getOriginalFaction() == FACTION_HOSTILE && !(*i)->isOut())
@@ -1575,7 +1612,7 @@ inline void BattlescapeState::handle(Action *action)
 					// "ctrl-j" - stun all aliens
 					else if (_save->getDebugMode() && action->getDetails()->key.keysym.sym == SDLK_j && (SDL_GetModState() & KMOD_CTRL) != 0)
 					{
-						debug(L"Deploying Celine Dion album");
+						debug("Deploying Celine Dion album");
 						for (std::vector<BattleUnit*>::iterator i = _save->getUnits()->begin(); i !=_save->getUnits()->end(); ++i)
 						{
 							if ((*i)->getOriginalFaction() == FACTION_HOSTILE && !(*i)->isOut())
@@ -1589,7 +1626,7 @@ inline void BattlescapeState::handle(Action *action)
 					// "ctrl-w" - warp unit
 					else if (_save->getDebugMode() && action->getDetails()->key.keysym.sym == SDLK_w && (SDL_GetModState() & KMOD_CTRL) != 0)
 					{
-						debug(L"Beam me up Scotty");
+						debug("Beam me up Scotty");
 						BattleUnit *unit = _save->getSelectedUnit();
 						Position newPos;
 						_map->getSelectorPosition(&newPos);
@@ -1647,13 +1684,12 @@ void BattlescapeState::saveAIMap()
 
 	int w = _save->getMapSizeX();
 	int h = _save->getMapSizeY();
-	Position pos(unit->getPosition());
 
 	SDL_Surface *img = SDL_AllocSurface(0, w * 8, h * 8, 24, 0xff, 0xff00, 0xff0000, 0);
 	Log(LOG_INFO) << "unit = " << unit->getId();
 	memset(img->pixels, 0, img->pitch * img->h);
 
-	Position tilePos(pos);
+	Position tilePos(unit->getPosition());
 	SDL_Rect r;
 	r.h = 8;
 	r.w = 8;
@@ -1784,7 +1820,7 @@ void BattlescapeState::saveVoxelView()
 	Position targetVoxel,hitPos;
 	double dist = 0;
 	bool _debug = _save->getDebugMode();
-	double dir = ((float)bu->getDirection()+4)/4*M_PI;
+	double dir = ((double)bu->getDirection()+4)/4*M_PI;
 	image.clear();
 	for (int y = -256+32; y < 256+32; ++y)
 	{
@@ -1860,12 +1896,12 @@ void BattlescapeState::saveVoxelView()
 					dist*=0.9;
 				}
 				if (dist > 1) dist = 1;
-				if (tile) dist *= (16 - (float)tile->getShade())/16;
+				if (tile) dist *= (16 - (double)tile->getShade())/16;
 			}
 
-			image.push_back((int)((float)(pal[test*3+0])*dist));
-			image.push_back((int)((float)(pal[test*3+1])*dist));
-			image.push_back((int)((float)(pal[test*3+2])*dist));
+			image.push_back((int)((double)(pal[test*3+0])*dist));
+			image.push_back((int)((double)(pal[test*3+1])*dist));
+			image.push_back((int)((double)(pal[test*3+2])*dist));
 		}
 	}
 
@@ -2207,7 +2243,7 @@ void BattlescapeState::txtTooltipOut(Action *action)
 	{
 		if (_currentTooltip == action->getSender()->getTooltip())
 		{
-			_txtTooltip->setText(L"");
+			_txtTooltip->setText("");
 		}
 	}
 }

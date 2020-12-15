@@ -22,6 +22,7 @@
 #include "../Mod/Mod.h"
 #include "../Engine/LocalizedText.h"
 #include "../Engine/Options.h"
+#include "../Engine/Unicode.h"
 #include "../Interface/TextButton.h"
 #include "../Interface/Window.h"
 #include "../Interface/Text.h"
@@ -99,12 +100,12 @@ MonthlyCostsState::MonthlyCostsState(Base *base) : _base(base)
 
 	_txtSalaries->setText(tr("STR_SALARIES"));
 
-	std::wostringstream ss;
-	ss << tr("STR_INCOME") << L"=" << Text::formatFunding(_game->getSavedGame()->getCountryFunding());
+	std::ostringstream ss;
+	ss << tr("STR_INCOME") << "=" << Unicode::formatFunding(_game->getSavedGame()->getCountryFunding());
 	_txtIncome->setText(ss.str());
 
-	std::wostringstream ss2;
-	ss2 << tr("STR_MAINTENANCE") << L"=" << Text::formatFunding(_game->getSavedGame()->getBaseMaintenance());
+	std::ostringstream ss2;
+	ss2 << tr("STR_MAINTENANCE") << "=" << Unicode::formatFunding(_game->getSavedGame()->getBaseMaintenance());
 	_txtMaintenance->setText(ss2.str());
 
 	_lstCrafts->setColumns(4, 125, 70, 44, 50);
@@ -116,9 +117,9 @@ MonthlyCostsState::MonthlyCostsState(Base *base) : _base(base)
 		RuleCraft *craft = _game->getMod()->getCraft(*i);
 		if (craft->getRentCost() != 0 && _game->getSavedGame()->isResearched(craft->getRequirements()))
 		{
-			std::wostringstream ss3;
+			std::ostringstream ss3;
 			ss3 << _base->getCraftCount(*i);
-			_lstCrafts->addRow(4, tr(*i).c_str(), Text::formatFunding(craft->getRentCost()).c_str(), ss3.str().c_str(), Text::formatFunding(_base->getCraftCount(*i) * craft->getRentCost()).c_str());
+			_lstCrafts->addRow(4, tr(*i).c_str(), Unicode::formatFunding(craft->getRentCost()).c_str(), ss3.str().c_str(), Unicode::formatFunding(_base->getCraftCount(*i) * craft->getRentCost()).c_str());
 		}
 	}
 
@@ -129,34 +130,34 @@ MonthlyCostsState::MonthlyCostsState(Base *base) : _base(base)
 	for (std::vector<std::string>::const_iterator i = soldiers.begin(); i != soldiers.end(); ++i)
 	{
 		RuleSoldier *soldier = _game->getMod()->getSoldier(*i);
-		if (soldier->getBuyCost() != 0 && _game->getSavedGame()->isResearched(soldier->getRequirements()))
+		if (soldier->getSalaryCost() != 0 && _game->getSavedGame()->isResearched(soldier->getRequirements()))
 		{
-			std::wostringstream ss4;
+			std::ostringstream ss4;
 			ss4 << _base->getSoldierCount(*i);
 			std::string name = (*i);
 			if (soldiers.size() == 1)
 			{
 				name = "STR_SOLDIERS";
 			}
-			_lstSalaries->addRow(4, tr(name).c_str(), Text::formatFunding(soldier->getSalaryCost()).c_str(), ss4.str().c_str(), Text::formatFunding(_base->getSoldierCount(*i) * soldier->getSalaryCost()).c_str());
+			_lstSalaries->addRow(4, tr(name).c_str(), Unicode::formatFunding(soldier->getSalaryCost()).c_str(), ss4.str().c_str(), Unicode::formatFunding(_base->getSoldierCount(*i) * soldier->getSalaryCost()).c_str());
 		}
 	}
-	std::wostringstream ss5;
+	std::ostringstream ss5;
 	ss5 << _base->getTotalEngineers();
-	_lstSalaries->addRow(4, tr("STR_ENGINEERS").c_str(), Text::formatFunding(_game->getMod()->getEngineerCost()).c_str(), ss5.str().c_str(), Text::formatFunding(_base->getTotalEngineers() * _game->getMod()->getEngineerCost()).c_str());
-	std::wostringstream ss6;
+	_lstSalaries->addRow(4, tr("STR_ENGINEERS").c_str(), Unicode::formatFunding(_game->getMod()->getEngineerCost()).c_str(), ss5.str().c_str(), Unicode::formatFunding(_base->getTotalEngineers() * _game->getMod()->getEngineerCost()).c_str());
+	std::ostringstream ss6;
 	ss6 << _base->getTotalScientists();
-	_lstSalaries->addRow(4, tr("STR_SCIENTISTS").c_str(), Text::formatFunding(_game->getMod()->getScientistCost()).c_str(), ss6.str().c_str(), Text::formatFunding(_base->getTotalScientists() * _game->getMod()->getScientistCost()).c_str());
+	_lstSalaries->addRow(4, tr("STR_SCIENTISTS").c_str(), Unicode::formatFunding(_game->getMod()->getScientistCost()).c_str(), ss6.str().c_str(), Unicode::formatFunding(_base->getTotalScientists() * _game->getMod()->getScientistCost()).c_str());
 
 	_lstMaintenance->setColumns(2, 239, 60);
 	_lstMaintenance->setDot(true);
-	std::wostringstream ss7;
-	ss7 << L'\x01' << Text::formatFunding(_base->getFacilityMaintenance());
+	std::ostringstream ss7;
+	ss7 << Unicode::TOK_COLOR_FLIP << Unicode::formatFunding(_base->getFacilityMaintenance());
 	_lstMaintenance->addRow(2, tr("STR_BASE_MAINTENANCE").c_str(), ss7.str().c_str());
 
 	_lstTotal->setColumns(2, 44, 55);
 	_lstTotal->setDot(true);
-	_lstTotal->addRow(2, tr("STR_TOTAL").c_str(), Text::formatFunding(_base->getMonthlyMaintenace()).c_str());
+	_lstTotal->addRow(2, tr("STR_TOTAL").c_str(), Unicode::formatFunding(_base->getMonthlyMaintenace()).c_str());
 }
 
 /**

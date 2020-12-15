@@ -29,6 +29,7 @@
 #include "../Mod/Armor.h"
 #include "SerializationHelper.h"
 #include "../Battlescape/Particle.h"
+#include "../fmath.h"
 
 namespace OpenXcom
 {
@@ -48,7 +49,7 @@ Tile::SerializationKey Tile::serializationKey =
  * constructor
  * @param pos Position.
  */
-Tile::Tile(Position pos): _smoke(0), _fire(0), _explosive(0), _explosiveType(0), _pos(pos), _unit(0), _animationOffset(0), _markerColor(0), _visible(false), _preview(-1), _TUMarker(-1), _overlaps(0), _danger(false)
+Tile::Tile(Position pos): _smoke(0), _fire(0), _explosive(0), _explosiveType(0), _pos(pos), _unit(0), _animationOffset(0), _markerColor(0), _visible(false), _preview(-1), _TUMarker(-1), _overlaps(0), _danger(false), _obstacle(0)
 {
 	for (int i = 0; i < 4; ++i)
 	{
@@ -165,18 +166,18 @@ YAML::Node Tile::save() const
 		node["smoke"] = _smoke;
 	if (_fire)
 		node["fire"] = _fire;
-	if (_discovered[0] || _discovered[1] || _discovered[2])
+	if (_discovered[O_FLOOR] || _discovered[O_WESTWALL] || _discovered[O_NORTHWALL])
 	{
-		for (int i = 0; i < 3; i++)
+		for (int i = O_FLOOR; i <= O_NORTHWALL; i++)
 		{
 			node["discovered"].push_back(_discovered[i]);
 		}
 	}
-	if (isUfoDoorOpen(1))
+	if (isUfoDoorOpen(O_WESTWALL))
 	{
 		node["openDoorWest"] = true;
 	}
-	if (isUfoDoorOpen(2))
+	if (isUfoDoorOpen(O_NORTHWALL))
 	{
 		node["openDoorNorth"] = true;
 	}
@@ -202,8 +203,8 @@ void Tile::saveBinary(Uint8** buffer) const
 	serializeInt(buffer, serializationKey._fire, _fire);
 
 	Uint8 boolFields = (_discovered[0]?1:0) + (_discovered[1]?2:0) + (_discovered[2]?4:0);
-	boolFields |= isUfoDoorOpen(1) ? 8 : 0; // west
-	boolFields |= isUfoDoorOpen(2) ? 0x10 : 0; // north?
+	boolFields |= isUfoDoorOpen(O_WESTWALL) ? 8 : 0; // west
+	boolFields |= isUfoDoorOpen(O_NORTHWALL) ? 0x10 : 0; // north?
 	serializeInt(buffer, serializationKey.boolFields, boolFields);
 }
 
@@ -212,9 +213,9 @@ void Tile::saveBinary(Uint8** buffer) const
  * @param dat pointer to the data object
  * @param mapDataID
  * @param mapDataSetID
- * @param part the part number
+ * @param part Part of the tile to set data of
  */
-void Tile::setMapData(MapData *dat, int mapDataID, int mapDataSetID, int part)
+void Tile::setMapData(MapData *dat, int mapDataID, int mapDataSetID, TilePart part)
 {
 	_objects[part] = dat;
 	_mapDataID[part] = mapDataID;
@@ -225,10 +226,10 @@ void Tile::setMapData(MapData *dat, int mapDataID, int mapDataSetID, int part)
  * get the MapData references of part 0 to 3.
  * @param mapDataID
  * @param mapDataSetID
- * @param part the part number
+ * @param part is part of the tile to get data from
  * @return the object ID
  */
-void Tile::getMapData(int *mapDataID, int *mapDataSetID, int part) const
+void Tile::getMapData(int *mapDataID, int *mapDataSetID, TilePart part) const
 {
 	*mapDataID = _mapDataID[part];
 	*mapDataSetID = _mapDataSetID[part];
@@ -334,18 +335,20 @@ int Tile::getFootstepSound(Tile *tileBelow) const
  * @param reserve
  * @return a value: 0(normal door), 1(ufo door) or -1 if no door opened or 3 if ufo door(=animated) is still opening 4 if not enough TUs
  */
-int Tile::openDoor(int part, BattleUnit *unit, BattleActionType reserve)
+int Tile::openDoor(TilePart part, BattleUnit *unit, BattleActionType reserve)
 {
 	if (!_objects[part]) return -1;
 
-	if (_objects[part]->isDoor() && unit->getArmor()->getSize() == 1) // don't allow double-wide units to open swinging doors due to engine limitations
+	if (_objects[part]->isDoor())
 	{
+		if (unit && unit->getArmor()->getSize() > 1) // don't allow double-wide units to open swinging doors due to engine limitations
+			return -1;
 		if (unit && unit->getTimeUnits() < _objects[part]->getTUCost(unit->getMovementType()) + unit->getActionTUs(reserve, unit->getMainHandWeapon(false)))
 			return 4;
 		if (_unit && _unit != unit && _unit->getPosition() != getPosition())
 			return -1;
-		setMapData(_objects[part]->getDataset()->getObjects()->at(_objects[part]->getAltMCD()), _objects[part]->getAltMCD(), _mapDataSetID[part],
-				   _objects[part]->getDataset()->getObjects()->at(_objects[part]->getAltMCD())->getObjectType());
+		setMapData(_objects[part]->getDataset()->getObject(_objects[part]->getAltMCD()), _objects[part]->getAltMCD(), _mapDataSetID[part],
+				   _objects[part]->getDataset()->getObject(_objects[part]->getAltMCD())->getObjectType());
 		setMapData(0, -1, -1, part);
 		return 0;
 	}
@@ -367,9 +370,9 @@ int Tile::closeUfoDoor()
 {
 	int retval = 0;
 
-	for (int part = 0; part < 4; ++part)
+	for (int part = O_FLOOR; part <= O_NORTHWALL; ++part)
 	{
-		if (isUfoDoorOpen(part))
+		if (isUfoDoorOpen((TilePart)part))
 		{
 			_currentFrame[part] = 0;
 			retval = 1;
@@ -460,7 +463,7 @@ int Tile::getShade() const
  * @param type the objective type for this mission we are checking against.
  * @return bool Return true objective was destroyed.
  */
-bool Tile::destroy(int part, SpecialTileType type)
+bool Tile::destroy(TilePart part, SpecialTileType type)
 {
 	bool _objective = false;
 	if (_objects[part])
@@ -473,7 +476,7 @@ bool Tile::destroy(int part, SpecialTileType type)
 		setMapData(0, -1, -1, part);
 		if (originalPart->getDieMCD())
 		{
-			MapData *dead = originalPart->getDataset()->getObjects()->at(originalPart->getDieMCD());
+			MapData *dead = originalPart->getDataset()->getObject(originalPart->getDieMCD());
 			setMapData(dead, originalPart->getDieMCD(), originalMapDataSetID, dead->getObjectType());
 		}
 		if (originalPart->getExplosive())
@@ -497,7 +500,7 @@ bool Tile::destroy(int part, SpecialTileType type)
  * @param type the objective type for this mission we are checking against.
  * @return bool Return true objective was destroyed
  */
-bool Tile::damage(int part, int power, SpecialTileType type)
+bool Tile::damage(TilePart part, int power, SpecialTileType type)
 {
 	bool objective = false;
 	if (power >= _objects[part]->getArmor())
@@ -575,7 +578,7 @@ int Tile::getFuel() const
  * Flammability of the particular part of the tile
  * @return Flammability : the lower the value, the higher the chance the tile/object catches fire.
  */
-int Tile::getFlammability(int part) const
+int Tile::getFlammability(TilePart part) const
 {
 	return _objects[part]->getFlammable();
 }
@@ -584,7 +587,7 @@ int Tile::getFlammability(int part) const
  * Fuel of particular part of the tile
  * @return how long to burn.
  */
-int Tile::getFuel(int part) const
+int Tile::getFuel(TilePart part) const
 {
 	return _objects[part]->getFuel();
 }
@@ -606,7 +609,7 @@ void Tile::ignite(int power)
 		{
 			if (_fire == 0)
 			{
-				_smoke = 15 - std::max(1, std::min((getFlammability() / 10), 12));
+				_smoke = 15 - Clamp(getFlammability() / 10, 1, 12);
 				_overlaps = 1;
 				_fire = getFuel() + 1;
 				_animationOffset = RNG::generate(0,3);
@@ -713,7 +716,7 @@ void Tile::addSmoke(int smoke)
 	{
 		if (_overlaps == 0)
 		{
-			_smoke = std::max(1, std::min(_smoke + smoke, 15));
+			_smoke = Clamp(_smoke + smoke, 1, 15);
 		}
 		else
 		{
@@ -812,7 +815,7 @@ void Tile::prepareNewTurn(bool smokeDamage)
 	// we've received new smoke in this turn, but we're not on fire, average out the smoke.
 	if ( _overlaps != 0 && _smoke != 0 && _fire == 0)
 	{
-		_smoke = std::max(0, std::min((_smoke / _overlaps)- 1, 15));
+		_smoke = Clamp((_smoke / _overlaps) - 1, 0, 15);
 	}
 	// if we still have smoke/fire
 	if (_smoke)
@@ -989,6 +992,22 @@ void Tile::addParticle(Particle *particle)
 std::list<Particle *> *Tile::getParticleCloud()
 {
 	return &_particles;
+}
+
+/**
+ * sets the flag of an obstacle for single part.
+ */
+void Tile::setObstacle(int part)
+{
+	_obstacle |= (1 << part);
+}
+
+/**
+ * resets obstacle flag for all parts of the tile.
+ */
+void Tile::resetObstacle(void)
+{
+	_obstacle = 0;
 }
 
 }

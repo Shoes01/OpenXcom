@@ -17,6 +17,7 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "Game.h"
+#include "../resource.h"
 #include <algorithm>
 #include <cmath>
 #include <sstream>
@@ -37,6 +38,7 @@
 #include "Options.h"
 #include "CrossPlatform.h"
 #include "FileMap.h"
+#include "Unicode.h"
 #include "../Menu/TestState.h"
 
 namespace OpenXcom
@@ -77,12 +79,14 @@ Game::Game(const std::string &title) : _screen(0), _cursor(0), _lang(0), _save(0
 	SDL_WM_GrabInput(Options::captureMouse);
 	
 	// Set the window icon
-	CrossPlatform::setWindowIcon(103, FileMap::getFilePath("openxcom.png"));
+	CrossPlatform::setWindowIcon(IDI_ICON1, FileMap::getFilePath("openxcom.png"));
 
 	// Set the window caption
 	SDL_WM_SetCaption(title.c_str(), 0);
 
+	// Set up unicode
 	SDL_EnableUNICODE(1);
+	Unicode::getUtf8Locale();
 
 	// Create display
 	_screen = new Screen();
@@ -183,17 +187,37 @@ void Game::run()
 					quit();
 					break;
 				case SDL_ACTIVEEVENT:
-					switch (reinterpret_cast<SDL_ActiveEvent*>(&_event)->state)
+					// An event other than SDL_APPMOUSEFOCUS change happened.
+					if (reinterpret_cast<SDL_ActiveEvent*>(&_event)->state & ~SDL_APPMOUSEFOCUS)
 					{
-						case SDL_APPACTIVE:
-							runningState = reinterpret_cast<SDL_ActiveEvent*>(&_event)->gain ? RUNNING : stateRun[Options::pauseMode];
-							break;
-						case SDL_APPMOUSEFOCUS:
-							// We consciously ignore it.
-							break;
-						case SDL_APPINPUTFOCUS:
-							runningState = reinterpret_cast<SDL_ActiveEvent*>(&_event)->gain ? RUNNING : kbFocusRun[Options::pauseMode];
-							break;
+						Uint8 currentState = SDL_GetAppState();
+						// Game is minimized
+						if (!(currentState & SDL_APPACTIVE))
+						{
+							runningState = stateRun[Options::pauseMode];
+							if (Options::backgroundMute)
+							{
+								setVolume(0, 0, 0);
+							}
+						}
+						// Game is not minimized but has no keyboard focus.
+						else if (!(currentState & SDL_APPINPUTFOCUS))
+						{
+							runningState = kbFocusRun[Options::pauseMode];
+							if (Options::backgroundMute)
+							{
+								setVolume(0, 0, 0);
+							}
+						}
+						// Game has keyboard focus.
+						else
+						{
+							runningState = RUNNING;
+							if (Options::backgroundMute)
+							{
+								setVolume(Options::soundVolume, Options::musicVolume, Options::uiVolume);
+							}
+						}
 					}
 					break;
 				case SDL_VIDEORESIZE:
@@ -204,8 +228,8 @@ void Game::run()
 							Options::newDisplayWidth = Options::displayWidth = std::max(Screen::ORIGINAL_WIDTH, _event.resize.w);
 							Options::newDisplayHeight = Options::displayHeight = std::max(Screen::ORIGINAL_HEIGHT, _event.resize.h);
 							int dX = 0, dY = 0;
-							Screen::updateScale(Options::battlescapeScale, Options::battlescapeScale, Options::baseXBattlescape, Options::baseYBattlescape, false);
-							Screen::updateScale(Options::geoscapeScale, Options::geoscapeScale, Options::baseXGeoscape, Options::baseYGeoscape, false);
+							Screen::updateScale(Options::battlescapeScale, Options::baseXBattlescape, Options::baseYBattlescape, false);
+							Screen::updateScale(Options::geoscapeScale, Options::baseXGeoscape, Options::baseYGeoscape, false);
 							for (std::list<State*>::iterator i = _states.begin(); i != _states.end(); ++i)
 							{
 								(*i)->resize(dX, dY);
@@ -255,6 +279,12 @@ void Game::run()
 					}
 					_states.back()->handle(&action);
 					break;
+			}
+			if (!_init)
+			{
+				// States stack was changed, break the loop so new state
+				// can be initialized before processing new events
+				break;
 			}
 		}
 		
@@ -321,7 +351,7 @@ void Game::quit()
 	// Always save ironman
 	if (_save != 0 && _save->isIronman() && !_save->getName().empty())
 	{
-		std::string filename = CrossPlatform::sanitizeFilename(Language::wstrToFs(_save->getName())) + ".sav";
+		std::string filename = CrossPlatform::sanitizeFilename(Unicode::convUtf8ToPath(_save->getName())) + ".sav";
 		_save->save(filename);
 	}
 	_quit = true;
@@ -448,42 +478,6 @@ Language *Game::getLanguage() const
 }
 
 /**
- * Changes the language currently in use by the game.
- * @param filename Filename of the language file.
- */
-void Game::loadLanguage(const std::string &filename)
-{
-	std::ostringstream ss;
-	ss << "/Language/" << filename << ".yml";
-	std::string path = CrossPlatform::searchDataFile("common" + ss.str());
-	try
-	{
-		_lang->load(path);
-	}
-	catch (YAML::Exception &e)
-	{
-		throw Exception(path + ": " + std::string(e.what()));
-	}
-
-	std::vector<const ModInfo*> activeMods = Options::getActiveMods();
-	for (std::vector<const ModInfo*>::const_iterator i = activeMods.begin(); i != activeMods.end(); ++i)
-	{
-		std::string file = (*i)->getPath() + ss.str();
-		if (CrossPlatform::fileExists(file))
-		{
-			_lang->load(file);
-		}
-	}
-
-	const std::map<std::string, ExtraStrings*> &extraStrings = _mod->getExtraStrings();
-	std::map<std::string, ExtraStrings*>::const_iterator it = extraStrings.find(filename);
-	if (it != extraStrings.end())
-	{
-		_lang->load(it->second);
-	}
-}
-
-/**
  * Returns the saved game currently in use by the game.
  * @return Pointer to the saved game.
  */
@@ -554,10 +548,10 @@ bool Game::isQuitting() const
 }
 
 /**
- * Loads the most appropriate language
+ * Loads the most appropriate languages
  * given current system and game options.
  */
-void Game::defaultLanguage()
+void Game::loadLanguages()
 {
 	const std::string defaultLang = "en-US";
 	std::string currentLang = defaultLang;
@@ -576,7 +570,7 @@ void Game::defaultLanguage()
 		std::string locale = CrossPlatform::getLocale();
 		std::string lang = locale.substr(0, locale.find_first_of('-'));
 		// Try to load full locale
-		Language::replace(path, defaultLang, locale);
+		Unicode::replace(path, defaultLang, locale);
 		if (CrossPlatform::fileExists(path))
 		{
 			currentLang = locale;
@@ -584,7 +578,7 @@ void Game::defaultLanguage()
 		else
 		{
 			// Try to load language locale
-			Language::replace(path, locale, lang);
+			Unicode::replace(path, locale, lang);
 			if (CrossPlatform::fileExists(path))
 			{
 				currentLang = lang;
@@ -599,7 +593,7 @@ void Game::defaultLanguage()
 	else
 	{
 		// Use options language
-		Language::replace(path, defaultLang, Options::language);
+		Unicode::replace(path, defaultLang, Options::language);
 		if (CrossPlatform::fileExists(path))
 		{
 			currentLang = Options::language;
@@ -610,13 +604,39 @@ void Game::defaultLanguage()
 			currentLang = defaultLang;
 		}
 	}
-
-	loadLanguage(defaultLang);
-	if (currentLang != defaultLang)
-	{
-		loadLanguage(currentLang);
-	}
 	Options::language = currentLang;
+
+	// Load default and current language
+	std::ostringstream ssDefault, ssCurrent;
+	ssDefault << "/Language/" << defaultLang << ".yml";
+	ssCurrent << "/Language/" << currentLang << ".yml";
+
+	_lang->loadFile(CrossPlatform::searchDataFile("common" + ssDefault.str()));
+	if (currentLang != defaultLang)
+		_lang->loadFile(CrossPlatform::searchDataFile("common" + ssCurrent.str()));
+
+	// if this is a master but it has a master of its own, allow it to
+	// chainload the "super" master, including its languages
+	ModInfo modInfo = Options::getModInfo(Options::getActiveMaster());
+	if (!modInfo.getMaster().empty())
+	{
+		ModInfo masterInfo = Options::getModInfo(modInfo.getMaster());
+		_lang->loadFile(masterInfo.getPath() + ssDefault.str());
+		if (currentLang != defaultLang)
+			_lang->loadFile(masterInfo.getPath() + ssCurrent.str());
+	}
+
+	std::vector<const ModInfo*> activeMods = Options::getActiveMods();
+	for (std::vector<const ModInfo*>::const_iterator i = activeMods.begin(); i != activeMods.end(); ++i)
+	{
+		_lang->loadFile((*i)->getPath() + ssDefault.str());
+		if (currentLang != defaultLang)
+			_lang->loadFile((*i)->getPath() + ssCurrent.str());
+	}
+
+	_lang->loadRule(_mod->getExtraStrings(), defaultLang);
+	if (currentLang != defaultLang)
+		_lang->loadRule(_mod->getExtraStrings(), currentLang);
 }
 
 /**
@@ -624,18 +644,19 @@ void Game::defaultLanguage()
  */
 void Game::initAudio()
 {
-	Uint16 format;
+	Uint16 format = MIX_DEFAULT_FORMAT;
 	if (Options::audioBitDepth == 8)
 		format = AUDIO_S8;
-	else
-		format = AUDIO_S16SYS;
-	if (Options::audioSampleRate >= 44100)
-		Options::audioChunkSize = std::max(2048, Options::audioChunkSize);
-	else if (Options::audioSampleRate >= 22050)
-		Options::audioChunkSize = std::max(1024, Options::audioChunkSize);
-	else if (Options::audioSampleRate >= 11025)
-		Options::audioChunkSize = std::max(512, Options::audioChunkSize);
-	if (Mix_OpenAudio(Options::audioSampleRate, format, 2, Options::audioChunkSize) != 0)
+
+	if (Options::audioSampleRate % 11025 != 0)
+	{
+		Log(LOG_WARNING) << "Custom sample rate " << Options::audioSampleRate << "Hz, audio that doesn't match will be distorted!";
+		Log(LOG_WARNING) << "SDL_mixer only supports multiples of 11025Hz.";
+	}
+	int minChunk = Options::audioSampleRate / 11025 * 512;
+	Options::audioChunkSize = std::max(minChunk, Options::audioChunkSize);
+
+	if (Mix_OpenAudio(Options::audioSampleRate, format, MIX_DEFAULT_CHANNELS, Options::audioChunkSize) != 0)
 	{
 		Log(LOG_ERROR) << Mix_GetError();
 		Log(LOG_WARNING) << "No sound device detected, audio disabled.";

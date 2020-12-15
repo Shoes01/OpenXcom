@@ -47,7 +47,7 @@ namespace OpenXcom
  * @param base Pointer to base of origin.
  * @param id ID to assign to the craft (0 to not assign).
  */
-Craft::Craft(RuleCraft *rules, Base *base, int id) : MovingTarget(), _rules(rules), _base(base), _id(0), _fuel(0), _damage(0), _interceptionOrder(0), _takeoff(0), _status("STR_READY"), _lowFuel(false), _mission(false), _inBattlescape(false), _inDogfight(false)
+Craft::Craft(RuleCraft *rules, Base *base, int id) : MovingTarget(), _rules(rules), _base(base), _fuel(0), _damage(0), _interceptionOrder(0), _takeoff(0), _status("STR_READY"), _lowFuel(false), _mission(false), _inBattlescape(false), _inDogfight(false)
 {
 	_items = new ItemContainer();
 	if (id != 0)
@@ -62,6 +62,7 @@ Craft::Craft(RuleCraft *rules, Base *base, int id) : MovingTarget(), _rules(rule
 	{
 		setBase(base);
 	}
+	_speedMaxRadian = calculateRadianSpeed(_rules->getMaxSpeed()) * 120;
 }
 
 /**
@@ -89,7 +90,6 @@ Craft::~Craft()
 void Craft::load(const YAML::Node &node, const Mod *mod, SavedGame *save)
 {
 	MovingTarget::load(node);
-	_id = node["id"].as<int>(_id);
 	_fuel = node["fuel"].as<int>(_fuel);
 	_damage = node["damage"].as<int>(_damage);
 
@@ -168,7 +168,7 @@ void Craft::load(const YAML::Node &node, const Mod *mod, SavedGame *save)
 				}
 			}
 		}
-		else if (type == "STR_WAYPOINT")
+		else if (type == "STR_WAY_POINT")
 		{
 			for (std::vector<Waypoint*>::iterator i = save->getWaypoints()->begin(); i != save->getWaypoints()->end(); ++i)
 			{
@@ -217,7 +217,6 @@ YAML::Node Craft::save() const
 {
 	YAML::Node node = MovingTarget::save();
 	node["type"] = _rules->getType();
-	node["id"] = _id;
 	node["fuel"] = _fuel;
 	node["damage"] = _damage;
 	for (std::vector<CraftWeapon*>::const_iterator i = _weapons.begin(); i != _weapons.end(); ++i)
@@ -263,16 +262,13 @@ CraftId Craft::loadId(const YAML::Node &node)
 }
 
 /**
- * Saves the craft's unique identifiers to a YAML file.
- * @return YAML node.
+ * Returns the craft's unique type used for
+ * savegame purposes.
+ * @return ID.
  */
-YAML::Node Craft::saveId() const
+std::string Craft::getType() const
 {
-	YAML::Node node = MovingTarget::saveId();
-	CraftId uniqueId = getUniqueId();
-	node["type"] = uniqueId.first;
-	node["id"] = uniqueId.second;
-	return node;
+	return _rules->getType();
 }
 
 /**
@@ -300,23 +296,13 @@ void Craft::changeRules(RuleCraft *rules)
 }
 
 /**
- * Returns the craft's unique ID. Each craft
- * can be identified by its type and ID.
- * @return Unique ID.
- */
-int Craft::getId() const
-{
-	return _id;
-}
-
-/**
  * Returns the craft's unique default name.
  * @param lang Language to get strings from.
  * @return Full name.
  */
-std::wstring Craft::getDefaultName(Language *lang) const
+std::string Craft::getDefaultName(Language *lang) const
 {
-	return lang->getString("STR_CRAFTNAME").arg(lang->getString(_rules->getType())).arg(_id);
+	return lang->getString("STR_CRAFTNAME").arg(lang->getString(getType())).arg(_id);
 }
 
 /**
@@ -627,14 +613,25 @@ double Craft::getDistanceFromBase() const
 
 /**
  * Returns the amount of fuel the craft uses up
- * while it's on the air, based on its speed.
+ * while it's on the air, based on its current speed.
  * @return Fuel amount.
  */
 int Craft::getFuelConsumption() const
 {
+	return getFuelConsumption(_speed);
+}
+
+/**
+ * Returns the amount of fuel the craft uses up
+ * while it's on the air.
+ * @param speed Craft speed for estimation.
+ * @return Fuel amount.
+ */
+int Craft::getFuelConsumption(int speed) const
+{
 	if (!_rules->getRefuelItem().empty())
 		return 1;
-	return (int)floor(_speed / 100.0);
+	return (int)floor(speed / 100.0);
 }
 
 /**
@@ -655,7 +652,17 @@ int Craft::getFuelLimit() const
  */
 int Craft::getFuelLimit(Base *base) const
 {
-	return (int)floor(getFuelConsumption() * getDistance(base) / (_speedRadian * 120));
+	return (int)floor(getFuelConsumption(_rules->getMaxSpeed()) * getDistance(base) / _speedMaxRadian);
+}
+
+/**
+ * Returns the maximum range the craft can travel
+ * from its origin base on its current fuel.
+ * @return Range in radians.
+ */
+double Craft::getBaseRange() const
+{
+	return _fuel / 2.0 / getFuelConsumption(_rules->getMaxSpeed()) * _speedMaxRadian;
 }
 
 /**
@@ -678,6 +685,7 @@ void Craft::think()
 	else
 	{
 		_takeoff--;
+		resetMeetPoint();
 	}
 	if (reachedDestination() && _dest == (Target*)_base)
 	{
@@ -755,7 +763,7 @@ bool Craft::detect(Target *target) const
  */
 bool Craft::insideRadarRange(Target *target) const
 {
-	double range = _rules->getRadarRange() * (1 / 60.0) * (M_PI / 180);
+	double range = Nautical(_rules->getRadarRange());
 	return (getDistance(target) <= range);
 }
 
@@ -983,6 +991,8 @@ void Craft::unload(const Mod *mod)
 		{
 			_base->getStorageItems()->addItem((*w)->getRules()->getLauncherItem());
 			_base->getStorageItems()->addItem((*w)->getRules()->getClipItem(), (*w)->getClipsLoaded(mod));
+			delete (*w);
+			(*w) = 0;
 		}
 	}
 
@@ -1000,7 +1010,10 @@ void Craft::unload(const Mod *mod)
 		{
 			_base->getStorageItems()->addItem((*v)->getRules()->getCompatibleAmmo()->front(), (*v)->getAmmo());
 		}
+		delete (*v);
+		(*v) = 0;
 	}
+	_vehicles.clear();
 
 	// Remove soldiers
 	for (std::vector<Soldier*>::iterator s = _base->getSoldiers()->begin(); s != _base->getSoldiers()->end(); ++s)

@@ -79,6 +79,16 @@ AIModule::~AIModule()
 }
 
 /**
+ * Resets the unsaved AI state.
+ */
+void AIModule::reset()
+{
+	// these variables are not saved in save() and also not initiated in think()
+	_escapeTUs = 0;
+	_ambushTUs = 0;
+}
+
+/**
  * Loads the AI state from a YAML file.
  * @param node YAML node.
  */
@@ -87,13 +97,14 @@ void AIModule::load(const YAML::Node &node)
 	int fromNodeID, toNodeID;
 	fromNodeID = node["fromNode"].as<int>(-1);
 	toNodeID = node["toNode"].as<int>(-1);
-	_AIMode = node["AIMode"].as<int>(0);
+	_AIMode = node["AIMode"].as<int>(AI_PATROL);
 	_wasHitBy = node["wasHitBy"].as<std::vector<int> >(_wasHitBy);
-	if (fromNodeID != -1)
+	// TODO: Figure out why AI are sometimes left with junk nodes
+	if (fromNodeID >= 0 && (size_t)fromNodeID < _save->getNodes()->size())
 	{
 		_fromNode = _save->getNodes()->at(fromNodeID);
 	}
-	if (toNodeID != -1)
+	if (toNodeID >= 0 && (size_t)toNodeID < _save->getNodes()->size())
 	{
 		_toNode = _save->getNodes()->at(toNodeID);
 	}
@@ -136,7 +147,7 @@ void AIModule::think(BattleAction *action)
 	_knownEnemies = countKnownTargets();
 	_visibleEnemies = selectNearestTarget();
 	_spottingEnemies = getSpottingUnits(_unit->getPosition());
-	_melee = _unit->getMeleeWeapon() != 0;
+	_melee = (_unit->getMeleeWeapon() != 0);
 	_rifle = false;
 	_blaster = false;
 	_reachable = _save->getPathfinding()->findReachable(_unit, _unit->getTimeUnits());
@@ -160,16 +171,16 @@ void AIModule::think(BattleAction *action)
 		std::string AIMode;
 		switch (_AIMode)
 		{
-		case 0:
+		case AI_PATROL:
 			AIMode = "Patrol";
 			break;
-		case 1:
+		case AI_AMBUSH:
 			AIMode = "Ambush";
 			break;
-		case 2:
+		case AI_COMBAT:
 			AIMode = "Combat";
 			break;
-		case 3:
+		case AI_ESCAPE:
 			AIMode = "Escape";
 			break;
 		}
@@ -179,7 +190,7 @@ void AIModule::think(BattleAction *action)
 	if (action->weapon)
 	{
 		RuleItem *rule = action->weapon->getRules();
-		if (_save->isItemUsable(rule))
+		if (_save->isItemUsable(action->weapon))
 		{
 			if (rule->getBattleType() == BT_FIREARM)
 			{
@@ -235,35 +246,22 @@ void AIModule::think(BattleAction *action)
 
 	bool evaluate = false;
 
-	if (_AIMode == AI_ESCAPE)
-	{
-		if (!_spottingEnemies || !_knownEnemies)
+	switch (_AIMode)
 		{
-			evaluate = true;
-		}
-	}
-	else if (_AIMode == AI_PATROL)
-	{
-		if (_spottingEnemies || _visibleEnemies || _knownEnemies || RNG::percent(10))
-		{
-			evaluate = true;
-		}
-	}
-	else if (_AIMode == AI_AMBUSH)
-	{
-		if (!_rifle || !_ambushTUs || _visibleEnemies)
-		{
-			evaluate = true;
-		}
-	}
+		case AI_PATROL:
+			evaluate = (bool)(_spottingEnemies || _visibleEnemies || _knownEnemies || RNG::percent(10));
+			break;
+		case AI_AMBUSH:
+			evaluate = (!_rifle || !_ambushTUs || _visibleEnemies);
+			break;
+		case AI_COMBAT:
+			evaluate = (_attackAction->type == BA_RETHINK);
+			break;
+		case AI_ESCAPE:
+			evaluate = (!_spottingEnemies || !_knownEnemies);
+			break;
+			}
 
-	if (_AIMode == AI_COMBAT)
-	{
-		if (_attackAction->type == BA_RETHINK)
-		{
-			evaluate = true;
-		}
-	}
 	if (_spottingEnemies > 2
 		|| _unit->getHealth() < 2 * _unit->getBaseStats()->health / 3
 		|| (_aggroTarget && _aggroTarget->getTurnsSinceSpotted() > _intelligence))
@@ -285,16 +283,16 @@ void AIModule::think(BattleAction *action)
 			std::string AIMode;
 			switch (_AIMode)
 			{
-			case 0:
+			case AI_PATROL:
 				AIMode = "Patrol";
 				break;
-			case 1:
+			case AI_AMBUSH:
 				AIMode = "Ambush";
 				break;
-			case 2:
+			case AI_COMBAT:
 				AIMode = "Combat";
 				break;
-			case 3:
+			case AI_ESCAPE:
 				AIMode = "Escape";
 				break;
 			}
@@ -331,6 +329,7 @@ void AIModule::think(BattleAction *action)
 				break;
 			case 2:
 				_reserve = BA_SNAPSHOT;
+				break;
 			default:
 				break;
 			}
@@ -586,7 +585,6 @@ void AIModule::setupAmbush()
 
 	if (selectClosestKnownEnemy())
 	{
-		Position target;
 		const int BASE_SYSTEMATIC_SUCCESS = 100;
 		const int COVER_BONUS = 25;
 		const int FAST_PASS_THRESHOLD = 80;
@@ -613,7 +611,8 @@ void AIModule::setupAmbush()
 			}
 
 			// make sure we can't be seen here.
-			if (!_save->getTileEngine()->canTargetUnit(&origin, tile, &target, _aggroTarget, _unit) && !getSpottingUnits(pos))
+			Position target;
+			if (!_save->getTileEngine()->canTargetUnit(&origin, tile, &target, _aggroTarget, false, _unit) && !getSpottingUnits(pos))
 			{
 				_save->getPathfinding()->calculate(_unit, pos);
 				int ambushTUs = _save->getPathfinding()->getTotalTUCost();
@@ -669,7 +668,7 @@ void AIModule::setupAmbush()
 				Tile *tile = _save->getTile(currentPos);
 				Position target;
 				// do a virtual fire calculation
-				if (_save->getTileEngine()->canTargetUnit(&origin, tile, &target, _unit, _aggroTarget))
+				if (_save->getTileEngine()->canTargetUnit(&origin, tile, &target, _unit, false, _aggroTarget))
 				{
 					// if we can virtually fire at the hypothetical target, we know which way to face.
 					_ambushAction->finalFacing = _save->getTileEngine()->getDirectionTo(_ambushAction->target, currentPos);
@@ -803,34 +802,34 @@ void AIModule::setupEscape()
 
 	std::vector<Position> randomTileSearch = _save->getTileSearch();
 	RNG::shuffle(randomTileSearch);
-	
+
 	while (tries < 150 && !coverFound)
 	{
 		_escapeAction->target = _unit->getPosition(); // start looking in a direction away from the enemy
-					
+
 		if (!_save->getTile(_escapeAction->target))
 		{
-			_escapeAction->target = _unit->getPosition(); // cornered at the edge of the map perhaps? 
+			_escapeAction->target = _unit->getPosition(); // cornered at the edge of the map perhaps?
 		}
-		
+
 		score = 0;
 
 		if (tries == -1)
 		{
-			// you know, maybe we should just stay where we are and not risk reaction fire... 
+			// you know, maybe we should just stay where we are and not risk reaction fire...
 			// or maybe continue to wherever we were running to and not risk looking stupid
 			if (_save->getTile(_unit->lastCover) != 0)
 			{
 				_escapeAction->target = _unit->lastCover;
 			}
 		}
-		else if (tries < 121) 
+		else if (tries < 121)
 		{
 			// looking for cover
 			_escapeAction->target.x += randomTileSearch[tries].x;
 			_escapeAction->target.y += randomTileSearch[tries].y;
 			score = BASE_SYSTEMATIC_SUCCESS;
-			if (_escapeAction->target == _unit->getPosition()) 
+			if (_escapeAction->target == _unit->getPosition())
 			{
 				if (unitsSpottingMe > 0)
 				{
@@ -846,15 +845,15 @@ void AIModule::setupEscape()
 		}
 		else
 		{
-			
-			if (tries == 121) 
+
+			if (tries == 121)
 			{
-				if (_traceAI) 
+				if (_traceAI)
 				{
 					Log(LOG_INFO) << "best score after systematic search was: " << bestTileScore;
 				}
 			}
-						
+
 			score = BASE_DESPERATE_SUCCESS; // ruuuuuuun
 			_escapeAction->target = _unit->getPosition();
 			_escapeAction->target.x += RNG::generate(-10,10);
@@ -864,7 +863,7 @@ void AIModule::setupEscape()
 			{
 				_escapeAction->target.z = 0;
 			}
-			else if (_escapeAction->target.z >= _save->getMapSizeZ()) 
+			else if (_escapeAction->target.z >= _save->getMapSizeZ())
 			{
 				_escapeAction->target.z = _unit->getPosition().z;
 			}
@@ -884,16 +883,16 @@ void AIModule::setupEscape()
 			score += (distanceFromTarget - dist) * 10;
 		}
 		int spotters = 0;
-		if (!tile) 
+		if (!tile)
 		{
-			score = -100001; // no you can't quit the battlefield by running off the map. 
+			score = -100001; // no you can't quit the battlefield by running off the map.
 		}
 		else
 		{
 			spotters = getSpottingUnits(_escapeAction->target);
 			if (std::find(_reachable.begin(), _reachable.end(), _save->getTileIndex(_escapeAction->target))  == _reachable.end())
 				continue; // just ignore unreachable tiles
-					
+
 			if (_spottingEnemies || spotters)
 			{
 				if (_spottingEnemies <= spotters)
@@ -952,8 +951,8 @@ void AIModule::setupEscape()
 	{
 		_save->getTile(_escapeAction->target)->setMarkerColor(13);
 	}
-				
-	if (bestTileScore <= -100000) 
+
+	if (bestTileScore <= -100000)
 	{
 		if (_traceAI)
 		{
@@ -1014,14 +1013,14 @@ int AIModule::getSpottingUnits(const Position& pos) const
 			Position targetVoxel;
 			if (checking)
 			{
-				if (_save->getTileEngine()->canTargetUnit(&originVoxel, _save->getTile(pos), &targetVoxel, *i, _unit))
+				if (_save->getTileEngine()->canTargetUnit(&originVoxel, _save->getTile(pos), &targetVoxel, *i, false, _unit))
 				{
 					tally++;
 				}
 			}
 			else
 			{
-				if (_save->getTileEngine()->canTargetUnit(&originVoxel, _save->getTile(pos), &targetVoxel, *i))
+				if (_save->getTileEngine()->canTargetUnit(&originVoxel, _save->getTile(pos), &targetVoxel, *i, false))
 				{
 					tally++;
 				}
@@ -1059,7 +1058,7 @@ int AIModule::selectNearestTarget()
 					action.weapon = _attackAction->weapon;
 					action.target = (*i)->getPosition();
 					Position origin = _save->getTileEngine()->getOriginVoxel(action, 0);
-					valid = _save->getTileEngine()->canTargetUnit(&origin, (*i)->getTile(), &target, _unit);
+					valid = _save->getTileEngine()->canTargetUnit(&origin, (*i)->getTile(), &target, _unit, false);
 				}
 				else
 				{
@@ -1299,8 +1298,8 @@ void AIModule::evaluateAIMode()
 		escapeOdds *= 0.7;
 		break;
 	default:
-		combatOdds *= std::max(0.1, std::min(2.0, 1.2 + (_unit->getAggression() / 10.0)));
-		escapeOdds *= std::min(2.0, std::max(0.1, 0.9 - (_unit->getAggression() / 10.0)));
+		combatOdds *= Clamp(1.2 + (_unit->getAggression() / 10.0), 0.1, 2.0);
+		escapeOdds *= Clamp(0.9 - (_unit->getAggression() / 10.0), 0.1, 2.0);
 		break;
 	}
 
@@ -1347,7 +1346,7 @@ void AIModule::evaluateAIMode()
 	}
 
 	// no weapons, not psychic? don't pick combat or ambush
-	if (!_melee && !_rifle && !_blaster && _unit->getBaseStats()->psiSkill == 0)
+	if (!_melee && !_rifle && !_blaster && !_unit->getGrenadeFromBelt() && _unit->getBaseStats()->psiSkill == 0)
 	{
 		combatOdds = 0;
 		ambushOdds = 0;
@@ -1454,7 +1453,7 @@ bool AIModule::findFirePoint()
 			// 4 because -2 is eyes and 2 below that is the rifle (or at least that's my understanding)
 			Position(8,8, _unit->getHeight() + _unit->getFloatHeight() - tile->getTerrainLevel() - 4);
 
-		if (_save->getTileEngine()->canTargetUnit(&origin, _aggroTarget->getTile(), &target, _unit))
+		if (_save->getTileEngine()->canTargetUnit(&origin, _aggroTarget->getTile(), &target, _unit, false))
 		{
 			_save->getPathfinding()->calculate(_unit, pos);
 			// can move here
@@ -1543,7 +1542,7 @@ bool AIModule::explosiveEfficacy(Position targetPos, BattleUnit *attackingUnit, 
 	{
 		efficacy -= 4;
 	}
-	
+
 	// allow difficulty to have its influence
 	efficacy += diff/2;
 
@@ -2109,7 +2108,7 @@ bool AIModule::getNodeOfBestEfficacy(BattleAction *action)
 		}
 		int dist = _save->getTileEngine()->distance((*i)->getPosition(), _unit->getPosition());
 		if (dist <= 20 && dist > action->weapon->getRules()->getExplosionRadius() &&
-			_save->getTileEngine()->canTargetTile(&originVoxel, _save->getTile((*i)->getPosition()), O_FLOOR, &targetVoxel, _unit))
+			_save->getTileEngine()->canTargetTile(&originVoxel, _save->getTile((*i)->getPosition()), O_FLOOR, &targetVoxel, _unit, false))
 		{
 			int nodePoints = 0;
 			for (std::vector<BattleUnit*>::const_iterator j = _save->getUnits()->begin(); j != _save->getUnits()->end(); ++j)
@@ -2118,7 +2117,7 @@ bool AIModule::getNodeOfBestEfficacy(BattleAction *action)
 				if (!(*j)->isOut() && dist < action->weapon->getRules()->getExplosionRadius())
 				{
 					Position targetOriginVoxel = _save->getTileEngine()->getSightOriginVoxel(*j);
-					if (_save->getTileEngine()->canTargetTile(&targetOriginVoxel, _save->getTile((*i)->getPosition()), O_FLOOR, &targetVoxel, *j))
+					if (_save->getTileEngine()->canTargetTile(&targetOriginVoxel, _save->getTile((*i)->getPosition()), O_FLOOR, &targetVoxel, *j, false))
 					{
 						if ((_unit->getFaction() == FACTION_HOSTILE && (*j)->getFaction() != FACTION_HOSTILE) ||
 							(_unit->getFaction() == FACTION_NEUTRAL && (*j)->getFaction() == FACTION_HOSTILE))

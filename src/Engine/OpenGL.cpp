@@ -10,12 +10,11 @@
 
 #ifndef __NO_OPENGL
 
+#include "OpenGL.h"
 #include <SDL.h>
-#include <SDL_opengl.h>
 #include <yaml-cpp/yaml.h>
 #include <fstream>
 
-#include "OpenGL.h"
 #include "Logger.h"
 #include "Surface.h"
 
@@ -203,19 +202,37 @@ void OpenGL::refresh(bool smooth, unsigned inwidth, unsigned inheight, unsigned 
 	//therefore, below vertices flip image to support top-left source.
 	//texture range = x1:0.0, y1:0.0, x2:1.0, y2:1.0
 	//vertex range = x1:0, y1:0, x2:width, y2:height
-	double w = double(inwidth)  / double(iwidth);
-	double h = double(inheight) / double(iheight);
-	int u1 = leftBlackBand;
-	int u2 = outwidth - rightBlackBand;
-	int v1 = outheight - topBlackBand;
-	int v2 = bottomBlackBand;
+	if (leftBlackBand + rightBlackBand + topBlackBand + bottomBlackBand == 0)
+	{
+		double w = double(inwidth)  / double(iwidth)  * 2;
+		double h = double(inheight) / double(iheight) * 2;
+		int u1 = 0;
+		int u2 = outwidth * 2;
+		int v1 = outheight;
+		int v2 = - outheight;
 
-	glBegin(GL_TRIANGLE_STRIP);
-	glTexCoord2f(0, 0); glVertex3i(u1, v1, 0);
-	glTexCoord2f(w, 0); glVertex3i(u2, v1, 0);
-	glTexCoord2f(0, h); glVertex3i(u1, v2, 0);
-	glTexCoord2f(w, h); glVertex3i(u2, v2, 0);
-	glEnd();
+		glBegin(GL_TRIANGLES);
+		glTexCoord2f(0, 0); glVertex3i(u1, v1, 0);
+		glTexCoord2f(w, 0); glVertex3i(u2, v1, 0);
+		glTexCoord2f(0, h); glVertex3i(u1, v2, 0);
+		glEnd();
+	}
+	else
+	{
+		double w = double(inwidth)  / double(iwidth);
+		double h = double(inheight) / double(iheight);
+		int u1 = leftBlackBand;
+		int u2 = outwidth - rightBlackBand;
+		int v1 = outheight - topBlackBand;
+		int v2 = bottomBlackBand;
+
+		glBegin(GL_TRIANGLE_STRIP);
+		glTexCoord2f(0, 0); glVertex3i(u1, v1, 0);
+		glTexCoord2f(w, 0); glVertex3i(u2, v1, 0);
+		glTexCoord2f(0, h); glVertex3i(u1, v2, 0);
+		glTexCoord2f(w, h); glVertex3i(u2, v2, 0);
+		glEnd();
+	}
 	glErrorCheck();
 
     if (shader_support)
@@ -235,7 +252,7 @@ bool OpenGL::set_shader(const char *source_yaml_filename)
 		glprogram = 0;
 	}
 
-	if (source_yaml_filename && strlen(source_yaml_filename))
+	if (source_yaml_filename && source_yaml_filename[0] != '\0')
 	{
 		glprogram = glCreateProgram();
 		if (glprogram == 0)
@@ -406,20 +423,20 @@ void OpenGL::init(int w, int h)
 	glUniform1i = (PFNGLUNIFORM1IPROC)glGetProcAddress("glUniform1i");
 	glUniform2fv = (PFNGLUNIFORM2FVPROC)glGetProcAddress("glUniform2fv");
 	glUniform4fv = (PFNGLUNIFORM4FVPROC)glGetProcAddress("glUniform4fv");
-#endif
-	glXGetCurrentDisplay = (void* (APIENTRYP)())glGetProcAddress("glXGetCurrentDisplay");
-	glXGetCurrentDrawable = (Uint32 (APIENTRYP)())glGetProcAddress("glXGetCurrentDrawable");
-	glXSwapIntervalEXT = (void (APIENTRYP)(void*, Uint32, int))glGetProcAddress("glXSwapIntervalEXT");
-
-	wglSwapIntervalEXT = (Uint32 (APIENTRYP)(int))glGetProcAddress("wglSwapIntervalEXT");
-
-
 
 	shader_support = glCreateProgram && glDeleteProgram && glUseProgram && glCreateShader
 	&& glDeleteShader && glShaderSource && glCompileShader && glAttachShader
 	&& glDetachShader && glLinkProgram && glGetUniformLocation && glIsProgram && glIsShader
 	&& glUniform1i && glUniform2fv && glUniform4fv && glGetAttachedShaders
 	&& glGetShaderiv && glGetShaderInfoLog && glGetProgramiv && glGetProgramInfoLog;
+#else
+	shader_support = true;
+#endif
+	glXGetCurrentDisplay = (void* (APIENTRYP)())glGetProcAddress("glXGetCurrentDisplay");
+	glXGetCurrentDrawable = (Uint32 (APIENTRYP)())glGetProcAddress("glXGetCurrentDrawable");
+	glXSwapIntervalEXT = (void (APIENTRYP)(void*, Uint32, int))glGetProcAddress("glXSwapIntervalEXT");
+
+	wglSwapIntervalEXT = (Uint32 (APIENTRYP)(int))glGetProcAddress("wglSwapIntervalEXT");
 
 	if (shader_support)
 	{
@@ -483,7 +500,7 @@ void OpenGL::term()
 	delete buffer_surface;
 }
 
-  OpenGL::OpenGL() : gltexture(0), glprogram(0), linear(false),
+  OpenGL::OpenGL() : gltexture(0), glprogram(0), linear(false), shader_support(false),
                      buffer(NULL), buffer_surface(NULL), iwidth(0), iheight(0),
                      iformat(GL_UNSIGNED_INT_8_8_8_8_REV), // this didn't seem to be set anywhere before...
                      ibpp(32)                              // ...nor this
